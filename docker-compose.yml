@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    command: php-fpm
+    depends_on:
+      - redis
+      - mysql
+
+  horizon:
+    build: .
+    command: php artisan horizon
+    depends_on:
+      - redis
+      - mysql
+
+  scheduler:
+    build: .
+    command: php artisan schedule:work
+    depends_on:
+      - redis
+      - mysql
+
+  reverb:
+    build: .
+    command: php artisan reverb:start
+    depends_on:
+      - redis
+
+  ssr:
+    build: .
+    command: php artisan inertia:start-ssr
+
+  redis:
+    image: redis:7-alpine
+
+  mysql:
+    image: mysql:8

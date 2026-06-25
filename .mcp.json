@@ -1,0 +1,27 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "php",
+            "args": [
+                "artisan",
+                "boost:mcp"
+            ]
+        },
+        "shadcn": {
+            "command": "npx",
+            "args": [
+                "shadcn@latest",
+                "mcp"
+            ]
+        },
+        "herd": {
+            "command": "php",
+            "args": [
+                "C:/Users/MINDINTEL LTD/.config/herd/bin/herd-mcp.phar"
+            ],
+            "env": {
+                "SITE_PATH": "C:\\Users\\MINDINTEL LTD\\Herd\\insurepal-AI-SAAS"
+            }
+        }
+    }
+}

@@ -1,0 +1,29 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('policy_certificates', function (Blueprint $table) {
+            $table->foreignId('document_template_id')->nullable()->after('certificate_template_id')->constrained('document_templates')->onDelete('set null');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('policy_certificates', function (Blueprint $table) {
+            $table->dropForeign(['document_template_id']);
+            $table->dropColumn('document_template_id');
+        });
+    }
+};

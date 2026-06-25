@@ -1,0 +1,12 @@
+[mcp_servers.laravel-boost]
+command = "php"
+args = ["artisan", "boost:mcp"]
+cwd = "C:\\Users\\MINDINTEL LTD\\Herd\\insurepal-AI-SAAS"
+
+[mcp_servers.herd]
+command = "php"
+args = ["C:/Users/MINDINTEL LTD/.config/herd/bin/herd-mcp.phar"]
+cwd = "C:\\Users\\MINDINTEL LTD\\Herd\\insurepal-AI-SAAS"
+
+[mcp_servers.herd.env]
+SITE_PATH = "C:\\Users\\MINDINTEL LTD\\Herd\\insurepal-AI-SAAS"

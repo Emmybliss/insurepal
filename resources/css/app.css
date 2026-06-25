@@ -1,0 +1,423 @@
+@import 'tailwindcss';
+
+@plugin 'tailwindcss-animate';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+    --background: oklch(0.99 0.005 235); /* Clean, slightly cool background */
+    --foreground: oklch(0.25 0.04 235); /* Dark navy text for readability */
+
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.3015 0.0572 282.4176);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.3015 0.0572 282.4176);
+    /* Brand Refresh for InsurePal */
+    --primary: oklch(0.55 0.16 235); /* Solid Security Blue */
+    --primary-foreground: oklch(1 0 0);
+
+    --secondary: oklch(0.9174 0.0435 292.6901);
+    --secondary-foreground: oklch(0.4143 0.1039 288.1742);
+    --muted: oklch(0.958 0.0133 286.1454);
+    --muted-foreground: oklch(0.5426 0.0465 284.7435);
+    --accent: oklch(0.9221 0.0373 262.141);
+    --accent-foreground: oklch(0.3015 0.0572 282.4176);
+    --destructive: oklch(0.6861 0.2061 14.9941);
+    --destructive-foreground: oklch(1 0 0);
+    --border: oklch(0.9115 0.0216 285.9625);
+    --input: oklch(0.9115 0.0216 285.9625);
+    --ring: oklch(0.55 0.16 235);
+    /* Charts should use the Teal/Blue spectrum from the logo */
+    --chart-1: oklch(0.65 0.18 200); /* Teal */
+    --chart-2: oklch(0.55 0.16 235); /* Brand Blue */
+    --chart-3: oklch(0.5679 0.2113 276.7065);
+    --chart-4: oklch(0.6356 0.1922 281.8054);
+    --chart-5: oklch(0.4509 0.1758 279.3838);
+    /* Sidebar - Light Mode */
+    --sidebar: oklch(0.98 0.01 235); /* Very faint brand blue tint */
+    --sidebar-foreground: oklch(0.25 0.04 235); /* Dark Navy text */
+    --sidebar-primary: oklch(0.55 0.16 235); /* Brand Blue for active items */
+    --sidebar-primary-foreground: oklch(1 0 0); /* White text on active items */
+    --sidebar-accent: oklch(0.92 0.04 210); /* Soft Cyan for hover states */
+    --sidebar-accent-foreground: oklch(0.25 0.04 235);
+    --sidebar-border: oklch(0.91 0.02 235); /* Subtle blue-gray border */
+    --sidebar-ring: oklch(0.55 0.16 235);
+    --font-sans: Inter, sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: JetBrains Mono, monospace;
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 4px 10px 0px hsl(240 30% 25% / 0.06);
+    --shadow-xs: 0px 4px 10px 0px hsl(240 30% 25% / 0.06);
+    --shadow-sm: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 1px 2px -1px hsl(240 30% 25% / 0.12);
+    --shadow: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 1px 2px -1px hsl(240 30% 25% / 0.12);
+    --shadow-md: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 2px 4px -1px hsl(240 30% 25% / 0.12);
+    --shadow-lg: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 4px 6px -1px hsl(240 30% 25% / 0.12);
+    --shadow-xl: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 8px 10px -1px hsl(240 30% 25% / 0.12);
+    --shadow-2xl: 0px 4px 10px 0px hsl(240 30% 25% / 0.3);
+    --tracking-normal: 0em;
+    --spacing: 0.25rem;
+
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
+
+    /* Tenant Theme Colors - using standard Tailwind variables */
+    /* Aligning the Gradients to the Shield */
+    --gradient-from: #22d3ee; /* Bright Cyan from top of shield */
+    --gradient-via: #0ea5e9; /* Azure Blue */
+    --gradient-to: #1e40af; /* Deep Navy from shield border */
+
+    --sidebar-style: gradient;
+    --header-style: solid;
+    --body-style: gradient;
+}
+
+.dark {
+    /* Deep Navy Shield Base */
+    --background: oklch(0.18 0.02 235);
+    --foreground: oklch(0.95 0.01 235);
+
+    /* Card & Surface - Slightly lighter than background */
+    --card: oklch(0.22 0.03 235);
+    --card-foreground: oklch(0.95 0.01 235);
+
+    --popover: oklch(0.2284 0.0384 282.9324);
+    --popover-foreground: oklch(0.9185 0.0257 285.8834);
+    /* Primary - Vibrant Cyan from the top of the shield */
+    --primary: oklch(0.75 0.14 210);
+    --primary-foreground: oklch(0.15 0.05 235); /* Dark text on light blue */
+    /* Secondary/Muted - Desaturated blues */
+    --secondary: oklch(0.28 0.05 235);
+    --secondary-foreground: oklch(0.85 0.04 210);
+    --muted: oklch(0.25 0.03 235);
+    --muted-foreground: oklch(0.7 0.04 235);
+
+    /* Accents - The bright glow of the handshake icon */
+    --accent: oklch(0.35 0.08 215);
+    --accent-foreground: oklch(0.98 0.01 235);
+
+    --destructive: oklch(0.6861 0.2061 14.9941);
+    --destructive-foreground: oklch(1 0 0);
+    /* System Elements */
+    --border: oklch(0.3 0.04 235);
+    --input: oklch(0.3 0.04 235);
+    --ring: oklch(0.75 0.14 210);
+    /* Charts - A palette of "Trust" blues and cyans */
+    --chart-1: oklch(0.75 0.14 210); /* Bright Cyan */
+    --chart-2: oklch(0.6 0.15 235); /* Brand Blue */
+    --chart-3: oklch(0.45 0.12 250); /* Deep Royal */
+    --chart-4: oklch(0.85 0.1 190); /* Ice Teal */
+    --chart-5: oklch(0.55 0.1 215); /* Muted Azure */
+
+    /* Sidebar - Dark Mode */
+    --sidebar: oklch(0.21 0.03 235); /* Deep Navy (Shield Border) */
+    --sidebar-foreground: oklch(0.95 0.01 235); /* Off-white/Light Blue text */
+    --sidebar-primary: oklch(0.75 0.14 210); /* Bright Cyan for active items */
+    --sidebar-primary-foreground: oklch(0.15 0.05 235); /* Dark text for contrast */
+    --sidebar-accent: oklch(0.28 0.05 235); /* Slightly lighter navy for hover */
+    --sidebar-accent-foreground: oklch(0.95 0.01 235);
+    --sidebar-border: oklch(0.28 0.04 235); /* Low-contrast border */
+    --sidebar-ring: oklch(0.75 0.14 210);
+    --font-sans: Inter, sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: JetBrains Mono, monospace;
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 4px 10px 0px hsl(240 30% 25% / 0.06);
+    --shadow-xs: 0px 4px 10px 0px hsl(240 30% 25% / 0.06);
+    --shadow-sm: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 1px 2px -1px hsl(240 30% 25% / 0.12);
+    --shadow: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 1px 2px -1px hsl(240 30% 25% / 0.12);
+    --shadow-md: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 2px 4px -1px hsl(240 30% 25% / 0.12);
+    --shadow-lg: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 4px 6px -1px hsl(240 30% 25% / 0.12);
+    --shadow-xl: 0px 4px 10px 0px hsl(240 30% 25% / 0.12), 0px 8px 10px -1px hsl(240 30% 25% / 0.12);
+    --shadow-2xl: 0px 4px 10px 0px hsl(240 30% 25% / 0.3);
+
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+    --font-serif: var(--font-serif);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --shadow-2xs: var(--shadow-2xs);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow: var(--shadow);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-2xl: var(--shadow-2xl);
+}
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Theme-based styling - now using standard Tailwind variables */
+.bg-theme-gradient {
+    background: linear-gradient(135deg, var(--gradient-from), var(--gradient-via), var(--gradient-to));
+}
+
+.bg-theme-gradient-to-r {
+    background: linear-gradient(to right, var(--gradient-from), var(--gradient-via), var(--gradient-to));
+}
+
+.bg-theme-gradient-to-b {
+    background: linear-gradient(to bottom, var(--gradient-from), var(--gradient-via), var(--gradient-to));
+}
+
+/* Enhanced active route styling */
+[data-sidebar='menu-button'][data-active='true'] {
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    font-weight: 600;
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+[data-sidebar='menu-button'][data-active='true']:hover {
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    opacity: 0.9;
+}
+
+[data-sidebar='menu-sub-button'][data-active='true'] {
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    font-weight: 500;
+    margin-left: 0.5rem;
+    border-left: 2px solid var(--primary);
+}
+
+[data-sidebar='menu-sub-button'][data-active='true']:hover {
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    opacity: 0.9;
+}
+
+/* Parent menu item with active child */
+[data-sidebar='menu-button']:has(+ * [data-sidebar='menu-sub-button'][data-active='true']) {
+    color: var(--primary) !important;
+    font-weight: 500;
+}
+
+/* Collapsible parent with active child */
+[data-sidebar='menu-button']:has(+ * [data-sidebar='menu-sub-button'][data-active='true']) svg {
+    color: var(--primary) !important;
+}
+
+/* Sonner Toast Styles */
+[data-sonner-toaster] {
+    --normal-bg: hsl(var(--background));
+    --normal-border: hsl(var(--border));
+    --normal-text: hsl(var(--foreground));
+    --success-bg: hsl(142.1 76.2% 36.3%);
+    --success-border: hsl(142.1 70.6% 45.3%);
+    --success-text: hsl(355.7 100% 97.3%);
+    --error-bg: hsl(0 84.2% 60.2%);
+    --error-border: hsl(0 84.2% 60.2%);
+    --error-text: hsl(210 20% 98%);
+    --warning-bg: hsl(38.5 92.1% 50.2%);
+    --warning-border: hsl(38.5 92.1% 50.2%);
+    --warning-text: hsl(48 96% 9%);
+    --info-bg: hsl(221.2 83.2% 53.3%);
+    --info-border: hsl(221.2 83.2% 53.3%);
+    --info-text: hsl(210 20% 98%);
+}
+
+[data-sonner-toast] {
+    @apply min-w-[356px] rounded-lg border border-border bg-background p-4 text-foreground shadow-lg;
+}
+
+[data-sonner-toast][data-styled='true'] {
+    @apply p-0;
+}
+
+[data-sonner-toast][data-styled='true'] [data-content] {
+    @apply p-4;
+}
+
+[data-sonner-toast][data-styled='true'] [data-content] [data-title] {
+    @apply font-semibold text-foreground;
+}
+
+[data-sonner-toast][data-styled='true'] [data-content] [data-description] {
+    @apply text-sm text-muted-foreground;
+}
+
+[data-sonner-toast]:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+[data-sonner-toast][data-type='success'] {
+    @apply border-green-500/20 bg-green-50 text-green-900;
+}
+
+[data-sonner-toast][data-type='error'] {
+    @apply border-red-500/20 bg-red-50 text-red-900;
+}
+
+[data-sonner-toast][data-type='warning'] {
+    @apply border-orange-500/20 bg-orange-50 text-orange-900;
+}
+
+[data-sonner-toast][data-type='info'] {
+    @apply border-blue-500/20 bg-blue-50 text-blue-900;
+}
+
+[data-sonner-toast][data-type='loading'] {
+    @apply border-blue-500/20 bg-blue-50 text-blue-900;
+}
+
+.dark [data-sonner-toast][data-type='success'] {
+    @apply border-green-500/30 bg-green-950 text-green-100;
+}
+
+.dark [data-sonner-toast][data-type='error'] {
+    @apply border-red-500/30 bg-red-950 text-red-100;
+}
+
+.dark [data-sonner-toast][data-type='warning'] {
+    @apply border-orange-500/30 bg-orange-950 text-orange-100;
+}
+
+.dark [data-sonner-toast][data-type='info'] {
+    @apply border-blue-500/30 bg-blue-950 text-blue-100;
+}
+
+.dark [data-sonner-toast][data-type='loading'] {
+    @apply border-blue-500/30 bg-blue-950 text-blue-100;
+}
+
+/* cmdk overrides - plain CSS for compatibility */
+[cmdk-root] {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--popover);
+    color: var(--popover-foreground);
+    border-radius: 6px;
+}
+
+[cmdk-list] {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+[cmdk-group] {
+    overflow: hidden;
+    padding: 4px;
+}
+
+[cmdk-group-heading] {
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+}
+
+[cmdk-item] {
+    position: relative;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+[cmdk-item]:hover {
+    background: var(--accent);
+}
+
+[cmdk-item][data-selected="true"] {
+    background: var(--accent);
+    color: var(--accent-foreground);
+}
+
+[cmdk-item][data-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+[cmdk-empty] {
+    padding: 24px 0;
+    text-align: center;
+    font-size: 14px;
+}
+
+[cmdk-input] {
+    display: flex;
+    height: 44px;
+    width: 100%;
+    background: transparent;
+    padding: 12px;
+    font-size: 14px;
+    outline: none;
+}
+
+[cmdk-input]::placeholder {
+    color: var(--muted-foreground);
+}
+
+[cmdk-input-wrapper] {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+}

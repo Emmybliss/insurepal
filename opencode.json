@@ -1,0 +1,42 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "laravelBoost": {
+            "type": "local",
+            "command": [
+                "php",
+                "artisan",
+                "boost:mcp"
+            ]
+        },
+        "laravel-boost": {
+            "type": "local",
+            "enabled": true,
+            "command": [
+                "php",
+                "artisan",
+                "boost:mcp"
+            ]
+        },
+        "herd": {
+            "type": "local",
+            "enabled": true,
+            "command": [
+                "php",
+                "C:/Users/MINDINTEL LTD/.config/herd/bin/herd-mcp.phar"
+            ],
+            "environment": {
+                "SITE_PATH": "C:\\Users\\MINDINTEL LTD\\Herd\\insurepal-AI-SAAS"
+            }
+        },
+        "shadcn": {
+            "type": "local",
+            "command": [
+                "npx",
+                "shadcn@latest",
+                "mcp"
+            ],
+            "enabled": true
+        }
+    }
+}

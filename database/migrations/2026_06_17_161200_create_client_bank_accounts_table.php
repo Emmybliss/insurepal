@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('client_bank_accounts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
+            $table->string('bank_name');
+            $table->string('account_name');
+            $table->string('account_number', 50);
+            $table->string('account_type', 50)->nullable();
+            $table->string('currency', 3)->default('NGN');
+            $table->boolean('is_active')->default(true);
+            $table->decimal('opening_balance', 18, 2)->default(0);
+            $table->date('opening_balance_date')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+
+            $table->index(['tenant_id', 'is_active']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('client_bank_accounts');
+    }
+};

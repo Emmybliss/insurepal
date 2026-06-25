@@ -1,0 +1,180 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/app-layout';
+import { Head, router, useForm } from '@inertiajs/react';
+import { Key, Save } from 'lucide-react';
+import React from 'react';
+import { toast } from 'sonner';
+
+interface Permission {
+    id: number;
+    name: string;
+    display_name: string;
+    description: string;
+    category: string;
+    is_active: boolean;
+}
+
+interface Props {
+    permission: Permission;
+    categories: string[];
+}
+
+export default function EditPermission({ permission, categories }: Props) {
+    const { data, setData, put, processing } = useForm({
+        name: permission.name,
+        display_name: permission.display_name || '',
+        description: permission.description || '',
+        category: permission.category || '',
+        is_active: permission.is_active,
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Show loading toast
+        const loadingToastId = toast.loading('Updating permission...', {
+            description: 'Please wait while we save your changes',
+        });
+
+        put(route('permission-management.update', permission.id), {
+            onSuccess: () => {
+                toast.dismiss(loadingToastId);
+                toast.success('Permission updated successfully! ✅', {
+                    description: `Permission has been updated`,
+                    duration: 5000,
+                });
+            },
+            onError: (errors) => {
+                toast.dismiss(loadingToastId);
+                toast.error('Failed to update permission');
+            },
+        });
+    };
+
+    const formatCategoryName = (category: string) => {
+        return category
+            .replace(/[-_]/g, ' ')
+            .split(' ')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    return (
+        <AppLayout>
+            <Head title={`Edit Permission - ${permission.name}`} />
+
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight">Edit Permission</h1>
+                            <p className="text-muted-foreground">Update permission details</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    {/* Form */}
+                    <div className="lg:col-span-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Key className="h-5 w-5" />
+                                    Permission Details
+                                </CardTitle>
+                                <CardDescription>Update the permission information</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="display_name">Display Name *</Label>
+                                            <Input
+                                                id="display_name"
+                                                value={data.display_name}
+                                                onChange={(e) => setData('display_name', e.target.value)}
+                                                placeholder="e.g., View Sensitive Data"
+                                                required
+                                            />
+                                            {errors.display_name && <p className="text-sm text-red-600">{errors.display_name}</p>}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">Permission Name *</Label>
+                                            <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                                            {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+                                            <p className="text-xs text-muted-foreground">Unique identifier used in code</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="category">Category</Label>
+                                        <Select value={data.category} onValueChange={(value) => setData('category', value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select or type a category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.map((category) => (
+                                                    <SelectItem key={category} value={category}>
+                                                        {formatCategoryName(category)}
+                                                    </SelectItem>
+                                                ))}
+                                                <SelectItem value="custom">Custom Category...</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {data.category === 'custom' && (
+                                            <Input
+                                                className="mt-2"
+                                                placeholder="Enter new category name"
+                                                onChange={(e) => setData('category', e.target.value)}
+                                            />
+                                        )}
+                                        {errors.category && <p className="text-sm text-red-600">{errors.category}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="description">Description</Label>
+                                        <Textarea
+                                            id="description"
+                                            value={data.description}
+                                            onChange={(e) => setData('description', e.target.value)}
+                                            placeholder="Describe what this permission allows users to do"
+                                            rows={3}
+                                        />
+                                        {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
+                                    </div>
+
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="is_active"
+                                            checked={data.is_active}
+                                            onCheckedChange={(checked) => setData('is_active', checked as boolean)}
+                                        />
+                                        <Label htmlFor="is_active">Active Permission</Label>
+                                    </div>
+
+                                    <div className="flex items-center justify-end space-x-4 pt-4">
+                                        <Button type="button" variant="outline" onClick={() => router.visit(route('permission-management.index'))}>
+                                            Cancel
+                                        </Button>
+                                        <Button type="submit" disabled={processing}>
+                                            <Save className="mr-2 h-4 w-4" />
+                                            {processing ? 'Updating...' : 'Update Permission'}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </div>
+        </AppLayout>
+    );
+}
