@@ -90,6 +90,16 @@ return new class extends Migration
             });
         }
 
+        $fkCategory = DB::selectOne("
+            SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_NAME = 'policy_products' AND COLUMN_NAME = 'policy_category_id' AND REFERENCED_TABLE_NAME IS NOT NULL
+        ");
+        if ($fkCategory) {
+            Schema::table('policy_products', function (Blueprint $table) use ($fkCategory) {
+                $table->dropForeign($fkCategory->CONSTRAINT_NAME);
+            });
+        }
+
         Schema::table('policy_products', function (Blueprint $table) {
             $table->dropIndex('policy_hierarchy_index');
             $table->dropColumn('policy_category_id');
