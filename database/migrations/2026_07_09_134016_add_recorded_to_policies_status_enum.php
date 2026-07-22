@@ -15,6 +15,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::getDriverName() === 'mysql') {
+            DB::table('policies')->where('status', 'recorded')->update(['status' => 'draft']);
             DB::statement("ALTER TABLE policies MODIFY COLUMN status ENUM('draft','pending_approval','approved','active','expired','cancelled','suspended','rejected') NOT NULL DEFAULT 'draft'");
         }
     }

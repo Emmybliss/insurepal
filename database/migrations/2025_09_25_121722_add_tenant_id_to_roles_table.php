@@ -43,20 +43,46 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            // Only drop what we added
+            // Drop foreign key FIRST, before dropping the index it might rely on.
             if (Schema::hasColumn('roles', 'tenant_id')) {
-                $table->dropForeign(['tenant_id']);
+                $foreignKeys = collect(\Illuminate\Support\Facades\DB::select("
+                    SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'roles'
+                      AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+                      AND CONSTRAINT_NAME = 'roles_tenant_id_foreign'
+                "))->pluck('CONSTRAINT_NAME');
+
+                if ($foreignKeys->contains('roles_tenant_id_foreign')) {
+                    $table->dropForeign(['tenant_id']);
+                }
+            }
+        });
+
+        Schema::table('roles', function (Blueprint $table) {
+            // Drop constraints and indexes SECOND, before dropping columns.
+            if (Schema::hasIndex('roles', 'roles_name_tenant_unique')) {
+                $table->dropUnique('roles_name_tenant_unique');
+            }
+
+            if (Schema::hasIndex('roles', 'roles_tenant_active_index')) {
+                $table->dropIndex('roles_tenant_active_index');
+            }
+
+            if (Schema::hasIndex('roles', 'roles_system_active_index')) {
+                $table->dropIndex('roles_system_active_index');
+            }
+        });
+
+        Schema::table('roles', function (Blueprint $table) {
+            // Finally, drop the columns
+            if (Schema::hasColumn('roles', 'tenant_id')) {
                 $table->dropColumn('tenant_id');
             }
 
             if (Schema::hasColumn('roles', 'is_system_role')) {
                 $table->dropColumn('is_system_role');
             }
-
-            // Drop indexes and constraints
-            $table->dropIndex('roles_tenant_active_index');
-            $table->dropIndex('roles_system_active_index');
-            $table->dropUnique('roles_name_tenant_unique');
         });
     }
 };

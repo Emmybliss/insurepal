@@ -15,8 +15,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('naicom_report_runs', function (Blueprint $table) {
-            $table->unique(['tenant_id', 'reporting_year', 'reporting_half'], 'nrr_tenant_year_half_unique');
-        });
+        // Only restore the unique constraint if no duplicate combinations exist.
+        $hasDuplicates = \Illuminate\Support\Facades\DB::table('naicom_report_runs')
+            ->select('tenant_id', 'reporting_year', 'reporting_half')
+            ->groupBy('tenant_id', 'reporting_year', 'reporting_half')
+            ->havingRaw('COUNT(*) > 1')
+            ->exists();
+
+        if (! $hasDuplicates) {
+            Schema::table('naicom_report_runs', function (Blueprint $table) {
+                $table->unique(['tenant_id', 'reporting_year', 'reporting_half'], 'nrr_tenant_year_half_unique');
+            });
+        }
     }
 };

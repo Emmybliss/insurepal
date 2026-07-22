@@ -27,10 +27,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('policy_products', function (Blueprint $table) {
-            $table->dropUnique('policy_products_tenant_code_unique');
-            $table->dropUnique('policy_products_tenant_name_unique');
+            if (Schema::hasIndex('policy_products', 'policy_products_tenant_code_unique')) {
+                $table->dropUnique('policy_products_tenant_code_unique');
+            }
 
-            $table->unique('code');
+            if (Schema::hasIndex('policy_products', 'policy_products_tenant_name_unique')) {
+                $table->dropUnique('policy_products_tenant_name_unique');
+            }
         });
     }
 };

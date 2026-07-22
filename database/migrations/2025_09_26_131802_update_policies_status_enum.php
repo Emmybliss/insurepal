@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -30,13 +31,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('policies', function (Blueprint $table) {
-            $table->enum('status', [
-                'active',
-                'expired',
-                'cancelled',
-                'suspended',
-            ])->default('active')->change();
-        });
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
+        // Remap values that don't exist in the legacy enum before shrinking.
+        DB::table('policies')->whereIn('status', ['draft', 'pending_approval', 'approved'])->update(['status' => 'active']);
+        DB::table('policies')->where('status', 'rejected')->update(['status' => 'cancelled']);
+
+        DB::statement("ALTER TABLE policies MODIFY COLUMN status ENUM('active', 'expired', 'cancelled', 'suspended') NOT NULL DEFAULT 'active'");
     }
 };
+
