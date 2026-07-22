@@ -102,7 +102,7 @@ export default function ArticleCard({
 
     if (variant === 'compact') {
         return (
-<Card className={`cursor-pointer transition-all duration-200 hover:shadow-md ${className}`} onClick={() => onView?.(article)}>
+            <Card className={`cursor-pointer transition-all duration-200 hover:shadow-md ${className}`} onClick={() => onView?.(article)}>
                 <CardContent className="p-3">
                     <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0">

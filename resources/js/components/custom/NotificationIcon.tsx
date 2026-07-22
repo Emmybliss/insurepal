@@ -2,10 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
-import { Link, usePage, router, PageProps } from '@inertiajs/react';
+import { Link, PageProps, router, usePage } from '@inertiajs/react';
 import { AlertCircle, Bell, CheckCircle, Info, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface Notification {
     id: number | string;
@@ -135,7 +135,7 @@ const NotificationIcon: React.FC = () => {
                 <div className="flex justify-between border-b p-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold">Notifications</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded ${isConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`rounded px-2 py-0.5 text-xs ${isConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                             {isConnected ? 'Live' : 'Polling'}
                         </span>
                     </div>
@@ -158,43 +158,48 @@ const NotificationIcon: React.FC = () => {
                                     key={notification.id}
                                     className={`group relative flex cursor-pointer items-start border-b p-4 transition-colors ${
                                         isUnread
-                                            ? 'bg-blue-50/50 dark:bg-blue-900/20 border-l-2 border-l-blue-500 hover:bg-blue-100/50'
-                                            : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                    } ${isMarking ? 'opacity-50 pointer-events-none' : ''}`}
+                                            ? 'border-l-2 border-l-blue-500 bg-blue-50/50 hover:bg-blue-100/50 dark:bg-blue-900/20'
+                                            : 'bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700'
+                                    } ${isMarking ? 'pointer-events-none opacity-50' : ''}`}
                                     onClick={() => handleNotificationClick(notification)}
                                 >
                                     <div className="mr-3 flex-shrink-0">{getNotificationIcon(notification.type)}</div>
-                                    <div className="flex-grow min-w-0 flex-1">
+                                    <div className="min-w-0 flex-1 flex-grow">
                                         <div className="flex items-center gap-2">
                                             <p className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium text-gray-600'}`}>
                                                 {notification.title}
                                             </p>
-                                            {isUnread && (
-                                                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
-                                            )}
+                                            {isUnread && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />}
                                         </div>
-                                        <p className={`text-sm ${isUnread ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                        <p
+                                            className={`text-sm ${isUnread ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}
+                                            style={{
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                            }}
+                                        >
                                             {notification.message}
                                         </p>
                                         <p className={`mt-1 text-xs ${isUnread ? 'text-gray-600' : 'text-gray-400'}`}>
                                             {formatTime(notification.created_at)}
                                         </p>
                                     </div>
-                                    <div className="ml-2 flex flex-col gap-1 flex-shrink-0">
+                                    <div className="ml-2 flex flex-shrink-0 flex-col gap-1">
                                         {isUnread && !isMarking && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-6 px-2 text-xs bg-white dark:bg-gray-700"
+                                                className="h-6 bg-white px-2 text-xs dark:bg-gray-700"
                                                 onClick={(e) => handleMarkAsRead(notification.id, e)}
                                             >
                                                 Mark Read
                                             </Button>
                                         )}
-                                        {isMarking && (
-                                            <span className="text-xs text-gray-500">...</span>
-                                        )}
-                                        <span className="text-xs text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {isMarking && <span className="text-xs text-gray-500">...</span>}
+                                        <span className="text-xs text-blue-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
                                             View
                                         </span>
                                     </div>

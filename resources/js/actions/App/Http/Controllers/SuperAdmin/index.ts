@@ -1,6 +1,6 @@
-import SuperAdminController from './SuperAdminController'
+import SuperAdminController from './SuperAdminController';
 const SuperAdmin = {
     SuperAdminController: Object.assign(SuperAdminController, SuperAdminController),
-}
+};
 
-export default SuperAdmin
+export default SuperAdmin;

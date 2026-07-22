@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CustomerService
@@ -215,5 +217,34 @@ class CustomerService
             'with_access' => $customers->whereNotNull('user_id')->count(),
             'without_access' => $customers->whereNull('user_id')->count(),
         ];
+    }
+
+    /**
+     * Delete a customer and cascade to linked user.
+     */
+    public function deleteCustomer(Customer $customer): void
+    {
+        if ($customer->user_id) {
+            $customer->user->delete();
+        }
+
+        $customer->delete();
+    }
+
+    /**
+     * Update a customer with optional logo upload.
+     */
+    public function updateCustomer(Customer $customer, array $data, ?UploadedFile $logo = null): Customer
+    {
+        if ($logo) {
+            if ($customer->logo) {
+                Storage::disk('public')->delete($customer->logo);
+            }
+            $data['logo'] = $logo->store('customers/logos', 'public');
+        }
+
+        $customer->update($data);
+
+        return $customer;
     }
 }

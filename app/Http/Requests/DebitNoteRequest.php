@@ -26,14 +26,20 @@ class DebitNoteRequest extends FormRequest
             'policy_id' => 'nullable|exists:policies,id',
             'description' => 'required|string|max:1000',
             'amount' => 'required|numeric|min:0',
-            'due_date' => 'required|date',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+            'issue_date' => 'nullable|date',
+            'due_date' => 'nullable|date',
+            'transaction_type' => 'nullable|string|in:new,renewal,endorsement,additional_premium,adjustment,reinstatement,replacement,extension,short_period',
+            'policy_type' => 'nullable|string|max:255',
+            'class_of_business' => 'nullable|string|max:255',
             'metadata' => 'nullable|array',
             'items' => 'nullable|array',
-            'total_amount' => 'required|numeric|min:0',
             'currency_code' => 'required|string|max:3',
             'exchange_rate' => 'required|numeric|min:0',
             'tenant_id' => 'required|exists:tenants,id',
-
+            'settlement_condition' => 'nullable|string',
         ];
     }
 }

@@ -2,7 +2,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Head } from '@inertiajs/react';
 import { CheckCircle, Shield, XCircle } from 'lucide-react';
-import React from 'react';
 
 interface Customer {
     id: number;
@@ -18,17 +17,20 @@ interface InsuranceCompany {
     name: string;
 }
 
-interface BrokerSlipItem {
+interface BrokerSlipRisk {
     id: number;
-    item_type: string;
     description: string;
     identifier?: string;
     location?: string;
     quantity?: number;
-    sum_insured: number;
+    coverage_amount: number;
     rate: number;
     rate_basis: 'percentage' | 'per_mille' | 'fixed';
     premium: number;
+    net_premium: number;
+    commission_amount: number;
+    taxes: number;
+    fees: number;
     sort_order: number;
 }
 
@@ -53,11 +55,6 @@ interface BrokerSlip {
     version: number;
     status: string;
     currency: string;
-    sum_insured: number;
-    rate: number;
-    rate_basis: string;
-    gross_premium: number;
-    net_premium: number;
     period_start: string;
     period_end: string;
     created_at: string;
@@ -70,7 +67,7 @@ interface BrokerSlip {
     placement_market?: {
         insurance_company: InsuranceCompany;
     };
-    items: BrokerSlipItem[];
+    items: BrokerSlipRisk[];
     clauses: BrokerSlipClause[];
     versions: BrokerSlipVersion[];
 }
@@ -91,6 +88,14 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function Verify({ brokerSlip, checksumValid }: Props) {
+    const totals = brokerSlip.items.reduce(
+        (acc, r) => ({
+            premium: acc.premium + (r.premium || 0),
+            net_premium: acc.net_premium + (r.net_premium || 0),
+        }),
+        { premium: 0, net_premium: 0 },
+    );
+
     const formatCurrency = (amount: number | string | null | undefined) => {
         const n = typeof amount === 'string' ? parseFloat(amount) : amount;
         if (n === null || n === undefined || isNaN(n)) return '—';
@@ -115,11 +120,7 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
 
             <div className="mx-auto max-w-4xl px-4 py-8">
                 <div className="mb-8 flex items-center justify-center gap-3">
-                    <img
-                        src="/images/insurepal-logo.png"
-                        alt="InsurePal"
-                        className="h-10 w-10 sm:h-12 sm:w-12"
-                    />
+                    <img src="/images/insurepal-logo.png" alt="InsurePal" className="h-10 w-10 sm:h-12 sm:w-12" />
                     <span className="text-2xl font-bold tracking-tight">InsurePal</span>
                 </div>
 
@@ -134,7 +135,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                             <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                             <div className="text-left">
                                 <p className="text-lg font-semibold text-green-800 dark:text-green-300">Valid Document</p>
-                                <p className="text-sm text-green-600 dark:text-green-400">Digital signature verified — content has not been altered</p>
+                                <p className="text-sm text-green-600 dark:text-green-400">
+                                    Digital signature verified — content has not been altered
+                                </p>
                             </div>
                         </div>
                     )}
@@ -198,16 +201,18 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                             )}
                             <div>
                                 <p className="text-sm text-muted-foreground">Gross Premium</p>
-                                <p className="font-medium">{formatCurrency(brokerSlip.gross_premium)}</p>
+                                <p className="font-medium">{formatCurrency(totals.premium)}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Net Premium</p>
-                                <p className="font-medium">{formatCurrency(brokerSlip.net_premium)}</p>
+                                <p className="font-medium">{formatCurrency(totals.net_premium)}</p>
                             </div>
                             {brokerSlip.period_start && (
                                 <div className="sm:col-span-2">
                                     <p className="text-sm text-muted-foreground">Coverage Period</p>
-                                    <p className="font-medium">{formatDate(brokerSlip.period_start)} — {formatDate(brokerSlip.period_end)}</p>
+                                    <p className="font-medium">
+                                        {formatDate(brokerSlip.period_start)} — {formatDate(brokerSlip.period_end)}
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -219,7 +224,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                         <CardHeader>
                             <CardTitle>
                                 Items
-                                <Badge variant="outline" className="ml-2">{brokerSlip.items.length}</Badge>
+                                <Badge variant="outline" className="ml-2">
+                                    {brokerSlip.items.length}
+                                </Badge>
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -229,9 +236,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                                         <tr className="border-b text-left text-muted-foreground">
                                             <th className="px-6 pb-3 font-medium">#</th>
                                             <th className="px-6 pb-3 font-medium">Description</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Sum Insured</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Rate</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Premium</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Coverage Amount</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Rate</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Premium</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -240,11 +247,8 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                                                 <td className="px-6 py-3 text-muted-foreground">{idx + 1}</td>
                                                 <td className="px-6 py-3">
                                                     <p className="font-medium">{item.description}</p>
-                                                    {item.item_type && (
-                                                        <p className="text-xs text-muted-foreground capitalize">{item.item_type.replace(/_/g, ' ')}</p>
-                                                    )}
                                                 </td>
-                                                <td className="px-6 py-3 text-right">{formatCurrency(item.sum_insured)}</td>
+                                                <td className="px-6 py-3 text-right">{formatCurrency(item.coverage_amount)}</td>
                                                 <td className="px-6 py-3 text-right">{item.rate ?? '—'}</td>
                                                 <td className="px-6 py-3 text-right font-medium">{formatCurrency(item.premium)}</td>
                                             </tr>
@@ -261,22 +265,22 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                         <CardHeader>
                             <CardTitle>
                                 Clauses
-                                <Badge variant="outline" className="ml-2">{brokerSlip.clauses.length}</Badge>
+                                <Badge variant="outline" className="ml-2">
+                                    {brokerSlip.clauses.length}
+                                </Badge>
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {brokerSlip.clauses.map((clause) => (
                                 <div key={clause.id} className="rounded-lg border p-4">
                                     <div className="mb-1 flex items-center gap-2">
-                                        <p className="font-medium text-sm">{clause.title}</p>
+                                        <p className="text-sm font-medium">{clause.title}</p>
                                         {clause.clause_type && (
                                             <Badge variant="outline" className="text-xs capitalize">
                                                 {clause.clause_type.replace(/_/g, ' ')}
                                             </Badge>
                                         )}
-                                        {clause.is_standard && (
-                                            <span className="text-xs text-muted-foreground">Standard</span>
-                                        )}
+                                        {clause.is_standard && <span className="text-xs text-muted-foreground">Standard</span>}
                                     </div>
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{clause.content}</p>
                                 </div>
@@ -290,7 +294,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                         <CardHeader>
                             <CardTitle>
                                 Version History
-                                <Badge variant="outline" className="ml-2">{brokerSlip.versions.length}</Badge>
+                                <Badge variant="outline" className="ml-2">
+                                    {brokerSlip.versions.length}
+                                </Badge>
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -307,9 +313,7 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                 )}
 
                 <div className="mt-12 border-t pt-6 text-center">
-                    <p className="text-sm text-muted-foreground">
-                        This is a digitally verified document issued by InsurePal
-                    </p>
+                    <p className="text-sm text-muted-foreground">This is a digitally verified document issued by InsurePal</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                         Slip #{brokerSlip.slip_number} · v{brokerSlip.version} · {formatDate(brokerSlip.created_at)}
                     </p>

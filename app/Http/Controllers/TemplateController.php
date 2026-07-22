@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateTemplateRequest;
 use App\Models\TenantDefaultTemplate;
 use App\Models\TenantTemplateOverride;
 use Illuminate\Http\Request;
@@ -64,6 +65,8 @@ class TemplateController extends Controller
 
     public function preview(Request $request, string $templateKey)
     {
+        ini_set('memory_limit', '256M');
+
         Gate::authorize('view_document_templates');
 
         $registry = config('document-templates.templates', []);
@@ -103,7 +106,11 @@ class TemplateController extends Controller
             $elementToggles
         );
 
-        return response($html);
+        $response = response($html);
+
+        unset($html);
+
+        return $response;
     }
 
     public function edit(string $templateKey)
@@ -145,7 +152,7 @@ class TemplateController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $templateKey)
+    public function update(UpdateTemplateRequest $request, string $templateKey)
     {
         Gate::authorize('edit_document_templates');
 
@@ -155,19 +162,6 @@ class TemplateController extends Controller
         if (! $resolvedKey || ! isset($registry[$resolvedKey])) {
             abort(404);
         }
-
-        $validated = $request->validate([
-            'label_overrides' => 'nullable|json',
-            'color_overrides' => 'nullable|json',
-            'font_overrides' => 'nullable|json',
-            'css_overrides' => 'nullable|json',
-            'custom_content' => 'nullable|string',
-            'header_image' => 'nullable|image|max:2048',
-            'footer_image' => 'nullable|image|max:2048',
-            'signature' => 'nullable|image|max:1024',
-            'stamp' => 'nullable|image|max:1024',
-            'element_toggles' => 'nullable|json',
-        ]);
 
         $tenant = Auth::user()->tenant;
 
@@ -427,6 +421,7 @@ class TemplateController extends Controller
                     'commission_amount' => 37_500,
                     'commission_rate' => 10,
                     'taxes' => 7_500,
+                    'tax_rate' => 2,
                     'fees' => 2_000,
                     'net_premium' => 328_000,
                     'total_premium' => 375_000,
@@ -449,6 +444,30 @@ class TemplateController extends Controller
                         'policyClass' => (object) ['name' => 'Motor'],
                     ],
                 ],
+                'risks' => collect([
+                    (object) [
+                        'description' => 'Toyota Hilux 2024 - Fleet Vehicle',
+                        'policy_class_id' => null,
+                        'policy_product_id' => null,
+                        'coverage_amount' => 2_500_000,
+                        'rate' => 0.075,
+                        'rate_basis' => 'per_mille',
+                        'premium' => 187_500,
+                        'policyClass' => (object) ['name' => 'Motor'],
+                        'policyProduct' => (object) ['name' => 'Motor Comprehensive'],
+                    ],
+                    (object) [
+                        'description' => 'Honda CR-V 2024 - Fleet Vehicle',
+                        'policy_class_id' => null,
+                        'policy_product_id' => null,
+                        'coverage_amount' => 2_500_000,
+                        'rate' => 0.075,
+                        'rate_basis' => 'per_mille',
+                        'premium' => 187_500,
+                        'policyClass' => (object) ['name' => 'Motor'],
+                        'policyProduct' => (object) ['name' => 'Motor Comprehensive'],
+                    ],
+                ]),
                 'clauses' => collect([
                     (object) ['title' => 'Warranty Clause', 'text' => 'The insured warrants that all information provided is true and accurate.'],
                     (object) ['title' => 'Cancellation Clause', 'text' => 'This policy may be cancelled by either party with 30 days written notice.'],

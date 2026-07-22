@@ -385,12 +385,12 @@
     background: var(--accent);
 }
 
-[cmdk-item][data-selected="true"] {
+[cmdk-item][data-selected='true'] {
     background: var(--accent);
     color: var(--accent-foreground);
 }
 
-[cmdk-item][data-disabled="true"] {
+[cmdk-item][data-disabled='true'] {
     pointer-events: none;
     opacity: 0.5;
 }

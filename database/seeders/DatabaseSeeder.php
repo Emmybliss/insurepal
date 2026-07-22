@@ -74,10 +74,10 @@ class DatabaseSeeder extends Seeder
         $this->command->info('📄 Seeding default document templates...');
 
         // Check if we're in development environment to seed test data
-        // if (app()->environment(['local', 'development'])) {
-        //     $this->command->info('🧪 Environment is '.app()->environment().', seeding development data...');
-        //     $this->call(DevelopmentDataSeeder::class);
-        // }
+        if (app()->environment('local')) {
+            $this->command->info('🧪 Environment is '.app()->environment().', seeding development data...');
+            $this->call(DevelopmentDataSeeder::class);
+        }
 
         $this->command->info('✅ Database seeding completed successfully!');
 

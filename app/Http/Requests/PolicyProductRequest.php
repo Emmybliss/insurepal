@@ -14,19 +14,28 @@ class PolicyProductRequest extends FormRequest
 
     public function rules(): array
     {
-        $policyProductId = $this->route('policy_product')?->id;
+        $policyProductId = $this->route('policy_product')?->id ?? $this->route('policy')?->id;
 
         return [
             'tenant_id' => ['nullable', 'exists:tenants,id'],
             'policy_type_id' => ['required', 'exists:policy_types,id'],
             'policy_class_id' => ['required', 'exists:policy_classes,id'],
-            'name' => ['required', 'string', 'max:255'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('policy_products', 'name')
+                    ->where('tenant_id', $this->input('tenant_id') ?? auth()->user()->tenant_id ?? null)
+                    ->ignore($policyProductId),
+            ],
             'code' => [
                 'required',
                 'string',
                 'max:100',
                 'regex:/^[A-Z0-9_-]+$/',
-                Rule::unique('policy_products', 'code')->ignore($policyProductId),
+                Rule::unique('policy_products', 'code')
+                    ->where('tenant_id', $this->input('tenant_id') ?? auth()->user()->tenant_id ?? null)
+                    ->ignore($policyProductId),
             ],
             'description' => ['nullable', 'string'],
             'is_active' => ['required', 'boolean'],
@@ -56,6 +65,13 @@ class PolicyProductRequest extends FormRequest
             'required_documents' => ['nullable', 'array'],
             'currency' => ['required', 'string', 'in:NGN,USD,EUR,GBP'],
             'sort_order' => ['required', 'integer', 'min:0'],
+            'requires_inspection' => ['nullable', 'boolean'],
+            'requires_valuation' => ['nullable', 'boolean'],
+            'supports_installment_premium' => ['nullable', 'boolean'],
+            'allows_coinsurance' => ['nullable', 'boolean'],
+            'allows_reinsurance' => ['nullable', 'boolean'],
+            'requires_sum_insured' => ['nullable', 'boolean'],
+            'default_rate_basis' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -100,7 +116,17 @@ class PolicyProductRequest extends FormRequest
         }
 
         // Convert string booleans to actual booleans
-        foreach (['is_active', 'requires_underwriting', 'requires_medical_exam'] as $field) {
+        foreach ([
+            'is_active',
+            'requires_underwriting',
+            'requires_medical_exam',
+            'requires_inspection',
+            'requires_valuation',
+            'supports_installment_premium',
+            'allows_coinsurance',
+            'allows_reinsurance',
+            'requires_sum_insured',
+        ] as $field) {
             if ($this->has($field)) {
                 $this->merge([
                     $field => filter_var($this->$field, FILTER_VALIDATE_BOOLEAN),

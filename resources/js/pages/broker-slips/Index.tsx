@@ -236,21 +236,17 @@ export default function Index({ brokerSlips, filters }: Props) {
                                         brokerSlips.data.map((slip) => (
                                             <TableRow key={slip.id}>
                                                 <TableCell>
-                                                    <div className="font-medium">{slip.slip_number}</div>
-                                                    {slip.created_by && (
-                                                        <div className="text-xs text-gray-500">
-                                                            by {slip.created_by.name}
-                                                        </div>
-                                                    )}
+                                                    <Link className="font-medium text-blue-500" href={route('broker-slips.show', slip.id)}>
+                                                        {slip.slip_number}
+                                                    </Link>
+                                                    {slip.created_by && <div className="text-xs text-gray-500">by {slip.created_by.name}</div>}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="text-sm">v{slip.version}</span>
                                                 </TableCell>
                                                 <TableCell>
                                                     {slip.placement?.customer ? (
-                                                        <div className="text-sm">
-                                                            {getCustomerName(slip.placement.customer)}
-                                                        </div>
+                                                        <div className="text-sm">{getCustomerName(slip.placement.customer)}</div>
                                                     ) : (
                                                         <span className="text-sm text-gray-400">—</span>
                                                     )}
@@ -310,7 +306,10 @@ export default function Index({ brokerSlips, filters }: Props) {
                                             <TableCell colSpan={8} className="py-8 text-center">
                                                 <div className="text-gray-500">
                                                     No broker slips found.
-                                                    <Link href={route('broker-slips.create-direct')} className="ml-1 text-blue-600 hover:text-blue-800">
+                                                    <Link
+                                                        href={route('broker-slips.create-direct')}
+                                                        className="ml-1 text-blue-600 hover:text-blue-800"
+                                                    >
                                                         Create your first broker slip
                                                     </Link>
                                                 </div>

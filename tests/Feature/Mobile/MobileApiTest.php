@@ -4,6 +4,7 @@ namespace Tests\Feature\Mobile;
 
 use App\Models\Claim;
 use App\Models\Customer;
+use App\Models\InsuranceProduct;
 use App\Models\Notification;
 use App\Models\Policy;
 use App\Models\PolicyProduct;
@@ -49,6 +50,7 @@ class MobileApiTest extends TestCase
             'type' => 'individual',
             'first_name' => 'Alice',
             'last_name' => 'Johnson',
+            'phone' => '+1234567890',
             'is_active' => true,
         ]);
 
@@ -70,12 +72,17 @@ class MobileApiTest extends TestCase
             'expiry_date' => now()->addYear(),
         ]);
 
+        $insuranceProduct = InsuranceProduct::factory()->create([
+            'tenant_id' => $this->tenant->id,
+        ]);
+
         $this->quote = Quote::factory()->create([
             'tenant_id' => $this->tenant->id,
             'customer_id' => $this->customer->id,
-            'insurance_product_id' => $policyProduct->id,
+            'insurance_product_id' => $insuranceProduct->id,
             'status' => 'draft',
             'valid_until' => now()->addDays(30),
+            'created_by' => $this->user->id,
         ]);
 
         $this->claim = Claim::factory()->create([
@@ -255,21 +262,28 @@ class MobileApiTest extends TestCase
                 'success',
                 'message',
                 'data' => [
-                    'stats' => [
-                        'active_policies_count',
-                        'pending_claims_count',
-                        'expiring_soon_count',
-                        'outstanding_notes_count',
+                    'tenant_type',
+                    'tenant' => [
+                        'name',
+                        'type',
                     ],
-                    'recent_notifications',
-                    'recent_clients',
-                    'recent_policies',
-                    'quick_links',
+                    'stats' => [
+                        'total_customers',
+                        'total_quotes',
+                        'total_policies',
+                        'active_policies',
+                        'commission_earned',
+                        'expiring_policies',
+                        'expired_policies',
+                    ],
+                    'recent_quotes',
+                    'customers',
+                    'expiring_policies',
                 ],
             ]);
 
-        $this->assertEquals(1, $response->json('data.stats.active_policies_count'));
-        $this->assertEquals(1, $response->json('data.stats.pending_claims_count'));
+        $this->assertEquals(1, $response->json('data.stats.total_customers'));
+        $this->assertEquals(1, $response->json('data.stats.active_policies'));
     }
 
     public function test_mobile_dashboard_requires_authentication(): void
@@ -480,7 +494,7 @@ class MobileApiTest extends TestCase
                 'message' => 'Client deleted successfully',
             ]);
 
-        $this->assertDatabaseMissing('customers', ['id' => $newCustomer->id]);
+        $this->assertSoftDeleted($newCustomer);
     }
 
     public function test_mobile_clients_delete_fails_with_policies(): void
@@ -523,7 +537,7 @@ class MobileApiTest extends TestCase
     {
         Sanctum::actingAs($this->user);
 
-        $response = $this->getJson('/api/mobile/policies?search=Alice');
+        $response = $this->getJson('/api/mobile/policies?search='.$this->policy->policy_number);
 
         $response->assertOk();
         $this->assertCount(1, $response->json('data'));
@@ -867,7 +881,7 @@ class MobileApiTest extends TestCase
                 'message' => 'Notification deleted',
             ]);
 
-        $this->assertDatabaseMissing('notifications', ['id' => $notification->id]);
+        $this->assertDatabaseMissing('app_notifications', ['id' => $notification->id]);
     }
 
     public function test_mobile_api_enforces_tenant_isolation(): void

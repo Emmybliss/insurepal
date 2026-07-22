@@ -52,7 +52,7 @@ export default function Edit({ policyType }: Props) {
         code: policyType.code,
         description: policyType.description || '',
         is_active: policyType.is_active,
-        form_fields: policyType.form_fields || [],
+        form_fields: (policyType.form_fields || []) as any,
         base_premium: policyType.base_premium,
         commission_rate: policyType.commission_rate,
         sort_order: policyType.sort_order,
@@ -92,7 +92,7 @@ export default function Edit({ policyType }: Props) {
     };
 
     const removeFormField = (index: number) => {
-        const updatedFields = data.form_fields.filter((_, i) => i !== index);
+        const updatedFields = data.form_fields.filter((_: FormField, i: number) => i !== index);
         setData('form_fields', updatedFields);
     };
 
@@ -233,7 +233,7 @@ export default function Edit({ policyType }: Props) {
                             {data.form_fields.length > 0 && (
                                 <div className="space-y-4">
                                     <h4 className="text-sm font-medium">Configured Fields</h4>
-                                    {data.form_fields.map((field, index) => (
+                                    {data.form_fields.map((field: FormField, index: number) => (
                                         <div key={index} className="flex items-center justify-between rounded-lg border p-4">
                                             <div>
                                                 <div className="font-medium">{field.label}</div>

@@ -262,7 +262,7 @@ class ComprehensivePermissionsSeeder extends Seeder
             'broker' => [
                 'view_customers', 'create_customers', 'edit_customers', 'delete_customers', 'import_customers', 'export_customers',
                 'view_quotes', 'create_quotes', 'edit_quotes', 'delete_quotes', 'send_quotes', 'duplicate_quotes',
-                'view_policies', 'create_policies', 'edit_policies', 'renew_policies', 'endorse_policies',
+                'view_policies', 'create_policies', 'edit_policies', 'delete_policies', 'renew_policies', 'endorse_policies',
                 'view_certificates', 'generate_certificates', 'download_certificates', 'manage_certificate_templates', 'verify_certificates', 'bulk_generate_certificates',
                 'view_certificate_templates', 'create_certificate_templates', 'edit_certificate_templates', 'delete_certificate_templates', 'manage_certificate_settings',
                 'duplicate_certificate_templates', 'export_certificate_templates', 'import_certificate_templates', 'upload_certificate_assets',
@@ -306,7 +306,7 @@ class ComprehensivePermissionsSeeder extends Seeder
             'broker_admin' => [
                 'view_customers', 'create_customers', 'edit_customers', 'delete_customers',
                 'view_quotes', 'create_quotes', 'edit_quotes', 'delete_quotes',
-                'view_policies', 'create_policies', 'edit_policies', 'renew_policies',
+                'view_policies', 'create_policies', 'edit_policies', 'delete_policies', 'renew_policies',
                 'view_certificates', 'generate_certificates', 'download_certificates', 'manage_certificate_templates',
                 'view_certificate_templates', 'create_certificate_templates', 'edit_certificate_templates', 'delete_certificate_templates', 'manage_certificate_settings',
                 'view_financial_notes', 'create_financial_notes', 'edit_financial_notes', 'delete_financial_notes',

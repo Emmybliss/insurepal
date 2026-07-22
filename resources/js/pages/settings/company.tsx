@@ -1,22 +1,22 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { Head, useForm } from '@inertiajs/react';
-import { Building2, Mail, MapPin, Phone, Save } from 'lucide-react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Building2, Eye, Link2, Mail, MapPin, Phone, Plug, Save, Star, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 
-export interface SmtpSettings {
-    use_custom?: boolean;
-    host?: string;
-    port?: string | number;
-    username?: string;
-    password?: string;
-    encryption?: string;
+function getXsrfToken(): string {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+
+    return match ? decodeURIComponent(match[1]) : '';
 }
 
 interface CompanySettings {
@@ -39,17 +39,210 @@ interface CompanySettings {
     stamp?: string | File | null;
     header_image?: string | File | null;
     footer_image?: string | File | null;
-    smtp_settings?: SmtpSettings;
     paystack_public_key?: string;
     paystack_secret_key?: string;
     _method?: string;
 }
 
-interface Props {
-    company?: CompanySettings;
+interface EmailAccountProps {
+    id: number;
+    provider: 'gmail' | 'microsoft365' | 'smtp' | 'imap' | string;
+    email: string;
+    account_name: string;
+    is_active: boolean;
+    is_system_default: boolean;
+    last_sync_at: string | null;
+    created_at: string;
 }
 
-export default function CompanySettings({ company }: Props) {
+interface ThemeColorProps {
+    primary_color?: string;
+    secondary_color?: string;
+    accent_color?: string;
+}
+
+interface Props {
+    company?: CompanySettings;
+    emailAccounts?: EmailAccountProps[];
+    themeColors?: ThemeColorProps | null;
+}
+
+function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
+    const [provider, setProvider] = useState('');
+    const [email, setEmail] = useState('');
+    const [accountName, setAccountName] = useState('');
+    const [smtpHost, setSmtpHost] = useState('');
+    const [smtpPort, setSmtpPort] = useState('587');
+    const [imapHost, setImapHost] = useState('');
+    const [imapPort, setImapPort] = useState('993');
+    const [password, setPassword] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const handleOAuth = async (prov: string) => {
+        try {
+            const res = await fetch(`/api/v1/email/oauth/${prov}/redirect`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            });
+            const json = await res.json();
+            if (json.success && json.data?.authorization_url) {
+                window.location.href = json.data.authorization_url;
+            }
+        } catch {
+            toast.error(`Failed to initiate ${prov} connection`);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!provider || !email) return;
+
+        setSaving(true);
+
+        const token = getXsrfToken();
+        const headers: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+            Accept: 'application/json',
+        };
+        if (token) {
+            headers['X-XSRF-TOKEN'] = token;
+        }
+
+        const body = new URLSearchParams({
+            provider,
+            email,
+            account_name: accountName || email,
+            smtp_host: ['smtp', 'imap'].includes(provider) ? smtpHost : '',
+            smtp_port: ['smtp', 'imap'].includes(provider) ? smtpPort : '',
+        });
+
+        if (['smtp', 'imap'].includes(provider)) {
+            body.set('imap_host', provider === 'imap' ? imapHost : '');
+            body.set('imap_port', provider === 'imap' ? imapPort : '');
+            if (password) body.set('password', password);
+        }
+
+        try {
+            const res = await fetch('/api/v1/email/accounts', {
+                method: 'POST',
+                headers,
+                body,
+            });
+            const json = await res.json();
+            if (json.success) {
+                toast.success('Account connected');
+                onSuccess();
+            } else {
+                toast.error(json.message || 'Failed to connect account');
+            }
+        } catch {
+            toast.error('Failed to connect account');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (['gmail', 'microsoft365'].includes(provider)) {
+        return (
+            <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                    You will be redirected to {provider === 'gmail' ? 'Google' : 'Microsoft'} to authorize the connection.
+                </p>
+                <Button onClick={() => handleOAuth(provider)} disabled={saving} className="w-full">
+                    Continue to {provider === 'gmail' ? 'Google' : 'Microsoft'}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4 py-4">
+            <div className="space-y-2">
+                <Label>Provider</Label>
+                <Select value={provider} onValueChange={setProvider}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="gmail">Gmail (OAuth)</SelectItem>
+                        <SelectItem value="microsoft365">Microsoft 365 (OAuth)</SelectItem>
+                        <SelectItem value="smtp">SMTP</SelectItem>
+                        <SelectItem value="imap">IMAP</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {provider && (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="ae-email">Email Address</Label>
+                        <Input id="ae-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ae-name">Account Name</Label>
+                        <Input id="ae-name" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="My Account" />
+                    </div>
+
+                    {['smtp', 'imap'].includes(provider) && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="ae-smtp-host">SMTP Host</Label>
+                                    <Input
+                                        id="ae-smtp-host"
+                                        value={smtpHost}
+                                        onChange={(e) => setSmtpHost(e.target.value)}
+                                        placeholder="smtp.example.com"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="ae-smtp-port">SMTP Port</Label>
+                                    <Input id="ae-smtp-port" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ae-password">Password / App Password</Label>
+                                <Input
+                                    id="ae-password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Enter password"
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {provider === 'imap' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="ae-imap-host">IMAP Host</Label>
+                                <Input
+                                    id="ae-imap-host"
+                                    value={imapHost}
+                                    onChange={(e) => setImapHost(e.target.value)}
+                                    placeholder="imap.example.com"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ae-imap-port">IMAP Port</Label>
+                                <Input id="ae-imap-port" value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" />
+                            </div>
+                        </div>
+                    )}
+
+                    <Button onClick={handleSubmit} disabled={saving || !email} className="w-full">
+                        {saving ? 'Connecting...' : 'Connect Account'}
+                    </Button>
+                </>
+            )}
+        </div>
+    );
+}
+
+const DEFAULT_PRIMARY = '#3b82f6';
+const DEFAULT_SECONDARY = '#8b5cf6';
+const DEFAULT_ACCENT = '#10b981';
+
+export default function CompanySettings({ company, emailAccounts, themeColors }: Props) {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
     const [stampPreview, setStampPreview] = useState<string | null>(null);
@@ -60,6 +253,9 @@ export default function CompanySettings({ company }: Props) {
     const [removeStampBg, setRemoveStampBg] = useState(false);
     const [removeHeaderBg, setRemoveHeaderBg] = useState(false);
     const [removeFooterBg, setRemoveFooterBg] = useState(false);
+
+    const page = usePage<{ theme?: { sidebar_style?: string } }>();
+    const defaultSidebarStyle = page.props.theme?.sidebar_style ?? 'gradient';
 
     const { data, setData, post, processing, errors } = useForm({
         name: company?.name || '',
@@ -81,16 +277,12 @@ export default function CompanySettings({ company }: Props) {
         stamp: null as string | File | null,
         header_image: null as string | File | null,
         footer_image: null as string | File | null,
-        smtp_settings: company?.smtp_settings || {
-            use_custom: false,
-            host: '',
-            port: '',
-            username: '',
-            password: '',
-            encryption: 'tls',
-        },
         paystack_public_key: company?.paystack_public_key || '',
         paystack_secret_key: company?.paystack_secret_key || '',
+        primary_color: themeColors?.primary_color || DEFAULT_PRIMARY,
+        secondary_color: themeColors?.secondary_color || DEFAULT_SECONDARY,
+        accent_color: themeColors?.accent_color || DEFAULT_ACCENT,
+        sidebar_style: defaultSidebarStyle,
         _method: 'patch',
     });
     const processImageRemoveBackground = async (file: File): Promise<{ result: File; wasProcessed: boolean }> => {
@@ -249,7 +441,7 @@ export default function CompanySettings({ company }: Props) {
                             <CardDescription>Basic details about your organization</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Company Name *</Label>
                                     <Input
@@ -274,9 +466,7 @@ export default function CompanySettings({ company }: Props) {
                                     />
                                     {errors.slogan && <p className="mt-1 text-sm text-red-600">{errors.slogan}</p>}
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="naicom_reg_number">NAICOM Registration Number</Label>
                                     <Input
@@ -299,9 +489,7 @@ export default function CompanySettings({ company }: Props) {
                                     />
                                     {errors.rc_number && <p className="mt-1 text-sm text-red-600">{errors.rc_number}</p>}
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Company Email *</Label>
                                     <div className="relative">
@@ -380,7 +568,7 @@ export default function CompanySettings({ company }: Props) {
 
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="logo">Company Logo (Max 2MB)</Label>
+                                        <Label htmlFor="logo">Company Logo (Max 20MB)</Label>
                                         {(company?.logo && typeof company.logo === 'string') || logoPreview ? (
                                             <div className="mb-2">
                                                 <img
@@ -410,7 +598,7 @@ export default function CompanySettings({ company }: Props) {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="signature">Authorized Signature (Max 1MB)</Label>
+                                        <Label htmlFor="signature">Authorized Signature (Max 10MB)</Label>
                                         {(company?.signature && typeof company.signature === 'string') || signaturePreview ? (
                                             <div className="mb-2">
                                                 <img
@@ -440,7 +628,7 @@ export default function CompanySettings({ company }: Props) {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="stamp">Company Stamp (Max 1MB)</Label>
+                                        <Label htmlFor="stamp">Company Stamp (Max 10MB)</Label>
                                         {(company?.stamp && typeof company.stamp === 'string') || stampPreview ? (
                                             <div className="mb-2">
                                                 <img
@@ -470,7 +658,7 @@ export default function CompanySettings({ company }: Props) {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="header_image">Header Image (Max 2MB)</Label>
+                                        <Label htmlFor="header_image">Header Image (Max 20MB)</Label>
                                         {(company?.header_image && typeof company.header_image === 'string') || headerImagePreview ? (
                                             <div className="mb-2">
                                                 <img
@@ -500,7 +688,7 @@ export default function CompanySettings({ company }: Props) {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="footer_image">Footer Image (Max 2MB)</Label>
+                                        <Label htmlFor="footer_image">Footer Image (Max 20MB)</Label>
                                         {(company?.footer_image && typeof company.footer_image === 'string') || footerImagePreview ? (
                                             <div className="mb-2">
                                                 <img
@@ -533,6 +721,145 @@ export default function CompanySettings({ company }: Props) {
                         </CardContent>
                     </Card>
 
+                    {/* Brand Colors */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Eye className="h-5 w-5" />
+                                Brand Colors
+                            </CardTitle>
+                            <CardDescription>Set your organization's brand colors. These are applied across the application.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="primary_color">Primary Color</Label>
+                                    <ColorPicker
+                                        value={data.primary_color}
+                                        onChange={(color) => setData('primary_color', color)}
+                                        label="Primary Color"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="secondary_color">Secondary Color</Label>
+                                    <ColorPicker
+                                        value={data.secondary_color}
+                                        onChange={(color) => setData('secondary_color', color)}
+                                        label="Secondary Color"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="accent_color">Accent Color</Label>
+                                    <ColorPicker
+                                        value={data.accent_color}
+                                        onChange={(color) => setData('accent_color', color)}
+                                        label="Accent Color"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Live Preview */}
+                            <div className="rounded-lg border p-4">
+                                <p className="mb-3 text-sm font-medium">Preview</p>
+                                <div className="space-y-3">
+                                    <div
+                                        className="h-8 w-full rounded-md"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${data.primary_color}, ${data.secondary_color}, ${data.accent_color})`,
+                                        }}
+                                    />
+                                    <div className="flex flex-wrap gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded" style={{ backgroundColor: data.primary_color }} />
+                                            <span className="font-mono text-xs text-muted-foreground">{data.primary_color}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded" style={{ backgroundColor: data.secondary_color }} />
+                                            <span className="font-mono text-xs text-muted-foreground">{data.secondary_color}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded" style={{ backgroundColor: data.accent_color }} />
+                                            <span className="font-mono text-xs text-muted-foreground">{data.accent_color}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button size="sm" style={{ backgroundColor: data.primary_color, color: '#fff', border: 'none' }}>
+                                            Primary Button
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            style={{ borderColor: data.secondary_color, color: data.secondary_color }}
+                                        >
+                                            Secondary
+                                        </Button>
+                                        <span
+                                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                            style={{ backgroundColor: data.accent_color + '20', color: data.accent_color }}
+                                        >
+                                            Accent Badge
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sidebar Background */}
+                            <div className="rounded-lg border p-4">
+                                <p className="mb-3 text-sm font-medium">Sidebar Background</p>
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('sidebar_style', 'solid')}
+                                            className={`flex flex-1 flex-col items-center gap-2 rounded-lg border-2 p-3 text-xs transition-all ${
+                                                data.sidebar_style === 'solid'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-muted hover:border-muted-foreground/30'
+                                            }`}
+                                        >
+                                            <div className="h-10 w-full rounded" style={{ backgroundColor: data.primary_color }} />
+                                            <span className="font-medium">Solid</span>
+                                            <span className="text-muted-foreground">Primary color</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('sidebar_style', 'gradient')}
+                                            className={`flex flex-1 flex-col items-center gap-2 rounded-lg border-2 p-3 text-xs transition-all ${
+                                                data.sidebar_style === 'gradient'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-muted hover:border-muted-foreground/30'
+                                            }`}
+                                        >
+                                            <div
+                                                className="h-10 w-full rounded"
+                                                style={{
+                                                    background: `linear-gradient(135deg, ${data.primary_color}, ${data.secondary_color}, ${data.accent_color})`,
+                                                }}
+                                            />
+                                            <span className="font-medium">Gradient</span>
+                                            <span className="text-muted-foreground">Primary → Secondary → Accent</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('sidebar_style', 'transparent')}
+                                            className={`flex flex-1 flex-col items-center gap-2 rounded-lg border-2 p-3 text-xs transition-all ${
+                                                data.sidebar_style === 'transparent'
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-muted hover:border-muted-foreground/30'
+                                            }`}
+                                        >
+                                            <div className="flex h-10 w-full items-center justify-center rounded border-2 border-dashed border-muted-foreground/30">
+                                                <span className="text-xs text-muted-foreground/50">None</span>
+                                            </div>
+                                            <span className="font-medium">Transparent</span>
+                                            <span className="text-muted-foreground">No background</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Address Information */}
                     <Card>
                         <CardHeader>
@@ -556,7 +883,7 @@ export default function CompanySettings({ company }: Props) {
                                 {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="city">City *</Label>
                                     <Input
@@ -594,19 +921,18 @@ export default function CompanySettings({ company }: Props) {
                                     />
                                     {errors.postal_code && <p className="mt-1 text-sm text-red-600">{errors.postal_code}</p>}
                                 </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="country">Country *</Label>
-                                <Input
-                                    id="country"
-                                    value={data.country}
-                                    onChange={(e) => setData('country', e.target.value)}
-                                    placeholder="Nigeria"
-                                    className={errors.country ? 'border-red-500' : ''}
-                                    required
-                                />
-                                {errors.country && <p className="mt-1 text-sm text-red-600">{errors.country}</p>}
+                                <div className="space-y-2">
+                                    <Label htmlFor="country">Country *</Label>
+                                    <Input
+                                        id="country"
+                                        value={data.country}
+                                        onChange={(e) => setData('country', e.target.value)}
+                                        placeholder="Nigeria"
+                                        className={errors.country ? 'border-red-500' : ''}
+                                        required
+                                    />
+                                    {errors.country && <p className="mt-1 text-sm text-red-600">{errors.country}</p>}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -666,123 +992,157 @@ export default function CompanySettings({ company }: Props) {
                         </CardContent>
                     </Card>
 
-                    {/* Email / SMTP Settings */}
+                    {/* Email Accounts */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Mail className="h-5 w-5" />
-                                Email Settings
+                                Email Accounts
                             </CardTitle>
-                            <CardDescription>Configure how emails are sent from your organization</CardDescription>
+                            <CardDescription>
+                                Connect and manage your organization's email accounts for sending business communications and system notifications.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border p-4">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Use Custom SMTP Server</Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        Send emails using your own mail server instead of the default InsurePal mail server.
+                            {emailAccounts && emailAccounts.length > 0 ? (
+                                <div className="space-y-3">
+                                    {emailAccounts.map((account) => (
+                                        <div key={account.id} className="flex items-center justify-between rounded-lg border p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                                    {account.provider === 'gmail' ? (
+                                                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-red-500" fill="currentColor">
+                                                            <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.91 12 9.548l6.545-4.638 1.528-1.418C21.691 2.28 24 3.434 24 5.457z" />
+                                                        </svg>
+                                                    ) : account.provider === 'microsoft365' ? (
+                                                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-blue-500" fill="currentColor">
+                                                            <path d="M21.2 2H2.8A.8.8 0 0 0 2 2.8v18.4c0 .44.36.8.8.8h18.4a.8.8 0 0 0 .8-.8V2.8a.8.8 0 0 0-.8-.8zm-1.6 3.2v2.4h-2.4V5.2h2.4zM12 8.8a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2zm7.2 10.4H4.8V6.4h2.4v2.4a4.8 4.8 0 0 0 9.6 0V6.4h2.4v12.8z" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-500" fill="currentColor">
+                                                            <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium">{account.account_name}</p>
+                                                        {account.is_system_default && (
+                                                            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-xs text-amber-700">
+                                                                <Star className="mr-1 h-3 w-3" />
+                                                                System Default
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground">{account.email}</p>
+                                                    <div className="mt-1 flex items-center gap-2">
+                                                        <Badge variant={account.is_active ? 'default' : 'secondary'} className="text-xs">
+                                                            {account.is_active ? 'Connected' : 'Disconnected'}
+                                                        </Badge>
+                                                        {account.last_sync_at && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Last sync: {new Date(account.last_sync_at).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {['gmail', 'microsoft365'].includes(account.provider) && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await fetch(`/api/v1/email/oauth/${account.provider}/redirect`, {
+                                                                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                                                                });
+                                                                const json = await res.json();
+                                                                if (json.success && json.data?.authorization_url) {
+                                                                    window.location.href = json.data.authorization_url;
+                                                                }
+                                                            } catch {
+                                                                toast.error('Failed to initiate re-authentication');
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Link2 className="mr-1 h-3 w-3" />
+                                                        Re-auth
+                                                    </Button>
+                                                )}
+                                                {!account.is_system_default && account.is_active && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            router.patch(
+                                                                route('settings.company.email-accounts.update', account.id),
+                                                                {
+                                                                    is_system_default: '1',
+                                                                },
+                                                                {
+                                                                    onSuccess: () => {
+                                                                        toast.success('Set as system default');
+                                                                        window.location.reload();
+                                                                    },
+                                                                    onError: () => {
+                                                                        toast.error('Failed to set as default');
+                                                                    },
+                                                                },
+                                                            );
+                                                        }}
+                                                    >
+                                                        Set as Default
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (!confirm('Disconnect this email account?')) return;
+                                                        router.delete(route('settings.company.email-accounts.destroy', account.id), {
+                                                            onSuccess: () => {
+                                                                toast.success('Account disconnected');
+                                                                window.location.reload();
+                                                            },
+                                                            onError: (errors) => {
+                                                                toast.error(errors.message || 'Failed to disconnect');
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-1 h-3 w-3" />
+                                                    Disconnect
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+                                    <Plug className="mb-2 h-8 w-8 text-muted-foreground" />
+                                    <p className="text-sm text-muted-foreground">No email accounts connected</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Add a Gmail, Microsoft 365, SMTP, or IMAP account to send and receive business emails
                                     </p>
                                 </div>
-                                <Switch
-                                    checked={data.smtp_settings?.use_custom || false}
-                                    onCheckedChange={(checked) =>
-                                        setData('smtp_settings', { ...data.smtp_settings, use_custom: checked } as SmtpSettings)
-                                    }
-                                />
-                            </div>
-
-                            {data.smtp_settings?.use_custom && (
-                                <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="smtp_host">SMTP Host *</Label>
-                                        <Input
-                                            id="smtp_host"
-                                            value={data.smtp_settings.host || ''}
-                                            onChange={(e) =>
-                                                setData('smtp_settings', { ...data.smtp_settings, host: e.target.value } as SmtpSettings)
-                                            }
-                                            placeholder="smtp.example.com"
-                                            className={errors['smtp_settings.host'] ? 'border-red-500' : ''}
-                                            required={data.smtp_settings.use_custom}
-                                        />
-                                        {errors['smtp_settings.host'] && <p className="mt-1 text-sm text-red-600">{errors['smtp_settings.host']}</p>}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="smtp_port">SMTP Port *</Label>
-                                        <Input
-                                            id="smtp_port"
-                                            type="number"
-                                            value={data.smtp_settings.port || ''}
-                                            onChange={(e) =>
-                                                setData('smtp_settings', { ...data.smtp_settings, port: e.target.value } as SmtpSettings)
-                                            }
-                                            placeholder="587"
-                                            className={errors['smtp_settings.port'] ? 'border-red-500' : ''}
-                                            required={data.smtp_settings.use_custom}
-                                        />
-                                        {errors['smtp_settings.port'] && <p className="mt-1 text-sm text-red-600">{errors['smtp_settings.port']}</p>}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="smtp_username">Username *</Label>
-                                        <Input
-                                            id="smtp_username"
-                                            value={data.smtp_settings.username || ''}
-                                            onChange={(e) =>
-                                                setData('smtp_settings', { ...data.smtp_settings, username: e.target.value } as SmtpSettings)
-                                            }
-                                            placeholder="user@example.com"
-                                            className={errors['smtp_settings.username'] ? 'border-red-500' : ''}
-                                            required={data.smtp_settings.use_custom}
-                                        />
-                                        {errors['smtp_settings.username'] && (
-                                            <p className="mt-1 text-sm text-red-600">{errors['smtp_settings.username']}</p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="smtp_password">Password</Label>
-                                        <Input
-                                            id="smtp_password"
-                                            type="password"
-                                            value={data.smtp_settings.password || ''}
-                                            onChange={(e) =>
-                                                setData('smtp_settings', { ...data.smtp_settings, password: e.target.value } as SmtpSettings)
-                                            }
-                                            placeholder={company?.smtp_settings?.password ? 'Leave blank to keep existing' : 'Enter SMTP password'}
-                                            className={errors['smtp_settings.password'] ? 'border-red-500' : ''}
-                                        />
-                                        <p className="mt-1 text-xs text-muted-foreground">Keep blank if you don't want to change it.</p>
-                                        {errors['smtp_settings.password'] && (
-                                            <p className="mt-1 text-sm text-red-600">{errors['smtp_settings.password']}</p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-2 md:col-span-2">
-                                        <Label htmlFor="smtp_encryption">Encryption</Label>
-                                        <select
-                                            id="smtp_encryption"
-                                            value={data.smtp_settings.encryption || 'tls'}
-                                            onChange={(e) =>
-                                                setData('smtp_settings', {
-                                                    ...data.smtp_settings,
-                                                    encryption: e.target.value as string,
-                                                } as SmtpSettings)
-                                            }
-                                            className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${errors['smtp_settings.encryption'] ? 'border-red-500' : ''}`}
-                                        >
-                                            <option value="">None</option>
-                                            <option value="tls">TLS</option>
-                                            <option value="ssl">SSL</option>
-                                            <option value="starttls">STARTTLS</option>
-                                        </select>
-                                        {errors['smtp_settings.encryption'] && (
-                                            <p className="mt-1 text-sm text-red-600">{errors['smtp_settings.encryption']}</p>
-                                        )}
-                                    </div>
-                                </div>
                             )}
+
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="w-full">
+                                        <Plug className="mr-2 h-4 w-4" />
+                                        Add Account
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-lg">
+                                    <DialogHeader>
+                                        <DialogTitle>Add Email Account</DialogTitle>
+                                        <DialogDescription>Select a provider to connect a new email account.</DialogDescription>
+                                    </DialogHeader>
+                                    <AddAccountForm onSuccess={() => window.location.reload()} />
+                                </DialogContent>
+                            </Dialog>
                         </CardContent>
                     </Card>
 

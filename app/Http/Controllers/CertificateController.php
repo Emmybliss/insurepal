@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CertificateActionRequest;
+use App\Http\Requests\StoreCertificateRequest;
+use App\Http\Requests\UpdateCertificateRequest;
 use App\Models\Policy;
 use App\Models\PolicyCertificate;
-use App\Services\CertificateDesignEngine;
 use App\Services\CertificateGenerationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,14 +19,14 @@ class CertificateController extends Controller
 {
     protected CertificateGenerationService $certificateService;
 
-    protected CertificateDesignEngine $designEngine;
+    protected \App\Services\Pdf\PdfService $pdfService;
 
     public function __construct(
         CertificateGenerationService $certificateService,
-        CertificateDesignEngine $designEngine
+        \App\Services\Pdf\PdfService $pdfService,
     ) {
         $this->certificateService = $certificateService;
-        $this->designEngine = $designEngine;
+        $this->pdfService = $pdfService;
 
         $this->middleware('tenant.type:underwriter')->except(['verify']);
     }
@@ -37,7 +39,7 @@ class CertificateController extends Controller
         Gate::authorize('view_certificates');
 
         $query = PolicyCertificate::with(['policy.customer', 'policy.policyProduct'])
-            ->forTenant(Auth::user()->tenant_id);
+            ->forTenant($request->user()->tenant_id);
 
         // Apply filters
         if ($request->filled('status')) {
@@ -96,60 +98,25 @@ class CertificateController extends Controller
     /**
      * Generate certificate for policy
      */
-    public function generate(Request $request, Policy $policy)
+    public function generate(StoreCertificateRequest $request, Policy $policy)
     {
         Gate::authorize('generate_certificates', $policy);
 
-        $request->validate([
-            'template_key' => 'required|string',
-            'type' => 'sometimes|string|in:'.implode(',', array_keys(PolicyCertificate::getAvailableTypes())),
-            'options' => 'sometimes|array',
-            'certificate_pdf' => 'required|file|mimes:pdf|max:10240',
-        ]);
+        $request->validated();
 
-        $registry = config('document-templates.templates', []);
         $templateKey = $request->input('template_key', 'certificate.classic');
-        $template = $registry[$templateKey] ?? null;
 
-        if (! $template) {
+        if (! $this->certificateService->resolveTemplate($templateKey)) {
             return back()->with('error', "Template '{$templateKey}' not found.");
         }
 
-        $type = $request->type ?: 'policy_certificate';
-
         try {
-            $file = $request->file('certificate_pdf');
-            $fileName = 'certificate-'.uniqid().'.'.$file->getClientOriginalExtension();
-            $pdfPath = $file->storeAs("certificates/{$policy->tenant_id}/pdfs", $fileName, 'public');
-
-            $certificate = PolicyCertificate::create([
-                'tenant_id' => $policy->tenant_id,
-                'policy_id' => $policy->id,
-                'certificate_number' => PolicyCertificate::generateCertificateNumber(
-                    $policy->tenant_id,
-                    strtoupper(substr($type, 0, 4))
-                ),
-                'type' => $type,
-                'status' => PolicyCertificate::STATUS_GENERATED,
-                'file_path' => $pdfPath,
-                'file_name' => $fileName,
-                'file_size' => $file->getSize(),
-                'file_hash' => hash_file('sha256', $file->getPathname()),
-                'generated_at' => now(),
-                'generated_by' => Auth::id(),
-                'generation_metadata' => [
-                    'template_key' => $templateKey,
-                    'generation_options' => $request->options ?? [],
-                    'generated_at' => now()->toISOString(),
-                    'generated_by' => Auth::id(),
-                ],
-                'certificate_data' => $this->prepareCertificateData($policy, $templateKey),
-            ]);
-
-            $certificate->addToAuditTrail(
-                'generated',
-                'Certificate generated',
-                'Template: '.$templateKey
+            $certificate = $this->certificateService->generate(
+                $policy,
+                $request->user(),
+                $request->only(['type', 'options']),
+                $request->file('certificate_pdf'),
+                $templateKey
             );
 
             return redirect()
@@ -165,56 +132,27 @@ class CertificateController extends Controller
     /**
      * Regenerate existing certificate
      */
-    public function regenerate(Request $request, PolicyCertificate $certificate)
+    public function regenerate(UpdateCertificateRequest $request, PolicyCertificate $certificate)
     {
         set_time_limit(120);
 
         Gate::authorize('regenerate_certificate', $certificate);
 
-        $request->validate([
-            'template_key' => 'required|string',
-            'type' => 'sometimes|string|in:'.implode(',', array_keys(PolicyCertificate::getAvailableTypes())),
-            'options' => 'sometimes|array',
-            'certificate_pdf' => 'required|file|mimes:pdf|max:10240',
-        ]);
+        $request->validated();
 
         try {
-            $registry = config('document-templates.templates', []);
             $templateKey = $request->input('template_key', 'certificate.classic');
-            $template = $registry[$templateKey] ?? null;
 
-            if (! $template) {
+            if (! $this->certificateService->resolveTemplate($templateKey)) {
                 return back()->with('error', "Template '{$templateKey}' not found.");
             }
 
-            $type = $request->type ?: 'policy_certificate';
-
-            if ($certificate->file_path && Storage::disk('public')->exists($certificate->file_path)) {
-                Storage::disk('public')->delete($certificate->file_path);
-            }
-
-            $file = $request->file('certificate_pdf');
-            $fileName = 'certificate-'.uniqid().'.'.$file->getClientOriginalExtension();
-            $pdfPath = $file->storeAs("certificates/{$certificate->tenant_id}/pdfs", $fileName, 'public');
-
-            $certificate->update([
-                'type' => $type,
-                'file_path' => $pdfPath,
-                'file_name' => $fileName,
-                'file_size' => $file->getSize(),
-                'file_hash' => hash_file('sha256', $file->getPathname()),
-                'generation_metadata' => [
-                    'template_key' => $templateKey,
-                    'generation_options' => $request->options ?? [],
-                    'regenerated_at' => now()->toISOString(),
-                    'regenerated_by' => Auth::id(),
-                ],
-            ]);
-
-            $certificate->addToAuditTrail(
-                'regenerated',
-                'Certificate regenerated with new PDF',
-                'Template: '.$templateKey
+            $certificate = $this->certificateService->regenerate(
+                $certificate,
+                $request->user(),
+                $request->only(['type', 'options']),
+                $request->file('certificate_pdf'),
+                $templateKey
             );
 
             return redirect()
@@ -299,7 +237,7 @@ class CertificateController extends Controller
 
         $request->validate([
             'notes' => 'sometimes|string|max:1000',
-        ]);
+        ]); // single field — leave inline
 
         if (! $certificate->canBeIssued()) {
             return back()->with('error', 'Certificate cannot be issued in current status.');
@@ -319,7 +257,7 @@ class CertificateController extends Controller
 
         $request->validate([
             'reason' => 'required|string|max:1000',
-        ]);
+        ]); // single field — leave inline
 
         if (! $certificate->canBeCancelled()) {
             return back()->with('error', 'Certificate cannot be cancelled in current status.');
@@ -390,66 +328,37 @@ class CertificateController extends Controller
      */
     public function getGenerationOptions(Request $request, Policy $policy)
     {
-        // Temporarily increase memory limit for complex certificate operations
         ini_set('memory_limit', '256M');
 
         Gate::authorize('generate_certificates', $policy);
 
-        // Fetch active document templates for certificates
-        $registry = config('document-templates.templates', []);
-        $certTemplates = array_filter($registry, fn ($t) => ($t['type'] ?? '') === 'certificate');
-
-        $templates = array_map(fn ($key, $template) => [
-            'key' => $key,
-            'name' => $template['name'] ?? $key,
-            'type' => $template['type'] ?? 'certificate',
-            'category' => $template['category'] ?? 'standard',
-            'description' => $template['description'] ?? '',
-        ], array_keys($certTemplates), $certTemplates);
-
-        // Fetch existing active certificates for the policy
         $existingCertificates = PolicyCertificate::where('policy_id', $policy->id)
             ->active()
             ->get(['id', 'type', 'status', 'certificate_number', 'generated_at']);
 
-        // Generate QR/Barcode data for preview
         $tempCertificateNumber = PolicyCertificate::generateCertificateNumber(
             $policy->tenant_id,
             'TEMP'
         );
 
-        $qrBarcodeData = [
-            'qr_code_policy' => url('/media/qrcode/'.urlencode($policy->policy_number)),
-            'qr_code_certificate' => url('/media/qrcode/'.urlencode($tempCertificateNumber)),
-            'barcode_policy' => url('/media/barcode/'.urlencode($policy->policy_number)),
-            'barcode_certificate' => url('/media/barcode/'.urlencode($tempCertificateNumber)),
-        ];
-
-        // Return Inertia response
         return Inertia::render('certificates/Generate', [
             'policy' => $policy->load(['customer', 'policyProduct', 'tenant', 'policyType', 'policyClass']),
-            'templates' => $templates,
+            'templates' => $this->certificateService->getAvailableTemplates(),
             'existing_certificates' => $existingCertificates,
             'available_types' => PolicyCertificate::getAvailableTypes(),
             'regenerate_certificate_id' => $request->get('regenerate_certificate_id'),
-            'qrBarcodeData' => $qrBarcodeData,
+            'qrBarcodeData' => $this->certificateService->generateQrBarcodeData($policy, $tempCertificateNumber),
         ]);
     }
 
     /**
      * Bulk generate certificates
      */
-    public function bulkGenerate(Request $request)
+    public function bulkGenerate(CertificateActionRequest $request)
     {
         Gate::authorize('bulk_generate_certificates');
 
-        $request->validate([
-            'policy_ids' => 'required|array',
-            'policy_ids.*' => 'exists:policies,id',
-            'template_ids' => 'required|array',
-            'template_ids.*' => 'exists:document_templates,id',
-            'options' => 'sometimes|array',
-        ]);
+        $request->validated();
 
         $results = [];
         $successCount = 0;
@@ -462,6 +371,7 @@ class CertificateController extends Controller
 
                 $certificates = $this->certificateService->generateMultipleCertificates(
                     $policy,
+                    $request->user(),
                     $request->template_ids,
                     $request->options ?? []
                 );
@@ -491,95 +401,6 @@ class CertificateController extends Controller
     }
 
     /**
-     * Prepare certificate data for storage
-     */
-    protected function prepareCertificateData(Policy $policy, string $templateKey): array
-    {
-        $customer = $policy->customer;
-        $product = $policy->policyProduct;
-        $certificateNumber = PolicyCertificate::generateCertificateNumber(
-            $policy->tenant_id,
-            strtoupper(substr('policy_certificate', 0, 4))
-        );
-
-        $registry = config('document-templates.templates', []);
-        $template = $registry[$templateKey] ?? [];
-
-        $qrCodePolicy = url('/media/qrcode/'.urlencode($policy->policy_number));
-        $qrCodeCertificate = url('/media/qrcode/'.urlencode($certificateNumber));
-        $barcodePolicy = url('/media/barcode/'.urlencode($policy->policy_number));
-        $barcodeCertificate = url('/media/barcode/'.urlencode($certificateNumber));
-
-        return [
-            'certificate_number' => $certificateNumber,
-            'generation_date' => now()->format('d/m/Y'),
-            'generation_time' => now()->format('H:i:s'),
-            'policy_number' => $policy->policy_number,
-            'policy_status' => $policy->status,
-            'effective_date' => $policy->effective_date,
-            'expiry_date' => $policy->expiry_date,
-            'premium_amount' => $policy->premium_amount,
-            'total_amount' => $policy->total_amount,
-            'payment_frequency' => $policy->payment_frequency,
-            'coverage_details' => $policy->coverage_details,
-            'form_data' => $policy->form_data,
-            'customer_name' => $this->getCustomerName($customer),
-            'customer_type' => $customer->type,
-            'customer_email' => $customer->email,
-            'customer_phone' => $customer->phone,
-            'customer_address' => $this->getCustomerAddress($customer),
-            'product_name' => $product->name,
-            'product_description' => $product->description,
-            'product_category' => $product->category,
-            'company_name' => $policy->tenant->name,
-            'company_address' => $policy->tenant->address,
-            'company_phone' => $policy->tenant->phone,
-            'company_email' => $policy->tenant->email,
-            'qr_code_policy' => $qrCodePolicy,
-            'qr_code_certificate' => $qrCodeCertificate,
-            'barcode_policy' => $barcodePolicy,
-            'barcode_certificate' => $barcodeCertificate,
-            'template_name' => $template['name'] ?? $templateKey,
-            'template_type' => $template['type'] ?? 'certificate',
-        ];
-    }
-
-    /**
-     * Get customer name for display
-     */
-    protected function getCustomerName($customer): string
-    {
-        if ($customer->type === 'corporate') {
-            return $customer->company_name ?: ($customer->first_name.' '.$customer->last_name);
-        }
-
-        return $customer->first_name.' '.$customer->last_name;
-    }
-
-    /**
-     * Get customer address for display
-     */
-    protected function getCustomerAddress($customer): string
-    {
-        $address = [];
-
-        if ($customer->address) {
-            $address[] = $customer->address;
-        }
-        if ($customer->city) {
-            $address[] = $customer->city;
-        }
-        if ($customer->state) {
-            $address[] = $customer->state;
-        }
-        if ($customer->country) {
-            $address[] = $customer->country;
-        }
-
-        return implode(', ', $address);
-    }
-
-    /**
      * Download certificate image as PDF
      */
     protected function downloadImageAsPdf(PolicyCertificate $certificate)
@@ -588,6 +409,10 @@ class CertificateController extends Controller
         if ($certificate->hasCertificateImage()) {
             $imagePath = $certificate->certificate_image_path;
             $fullImagePath = Storage::disk('public')->path($imagePath);
+
+            $mime = mime_content_type($fullImagePath);
+            $base64 = base64_encode(file_get_contents($fullImagePath));
+            $dataUrl = 'data:'.$mime.';base64,'.$base64;
 
             // Create HTML with the image
             $html = "
@@ -602,22 +427,12 @@ class CertificateController extends Controller
                 </style>
             </head>
             <body>
-                <img src='file://{$fullImagePath}' alt='Certificate' />
+                <img src='{$dataUrl}' alt='Certificate' />
             </body>
             </html>";
 
-            // Generate PDF using DomPDF
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
-                ->setPaper('a4', 'portrait')
-                ->setOptions([
-                    'defaultFont' => 'Arial',
-                    'enable_php' => false,
-                    'enable_javascript' => false,
-                    'enable_remote' => true,
-                    'isPhpEnabled' => false,
-                    'isJavascriptEnabled' => false,
-                    'isRemoteEnabled' => true,
-                ]);
+            // Generate PDF using Browsershot
+            $pdfContent = $this->pdfService->renderHtml($html);
 
             // Log download activity
             $certificate->addToAuditTrail(
@@ -627,7 +442,10 @@ class CertificateController extends Controller
 
             $fileName = "certificate-{$certificate->certificate_number}.pdf";
 
-            return $pdf->download($fileName);
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+            ]);
         }
 
         // Fallback: If no image but PDF exists, download the existing PDF

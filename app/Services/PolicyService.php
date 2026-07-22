@@ -39,8 +39,8 @@ class PolicyService
             'payment_frequency' => 'one-off',
             'issued_at' => now(),
             'approved_at' => now(),
-            'created_by' => null, // System generated
             'form_data' => $paymentData['form_data'] ?? [],
+            'coverage_details' => $product->coverage_details ?? [],
         ]);
 
         return $policy;

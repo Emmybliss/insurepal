@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BrokerSlipStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

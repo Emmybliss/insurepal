@@ -2,24 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreReceiptRequest;
+use App\Http\Requests\UpdateReceiptRequest;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Policy;
 use App\Models\Receipt;
 use App\Models\TenantDefaultTemplate;
-use App\Services\DocumentGenerationService;
+use App\Services\Finance\GenerateReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ReceiptController extends Controller
 {
-    protected DocumentGenerationService $documentService;
+    protected GenerateReceiptService $receiptService;
 
-    public function __construct(DocumentGenerationService $documentService)
+    public function __construct(GenerateReceiptService $receiptService)
     {
-        $this->documentService = $documentService;
+        $this->receiptService = $receiptService;
     }
 
     public function index()
@@ -61,63 +64,20 @@ class ReceiptController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreReceiptRequest $request)
     {
-        $validated = $request->validate([
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'customer_id' => 'required|exists:customers,id',
-            'policy_id' => 'nullable|exists:policies,id',
-            'amount_paid' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|string',
-            'payment_date' => 'required|date',
-            'transaction_id' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'currency' => 'required|string|size:3',
-        ]);
+        $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
-
-            $tenantId = Auth::user()->tenant_id;
-
-            $receipt = Receipt::create([
-                'receipt_number' => Receipt::generateReceiptNumber($tenantId),
-                'tenant_id' => $tenantId,
-                'user_id' => Auth::id(),
-                'invoice_id' => $validated['invoice_id'] ?? null,
-                'customer_id' => $validated['customer_id'],
-                'policy_id' => $validated['policy_id'] ?? null,
-                'amount_paid' => $validated['amount_paid'],
-                'payment_method' => $validated['payment_method'],
-                'payment_date' => $validated['payment_date'],
-                'transaction_id' => $validated['transaction_id'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-                'currency' => $validated['currency'],
-                'status' => Receipt::STATUS_COMPLETED,
-            ]);
-
-            // If linked to an invoice, update its payment status
-            if ($receipt->invoice_id) {
-                $invoice = Invoice::findOrFail($receipt->invoice_id);
-                $totalPaid = $invoice->receipts()
-                    ->where('status', Receipt::STATUS_COMPLETED)
-                    ->sum('amount_paid');
-
-                if ($totalPaid >= $invoice->total_amount) {
-                    $invoice->update(['status' => 'paid']);
-                } elseif ($totalPaid > 0) {
-                    $invoice->update(['status' => 'partially_paid']);
-                }
-            }
-
-            DB::commit();
+            $receipt = $this->receiptService->generate(
+                $validated,
+                Auth::user()->tenant_id,
+                Auth::id()
+            );
 
             return redirect()->route('receipts.show', $receipt)
                 ->with('success', 'Receipt created successfully.');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return redirect()->back()
                 ->with('error', 'Failed to create receipt. '.$e->getMessage());
         }
@@ -159,60 +119,16 @@ class ReceiptController extends Controller
         ]);
     }
 
-    public function update(Request $request, Receipt $receipt)
+    public function update(UpdateReceiptRequest $request, Receipt $receipt)
     {
-        $validated = $request->validate([
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'customer_id' => 'required|exists:customers,id',
-            'policy_id' => 'nullable|exists:policies,id',
-            'amount_paid' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|string',
-            'payment_date' => 'required|date',
-            'transaction_id' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'currency' => 'required|string|size:3',
-        ]);
+        $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
-
-            $receipt->update([
-                'invoice_id' => $validated['invoice_id'] ?? null,
-                'customer_id' => $validated['customer_id'],
-                'policy_id' => $validated['policy_id'] ?? null,
-                'amount_paid' => $validated['amount_paid'],
-                'payment_method' => $validated['payment_method'],
-                'payment_date' => $validated['payment_date'],
-                'transaction_id' => $validated['transaction_id'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-                'currency' => $validated['currency'],
-            ]);
-
-            // Re-sync invoice status if an invoice is linked
-            $invoiceId = $validated['invoice_id'] ?? $receipt->invoice_id;
-            if ($invoiceId) {
-                $invoice = Invoice::findOrFail($invoiceId);
-                $totalPaid = $invoice->receipts()
-                    ->where('status', Receipt::STATUS_COMPLETED)
-                    ->sum('amount_paid');
-
-                if ($totalPaid >= $invoice->total_amount) {
-                    $invoice->update(['status' => 'paid']);
-                } elseif ($totalPaid > 0) {
-                    $invoice->update(['status' => 'partially_paid']);
-                } else {
-                    $invoice->update(['status' => 'sent']);
-                }
-            }
-
-            DB::commit();
+            $receipt = $this->receiptService->update($receipt, $validated);
 
             return redirect()->route('receipts.show', $receipt)
                 ->with('success', 'Receipt updated successfully.');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return redirect()->back()
                 ->with('error', 'Failed to update receipt. '.$e->getMessage());
         }
@@ -220,7 +136,7 @@ class ReceiptController extends Controller
 
     public function destroy(Receipt $receipt)
     {
-        if ($receipt->status !== Receipt::STATUS_PENDING) {
+        if ($receipt->payment_status !== Receipt::STATUS_PENDING) {
             return redirect()->back()
                 ->with('error', 'Only pending receipts can be deleted.');
         }
@@ -233,37 +149,17 @@ class ReceiptController extends Controller
 
     public function markAsRefunded(Receipt $receipt)
     {
-        if ($receipt->status !== Receipt::STATUS_COMPLETED) {
+        if ($receipt->payment_status !== Receipt::STATUS_COMPLETED) {
             return redirect()->back()
                 ->with('error', 'Only completed payments can be refunded.');
         }
 
         try {
-            DB::beginTransaction();
-
-            $receipt->update(['status' => Receipt::STATUS_REFUNDED]);
-
-            if ($receipt->invoice_id) {
-                $invoice = $receipt->invoice;
-                $totalPaid = $invoice->receipts()
-                    ->where('status', Receipt::STATUS_COMPLETED)
-                    ->sum('amount_paid');
-
-                if ($totalPaid === 0) {
-                    $invoice->update(['status' => 'sent']);
-                } elseif ($totalPaid < $invoice->total_amount) {
-                    $invoice->update(['status' => 'partially_paid']);
-                }
-            }
-
-            DB::commit();
+            $this->receiptService->markAsRefunded($receipt);
 
             return redirect()->back()
                 ->with('success', 'Receipt marked as refunded.');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return redirect()->back()
                 ->with('error', 'Failed to mark receipt as refunded. '.$e->getMessage());
         }
@@ -278,7 +174,7 @@ class ReceiptController extends Controller
             $templateKey = $request->input('template_key', 'receipt.classic');
             $template = $registry[$templateKey] ?? null;
 
-            $pdf = $this->documentService->generateReceiptPdf($receipt, $template);
+            $pdf = $this->receiptService->generatePdf($receipt, $template);
 
             return response($pdf, 200, [
                 'Content-Type' => 'application/pdf',
@@ -307,43 +203,24 @@ class ReceiptController extends Controller
     {
         $request->validate([
             'template_key' => 'required|string',
-        ]);
+        ]); // single field — leave inline
 
         try {
-            DB::beginTransaction();
-
             $registry = config('document-templates.templates', []);
             $templateKey = $request->input('template_key', 'receipt.classic');
             $template = $registry[$templateKey] ?? null;
 
             if (! $template) {
-                throw new \Exception("Template '{$templateKey}' not found.");
+                return redirect()->back()->with('error', "Template '{$templateKey}' not found.");
             }
 
-            // Generate PDF content
-            $pdfContent = $this->documentService->generateReceiptPdf($receipt, $template);
-
-            // Define storage path
-            $fileName = 'receipt_'.$receipt->id.'_'.time().'.pdf';
-            $filePath = 'receipts/'.$fileName;
-
-            // Store file
-            \Illuminate\Support\Facades\Storage::disk('public')->put($filePath, $pdfContent);
-
-            // Update receipt
-            $receipt->update([
-                'file_path' => $filePath,
-                'status' => Receipt::STATUS_COMPLETED,
-            ]);
-
-            DB::commit();
+            $pdfContent = $this->receiptService->generatePdf($receipt, $template);
+            $this->receiptService->storePdf($receipt, $pdfContent);
 
             return redirect()->route('receipts.show', $receipt->id)
                 ->with('success', 'Receipt generated successfully.');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Receipt generation failed: '.$e->getMessage());
+            Log::error('Receipt generation failed: '.$e->getMessage());
 
             return redirect()->back()->with('error', 'Failed to generate receipt: '.$e->getMessage());
         }
@@ -351,7 +228,7 @@ class ReceiptController extends Controller
 
     public function previewReceipt(Receipt $receipt)
     {
-        if (! $receipt->file_path || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($receipt->file_path)) {
+        if (! $receipt->file_path || ! Storage::disk('public')->exists($receipt->file_path)) {
             return redirect()->back()->with('error', 'Receipt file not found.');
         }
 
@@ -363,22 +240,12 @@ class ReceiptController extends Controller
 
     public function htmlPreview(Request $request, Receipt $receipt)
     {
-        $registry = config('document-templates.templates', []);
         $templateKey = $request->input('template_key', 'receipt.classic');
-        $template = $registry[$templateKey] ?? null;
+        $pdfContent = app(\App\Services\DocumentGenerationService::class)->generateReceiptPdf($receipt, $templateKey);
 
-        if (! $template) {
-            $receiptTemplates = array_filter($registry, fn ($t) => ($t['type'] ?? '') === 'receipt');
-            $templateKey = array_key_first($receiptTemplates);
-            $template = $templateKey ? $registry[$templateKey] : null;
-        }
-
-        if (! $template) {
-            return 'No receipt template found.';
-        }
-
-        $html = $this->documentService->generateReceiptHtml($receipt, $template, true);
-
-        return response($html);
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="receipt-preview.pdf"',
+        ]);
     }
 }

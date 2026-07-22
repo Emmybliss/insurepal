@@ -208,7 +208,7 @@ class DynamicFieldController extends Controller
             'fields' => 'required|array',
             'fields.*.id' => 'required|exists:dynamic_fields,id',
             'fields.*.field_value' => 'nullable',
-        ]);
+        ]); // single field — leave inline
 
         foreach ($request->fields as $fieldData) {
             $field = DynamicField::find($fieldData['id']);

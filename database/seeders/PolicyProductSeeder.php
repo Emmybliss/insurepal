@@ -5,218 +5,244 @@ namespace Database\Seeders;
 use App\Models\PolicyClass;
 use App\Models\PolicyProduct;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class PolicyProductSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $policyProducts = [
-            // Motor Insurance Products
-            [
-                'policy_class_id' => 2, // Third Party Only
-                'name' => 'Basic Third Party Motor',
-                'code' => 'MOTOR-TPO-001',
-                'description' => 'Mandatory third party motor insurance coverage',
-                'base_premium' => 15000.00,
-                'commission_rate' => 10.00,
-                'min_sum_assured' => 1000000.00,
-                'max_sum_assured' => 5000000.00,
-                'form_fields' => [
-                    ['name' => 'vehicle_type', 'type' => 'select', 'label' => 'Vehicle Type', 'options' => ['private', 'commercial'], 'required' => true],
-                    ['name' => 'engine_capacity', 'type' => 'number', 'label' => 'Engine Capacity (CC)', 'required' => true],
-                    ['name' => 'year_of_manufacture', 'type' => 'number', 'label' => 'Year of Manufacture', 'required' => true],
-                    ['name' => 'driver_age', 'type' => 'number', 'label' => 'Primary Driver Age', 'required' => true],
-                ],
-                'premium_factors' => [
-                    ['name' => 'vehicle_type', 'condition' => 'commercial', 'multiplier' => 1.5],
-                    ['name' => 'driver_age', 'condition' => '<25', 'multiplier' => 1.3],
-                ],
-                'sort_order' => 1,
-            ],
-            [
-                'policy_class_id' => 3, // Third Party Fire & Theft
-                'name' => 'Third Party Fire & Theft Cover',
-                'code' => 'MOTOR-TPFT-001',
-                'description' => 'Third party coverage plus fire and theft protection',
-                'base_premium' => 25000.00,
-                'commission_rate' => 12.00,
-                'min_sum_assured' => 1000000.00,
-                'max_sum_assured' => 10000000.00,
-                'form_fields' => [
-                    ['name' => 'vehicle_value', 'type' => 'number', 'label' => 'Vehicle Market Value (₦)', 'required' => true],
-                    ['name' => 'security_features', 'type' => 'checkbox', 'label' => 'Security Features', 'options' => ['alarm', 'immobilizer', 'tracker'], 'required' => false],
-                ],
-                'sort_order' => 2,
-            ],
-            [
-                'policy_class_id' => 1, // Comprehensive Cover
-                'name' => 'Full Comprehensive Motor',
-                'code' => 'MOTOR-COMP-001',
-                'description' => 'Complete motor insurance with all risks covered',
-                'base_premium' => 45000.00,
-                'commission_rate' => 15.00,
-                'min_sum_assured' => 2000000.00,
-                'max_sum_assured' => 50000000.00,
-                'form_fields' => [
-                    ['name' => 'vehicle_value', 'type' => 'number', 'label' => 'Vehicle Market Value (₦)', 'required' => true],
-                    ['name' => 'excess_amount', 'type' => 'select', 'label' => 'Excess Amount', 'options' => ['50000', '100000', '200000'], 'required' => true],
-                    ['name' => 'usage_type', 'type' => 'select', 'label' => 'Usage Type', 'options' => ['social_domestic', 'business', 'commercial'], 'required' => true],
-                ],
-                'premium_factors' => [
-                    ['name' => 'vehicle_value', 'condition' => '>10000000', 'multiplier' => 1.2],
-                    ['name' => 'usage_type', 'condition' => 'commercial', 'multiplier' => 1.4],
-                ],
-                'sort_order' => 3,
-            ],
+        $classes = PolicyClass::with('policyType')->get()->keyBy('name');
 
-            // Life Insurance Products
-            [
-                'policy_class_id' => 6, // Level Term
-                'name' => 'Level Term Life Insurance',
-                'code' => 'LIFE-TERM-001',
-                'description' => 'Fixed premium term life insurance with level death benefit',
-                'base_premium' => 25000.00,
-                'commission_rate' => 20.00,
-                'min_sum_assured' => 1000000.00,
-                'max_sum_assured' => 100000000.00,
-                'form_fields' => [
-                    ['name' => 'sum_assured', 'type' => 'number', 'label' => 'Sum Assured (₦)', 'required' => true],
-                    ['name' => 'term_years', 'type' => 'select', 'label' => 'Policy Term (Years)', 'options' => ['5', '10', '15', '20', '25'], 'required' => true],
-                    ['name' => 'smoker_status', 'type' => 'select', 'label' => 'Smoking Status', 'options' => ['non_smoker', 'smoker'], 'required' => true],
-                    ['name' => 'occupation_class', 'type' => 'select', 'label' => 'Occupation Risk Class', 'options' => ['class_1', 'class_2', 'class_3', 'class_4'], 'required' => true],
-                ],
-                'premium_factors' => [
-                    ['name' => 'smoker_status', 'condition' => 'smoker', 'multiplier' => 1.5],
-                    ['name' => 'occupation_class', 'condition' => 'class_4', 'multiplier' => 2.0],
-                ],
-                'requires_medical_exam' => true,
-                'sort_order' => 4,
-            ],
-            [
-                'policy_class_id' => 9, // Traditional Whole Life
-                'name' => 'Whole Life Insurance',
-                'code' => 'LIFE-WHOLE-001',
-                'description' => 'Permanent life insurance with cash value accumulation',
-                'base_premium' => 50000.00,
-                'commission_rate' => 25.00,
-                'min_sum_assured' => 2000000.00,
-                'max_sum_assured' => 200000000.00,
-                'form_fields' => [
-                    ['name' => 'payment_frequency', 'type' => 'select', 'label' => 'Premium Payment', 'options' => ['annual', 'semi_annual', 'quarterly', 'monthly'], 'required' => true],
-                    ['name' => 'beneficiary_details', 'type' => 'textarea', 'label' => 'Beneficiary Information', 'required' => true],
-                ],
-                'requires_underwriting' => true,
-                'requires_medical_exam' => true,
-                'sort_order' => 5,
-            ],
+        $products = [
+            // Motor
+            ['class' => 'Motor', 'name' => 'Comprehensive Motor'],
+            ['class' => 'Motor', 'name' => 'Third Party Only'],
+            ['class' => 'Motor', 'name' => 'Third Party Fire & Theft'],
+            ['class' => 'Motor', 'name' => 'Fleet Motor'],
+            ['class' => 'Motor', 'name' => 'Commercial Motor'],
+            ['class' => 'Motor', 'name' => 'Private Motor'],
 
-            // Property Insurance Products
-            [
-                'policy_class_id' => 11, // Buildings Insurance
-                'name' => 'Residential Buildings Insurance',
-                'code' => 'PROP-BLDG-001',
-                'description' => 'Coverage for residential building structures',
-                'base_premium' => 35000.00,
-                'commission_rate' => 15.00,
-                'min_sum_assured' => 5000000.00,
-                'max_sum_assured' => 500000000.00,
-                'form_fields' => [
-                    ['name' => 'property_value', 'type' => 'number', 'label' => 'Property Replacement Value (₦)', 'required' => true],
-                    ['name' => 'property_type', 'type' => 'select', 'label' => 'Property Type', 'options' => ['bungalow', 'duplex', 'apartment', 'mansion'], 'required' => true],
-                    ['name' => 'construction_type', 'type' => 'select', 'label' => 'Construction Type', 'options' => ['concrete', 'brick', 'wood', 'mixed'], 'required' => true],
-                    ['name' => 'location_state', 'type' => 'select', 'label' => 'State', 'options' => ['lagos', 'abuja', 'kano', 'rivers', 'other'], 'required' => true],
-                ],
-                'premium_factors' => [
-                    ['name' => 'location_state', 'condition' => 'lagos', 'multiplier' => 1.2],
-                    ['name' => 'construction_type', 'condition' => 'wood', 'multiplier' => 1.8],
-                ],
-                'sort_order' => 6,
-            ],
-            [
-                'policy_class_id' => 12, // Contents Insurance
-                'name' => 'Home Contents Insurance',
-                'code' => 'PROP-CONT-001',
-                'description' => 'Coverage for household contents and personal belongings',
-                'base_premium' => 20000.00,
-                'commission_rate' => 12.00,
-                'min_sum_assured' => 1000000.00,
-                'max_sum_assured' => 50000000.00,
-                'form_fields' => [
-                    ['name' => 'contents_value', 'type' => 'number', 'label' => 'Total Contents Value (₦)', 'required' => true],
-                    ['name' => 'high_value_items', 'type' => 'textarea', 'label' => 'High Value Items (₦500k+)', 'required' => false],
-                    ['name' => 'security_level', 'type' => 'select', 'label' => 'Security Level', 'options' => ['basic', 'moderate', 'high'], 'required' => true],
-                ],
-                'sort_order' => 7,
-            ],
-            [
-                'policy_class_id' => 13, // Combined Buildings & Contents
-                'name' => 'Combined Home Insurance',
-                'code' => 'PROP-COMB-001',
-                'description' => 'Combined buildings and contents insurance package',
-                'base_premium' => 50000.00,
-                'commission_rate' => 18.00,
-                'min_sum_assured' => 10000000.00,
-                'max_sum_assured' => 1000000000.00,
-                'form_fields' => [
-                    ['name' => 'building_value', 'type' => 'number', 'label' => 'Building Replacement Value (₦)', 'required' => true],
-                    ['name' => 'contents_value', 'type' => 'number', 'label' => 'Contents Value (₦)', 'required' => true],
-                    ['name' => 'alternative_accommodation', 'type' => 'select', 'label' => 'Alternative Accommodation Limit', 'options' => ['10_percent', '15_percent', '20_percent'], 'required' => true],
-                ],
-                'sort_order' => 8,
-            ],
+            // Fire & Special Perils
+            ['class' => 'Fire & Special Perils', 'name' => 'Fire & Special Perils'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Fire Only'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Industrial All Risks'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Property All Risks'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Houseowners'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Householders'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Business Premises'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Office Package'],
+            ['class' => 'Fire & Special Perils', 'name' => 'Shop Insurance'],
 
-            // Commercial Products
-            [
-                'policy_class_id' => 4, // Commercial Comprehensive
-                'name' => 'Commercial Vehicle Fleet',
-                'code' => 'COMM-FLEET-001',
-                'description' => 'Comprehensive coverage for commercial vehicle fleets',
-                'base_premium' => 75000.00,
-                'commission_rate' => 20.00,
-                'min_sum_assured' => 5000000.00,
-                'max_sum_assured' => 500000000.00,
-                'form_fields' => [
-                    ['name' => 'fleet_size', 'type' => 'number', 'label' => 'Number of Vehicles', 'required' => true],
-                    ['name' => 'business_type', 'type' => 'select', 'label' => 'Business Type', 'options' => ['logistics', 'taxi', 'delivery', 'construction', 'other'], 'required' => true],
-                    ['name' => 'average_vehicle_value', 'type' => 'number', 'label' => 'Average Vehicle Value (₦)', 'required' => true],
-                ],
-                'premium_factors' => [
-                    ['name' => 'business_type', 'condition' => 'construction', 'multiplier' => 1.5],
-                    ['name' => 'fleet_size', 'condition' => '>10', 'multiplier' => 0.9], // Volume discount
-                ],
-                'requires_underwriting' => true,
-                'sort_order' => 9,
-            ],
-            [
-                'policy_class_id' => 14, // Office Buildings
-                'name' => 'Commercial Office Insurance',
-                'code' => 'COMM-OFFICE-001',
-                'description' => 'Insurance coverage for commercial office buildings',
-                'base_premium' => 100000.00,
-                'commission_rate' => 15.00,
-                'min_sum_assured' => 50000000.00,
-                'max_sum_assured' => 5000000000.00,
-                'form_fields' => [
-                    ['name' => 'building_area', 'type' => 'number', 'label' => 'Total Floor Area (sqm)', 'required' => true],
-                    ['name' => 'occupancy_type', 'type' => 'select', 'label' => 'Primary Occupancy', 'options' => ['single_tenant', 'multi_tenant', 'mixed_use'], 'required' => true],
-                    ['name' => 'fire_safety_rating', 'type' => 'select', 'label' => 'Fire Safety Rating', 'options' => ['excellent', 'good', 'fair', 'poor'], 'required' => true],
-                ],
-                'requires_underwriting' => true,
-                'sort_order' => 10,
-            ],
+            // Marine
+            ['class' => 'Marine', 'name' => 'Marine Cargo'],
+            ['class' => 'Marine', 'name' => 'Marine Hull'],
+            ['class' => 'Marine', 'name' => 'Inland Transit'],
+            ['class' => 'Marine', 'name' => 'Goods in Transit'],
+            ['class' => 'Marine', 'name' => 'Open Cover'],
+            ['class' => 'Marine', 'name' => 'Specific Voyage'],
+
+            // Engineering
+            ['class' => 'Engineering', 'name' => 'Contractors All Risks'],
+            ['class' => 'Engineering', 'name' => 'Erection All Risks'],
+            ['class' => 'Engineering', 'name' => 'Machinery Breakdown'],
+            ['class' => 'Engineering', 'name' => 'Boiler & Pressure Plant'],
+            ['class' => 'Engineering', 'name' => 'Electronic Equipment'],
+            ['class' => 'Engineering', 'name' => 'Deterioration of Stock'],
+
+            // Aviation
+            ['class' => 'Aviation', 'name' => 'Aircraft Hull'],
+            ['class' => 'Aviation', 'name' => 'Aircraft Liability'],
+            ['class' => 'Aviation', 'name' => 'Passenger Liability'],
+            ['class' => 'Aviation', 'name' => 'Aviation Combined'],
+
+            // Oil & Energy
+            ['class' => 'Oil & Energy', 'name' => 'Offshore Package'],
+            ['class' => 'Oil & Energy', 'name' => 'Onshore Package'],
+            ['class' => 'Oil & Energy', 'name' => 'Energy All Risks'],
+
+            // Bond / Credit
+            ['class' => 'Bond / Credit', 'name' => 'Bid Bond'],
+            ['class' => 'Bond / Credit', 'name' => 'Performance Bond'],
+            ['class' => 'Bond / Credit', 'name' => 'Advance Payment Bond'],
+            ['class' => 'Bond / Credit', 'name' => 'Customs Bond'],
+            ['class' => 'Bond / Credit', 'name' => 'Fidelity Guarantee'],
+            ['class' => 'Bond / Credit', 'name' => 'Credit Insurance'],
+
+            // Accident
+            ['class' => 'Accident', 'name' => 'Personal Accident'],
+            ['class' => 'Accident', 'name' => 'Group Personal Accident'],
+            ['class' => 'Accident', 'name' => 'Burglary'],
+            ['class' => 'Accident', 'name' => 'Money Insurance'],
+            ['class' => 'Accident', 'name' => 'Public Liability'],
+            ['class' => 'Accident', 'name' => 'Product Liability'],
+            ['class' => 'Accident', 'name' => 'Employer\'s Liability'],
+            ['class' => 'Accident', 'name' => 'Professional Indemnity'],
+            ['class' => 'Accident', 'name' => 'Occupiers Liability'],
+
+            // Agriculture
+            ['class' => 'Agriculture', 'name' => 'Crop Insurance'],
+            ['class' => 'Agriculture', 'name' => 'Livestock Insurance'],
+            ['class' => 'Agriculture', 'name' => 'Poultry Insurance'],
+            ['class' => 'Agriculture', 'name' => 'Fishery Insurance'],
+
+            // Miscellaneous
+            ['class' => 'Miscellaneous', 'name' => 'Travel Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Event Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Golfers Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Mobile Device Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Gadget Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Cyber Insurance'],
+            ['class' => 'Miscellaneous', 'name' => 'Directors & Officers Liability'],
+            ['class' => 'Miscellaneous', 'name' => 'Political Violence'],
+            ['class' => 'Miscellaneous', 'name' => 'Terrorism Cover'],
+
+            // Various Policy
+            ['class' => 'Various Policy', 'name' => 'Various Policy Schedule'],
+
+            // Life - Individual Life
+            ['class' => 'Individual Life', 'name' => 'Term Assurance'],
+            ['class' => 'Individual Life', 'name' => 'Whole Life'],
+            ['class' => 'Individual Life', 'name' => 'Endowment'],
+            ['class' => 'Individual Life', 'name' => 'Education Plan'],
+            ['class' => 'Individual Life', 'name' => 'Mortgage Protection'],
+            ['class' => 'Individual Life', 'name' => 'Investment Linked'],
+            ['class' => 'Individual Life', 'name' => 'Savings Plan'],
+
+            // Life - Group Life
+            ['class' => 'Group Life', 'name' => 'Group Life'],
+            ['class' => 'Group Life', 'name' => 'Employee Group Life'],
+            ['class' => 'Group Life', 'name' => 'Credit Life'],
+            ['class' => 'Group Life', 'name' => 'Mortgage Life'],
+
+            // Life - Annuity
+            ['class' => 'Annuity', 'name' => 'Immediate Annuity'],
+            ['class' => 'Annuity', 'name' => 'Deferred Annuity'],
+
+            // Life - Micro Insurance
+            ['class' => 'Micro Insurance', 'name' => 'Family Protection'],
+            ['class' => 'Micro Insurance', 'name' => 'SME Protection'],
+            ['class' => 'Micro Insurance', 'name' => 'Market Trader Protection'],
+            ['class' => 'Micro Insurance', 'name' => 'Artisan Protection'],
+
+            // Health
+            ['class' => 'Individual Health', 'name' => 'Individual Health Plan'],
+            ['class' => 'Group Health', 'name' => 'Family Health Plan'],
+            ['class' => 'Group Health', 'name' => 'Corporate Health Plan'],
+            ['class' => 'Group Health', 'name' => 'Executive Health Plan'],
+
+            // Takaful General - Motor Takaful
+            ['class' => 'Motor Takaful', 'name' => 'Comprehensive Motor Takaful'],
+            ['class' => 'Motor Takaful', 'name' => 'Third Party Motor Takaful'],
+            ['class' => 'Motor Takaful', 'name' => 'Third Party Fire & Theft Takaful'],
+            ['class' => 'Motor Takaful', 'name' => 'Fleet Motor Takaful'],
+
+            // Takaful General - Fire & Property Takaful
+            ['class' => 'Fire & Property Takaful', 'name' => 'Fire & Special Perils Takaful'],
+            ['class' => 'Fire & Property Takaful', 'name' => 'Houseowners Takaful'],
+            ['class' => 'Fire & Property Takaful', 'name' => 'Householders Takaful'],
+            ['class' => 'Fire & Property Takaful', 'name' => 'Property All Risks Takaful'],
+            ['class' => 'Fire & Property Takaful', 'name' => 'Office Package Takaful'],
+            ['class' => 'Fire & Property Takaful', 'name' => 'Shop Insurance Takaful'],
+
+            // Takaful General - Marine Takaful
+            ['class' => 'Marine Takaful', 'name' => 'Marine Cargo Takaful'],
+            ['class' => 'Marine Takaful', 'name' => 'Marine Hull Takaful'],
+            ['class' => 'Marine Takaful', 'name' => 'Goods in Transit Takaful'],
+            ['class' => 'Marine Takaful', 'name' => 'Inland Transit Takaful'],
+
+            // Takaful General - Engineering Takaful
+            ['class' => 'Engineering Takaful', 'name' => 'Contractors All Risks Takaful'],
+            ['class' => 'Engineering Takaful', 'name' => 'Erection All Risks Takaful'],
+            ['class' => 'Engineering Takaful', 'name' => 'Machinery Breakdown Takaful'],
+            ['class' => 'Engineering Takaful', 'name' => 'Electronic Equipment Takaful'],
+
+            // Takaful General - Accident & Liability Takaful
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Personal Accident Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Group Personal Accident Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Public Liability Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Product Liability Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Professional Indemnity Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Employer\'s Liability Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Money Insurance Takaful'],
+            ['class' => 'Accident & Liability Takaful', 'name' => 'Burglary Takaful'],
+
+            // Takaful General - Agriculture Takaful
+            ['class' => 'Agriculture Takaful', 'name' => 'Crop Takaful'],
+            ['class' => 'Agriculture Takaful', 'name' => 'Livestock Takaful'],
+            ['class' => 'Agriculture Takaful', 'name' => 'Poultry Takaful'],
+            ['class' => 'Agriculture Takaful', 'name' => 'Fishery Takaful'],
+
+            // Takaful General - Miscellaneous Takaful
+            ['class' => 'Miscellaneous Takaful', 'name' => 'Travel Takaful'],
+            ['class' => 'Miscellaneous Takaful', 'name' => 'Event Takaful'],
+            ['class' => 'Miscellaneous Takaful', 'name' => 'Gadget Takaful'],
+            ['class' => 'Miscellaneous Takaful', 'name' => 'Cyber Takaful'],
+
+            // Takaful Family - Individual Family Takaful
+            ['class' => 'Individual Family Takaful', 'name' => 'Family Protection Plan'],
+            ['class' => 'Individual Family Takaful', 'name' => 'Individual Term Takaful'],
+            ['class' => 'Individual Family Takaful', 'name' => 'Whole Life Takaful'],
+            ['class' => 'Individual Family Takaful', 'name' => 'Education Takaful Plan'],
+            ['class' => 'Individual Family Takaful', 'name' => 'Savings Takaful Plan'],
+            ['class' => 'Individual Family Takaful', 'name' => 'Investment Linked Takaful'],
+
+            // Takaful Family - Group Family Takaful
+            ['class' => 'Group Family Takaful', 'name' => 'Group Family Takaful'],
+            ['class' => 'Group Family Takaful', 'name' => 'Employee Family Protection'],
+            ['class' => 'Group Family Takaful', 'name' => 'Group Credit Takaful'],
+            ['class' => 'Group Family Takaful', 'name' => 'Mortgage Takaful'],
+
+            // Takaful Family - Retirement & Pension Takaful
+            ['class' => 'Retirement & Pension Takaful', 'name' => 'Retirement Savings Takaful'],
+            ['class' => 'Retirement & Pension Takaful', 'name' => 'Retirement Income Takaful'],
+            ['class' => 'Retirement & Pension Takaful', 'name' => 'Pension Protection Takaful'],
+
+            // Takaful Family - Children's Education Takaful
+            ['class' => 'Children\'s Education Takaful', 'name' => 'Education Savings Plan'],
+            ['class' => 'Children\'s Education Takaful', 'name' => 'University Education Plan'],
+            ['class' => 'Children\'s Education Takaful', 'name' => 'Child Future Plan'],
+
+            // Takaful Family - Micro Takaful
+            ['class' => 'Micro Takaful', 'name' => 'SME Protection'],
+            ['class' => 'Micro Takaful', 'name' => 'Artisan Protection'],
+            ['class' => 'Micro Takaful', 'name' => 'Market Trader Protection'],
+            ['class' => 'Micro Takaful', 'name' => 'Family Micro Takaful'],
         ];
 
-        foreach ($policyProducts as $productData) {
-            $policyClass = PolicyClass::with('policyType')->find($productData['policy_class_id']);
+        $sortOrder = 1;
 
-            if ($policyClass) {
-                $productData['policy_type_id'] = $policyClass->policyType->id;
-
-                PolicyProduct::create($productData);
+        foreach ($products as $productData) {
+            if (! isset($classes[$productData['class']])) {
+                continue; // Skip if class not found
             }
+
+            $policyClass = $classes[$productData['class']];
+
+            $code = strtoupper(Str::slug($productData['name'], '_'));
+
+            PolicyProduct::updateOrCreate(
+                [
+                    'code' => $code,
+                    'tenant_id' => null, // Platform template
+                ],
+                [
+                    'policy_type_id' => $policyClass->policy_type_id,
+                    'policy_class_id' => $policyClass->id,
+                    'name' => $productData['name'],
+                    'description' => $productData['name'].' standard template',
+                    'is_active' => true,
+                    'base_premium' => 0.00,
+                    'commission_rate' => 0.00,
+                    'default_coverage_period' => 365,
+                    'min_sum_assured' => 0.00,
+                    'requires_underwriting' => false,
+                    'requires_medical_exam' => false,
+                    'currency' => 'NGN',
+                    'sort_order' => $sortOrder++,
+                ]
+            );
         }
+
+        $this->command->info('Policy products seeded successfully!');
     }
 }

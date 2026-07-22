@@ -99,7 +99,11 @@ class Customer extends Model
 
     public function hasLoginAccess(): bool
     {
-        return ! is_null($this->user_id);
+        if (is_null($this->user_id)) {
+            return false;
+        }
+
+        return $this->user && $this->user->login_access;
     }
 
     public function scopeActive($query)

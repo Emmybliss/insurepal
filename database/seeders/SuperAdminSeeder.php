@@ -16,10 +16,10 @@ class SuperAdminSeeder extends Seeder
     {
         // Create super admin user
         $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@insurepal.com'],
+            ['email' => 'admin@insurepal.app'],
             [
                 'name' => 'Super Administrator',
-                'email' => 'admin@insurepal.com',
+                'email' => 'admin@insurepal.app',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
                 'tenant_id' => null, // Super admin doesn't belong to any tenant
@@ -34,7 +34,7 @@ class SuperAdminSeeder extends Seeder
         }
 
         $this->command->info('Super admin user created/updated successfully!');
-        $this->command->info('Email: admin@insurepal.com');
+        $this->command->info('Email: admin@insurepal.app');
         $this->command->info('Password: password');
         $this->command->info('Roles: '.$superAdmin->roles->pluck('name')->join(', '));
         $this->command->info('Permissions: '.$superAdmin->getAllPermissions()->count().' permissions');

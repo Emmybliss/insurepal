@@ -4,21 +4,22 @@ namespace App\Services;
 
 use App\Enums\PlacementMarketStatus;
 use App\Enums\PlacementStatus;
+use App\Events\PolicyCreated;
 use App\Models\Placement;
 use App\Models\Policy;
 use App\Models\PolicyProduct;
 use App\Models\Quote;
+use App\Models\User;
 use Exception;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PlacementService
 {
-    public function getPlacementsForTenant(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function getPlacementsForTenant(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = Placement::query()
-            ->forTenant(Auth::user()->tenant_id)
+            ->forTenant($user->tenant_id)
             ->with([
                 'customer:id,type,first_name,last_name,company_name,email',
                 'policyProduct:id,name,code',
@@ -33,9 +34,9 @@ class PlacementService
         return $query->paginate($perPage)->withQueryString();
     }
 
-    public function createFromQuote(Quote $quote, array $extra = []): Placement
+    public function createFromQuote(User $user, Quote $quote, array $extra = []): Placement
     {
-        return DB::transaction(function () use ($quote, $extra) {
+        return DB::transaction(function () use ($user, $quote, $extra) {
             $placement = Placement::create([
                 'tenant_id' => $quote->tenant_id,
                 'quote_id' => $quote->id,
@@ -48,7 +49,7 @@ class PlacementService
                 'status' => PlacementStatus::Draft->value,
                 'notes' => $extra['notes'] ?? null,
                 'risk_details' => $quote->form_data,
-                'created_by' => Auth::id(),
+                'created_by' => $user->id,
             ]);
 
             return $placement->load(['customer', 'policyProduct', 'createdBy']);
@@ -145,7 +146,7 @@ class PlacementService
         });
     }
 
-    public function convertToPolicy(Placement $placement): Policy
+    public function convertToPolicy(User $user, Placement $placement): Policy
     {
         if ($placement->status !== PlacementStatus::Accepted->value &&
             $placement->status !== PlacementStatus::Bound->value) {
@@ -156,10 +157,12 @@ class PlacementService
             throw new Exception('This placement has already been converted to a policy.');
         }
 
-        return DB::transaction(function () use ($placement) {
+        return DB::transaction(function () use ($user, $placement) {
             $acceptedMarket = $placement->markets()
                 ->whereIn('status', ['accepted'])
                 ->first();
+
+            $product = $placement->policyProduct ?? PolicyProduct::find($placement->policy_product_id);
 
             $policy = Policy::create([
                 'tenant_id' => $placement->tenant_id,
@@ -167,17 +170,28 @@ class PlacementService
                 'quote_id' => $placement->quote_id,
                 'placement_id' => $placement->id,
                 'policy_product_id' => $placement->policy_product_id,
+                'policy_type_id' => $product?->policy_type_id,
+                'policy_class_id' => $product?->policy_class_id,
                 'policy_number' => Policy::generatePolicyNumber($placement->tenant_id),
                 'source_type' => Policy::SOURCE_BROKER_RECORDED,
                 'status' => 'active',
                 'effective_date' => $placement->proposed_start_date,
                 'expiry_date' => $placement->proposed_end_date,
+                'coverage_details' => $placement->risk_details ?? [],
                 'premium_amount' => $placement->total_sum_insured,
-                'total_amount' => $placement->total_sum_insured,
+                'commission_amount' => $product?->commission_rate
+                    ? ($placement->total_sum_insured * $product->commission_rate / 100)
+                    : 0,
+                'total_amount' => $placement->total_sum_insured + ($product?->commission_rate
+                    ? ($placement->total_sum_insured * $product->commission_rate / 100)
+                    : 0),
+                'sum_insured' => $placement->total_sum_insured,
                 'form_data' => $placement->risk_details,
-                'created_by' => Auth::id(),
+                'created_by' => $user->id,
                 'insurer_id' => $acceptedMarket?->insurance_company_id,
             ]);
+
+            PolicyCreated::dispatch($policy, (float) $policy->commission_amount, $user);
 
             $placement->update(['status' => PlacementStatus::Bound->value]);
 

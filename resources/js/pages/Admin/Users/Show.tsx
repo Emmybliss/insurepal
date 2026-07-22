@@ -178,10 +178,7 @@ export default function UserShow({ user, stats, recentActivity }: UserShowProps)
                                             ) : user.last_active_at ? (
                                                 <div className="flex items-center">
                                                     <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                                                    <span>
-                                                        Last active{' '}
-                                                        {formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true })}
-                                                    </span>
+                                                    <span>Last active {formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true })}</span>
                                                 </div>
                                             ) : stats.last_login ? (
                                                 <div className="flex items-center">

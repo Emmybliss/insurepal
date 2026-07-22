@@ -1,5 +1,5 @@
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { CheckCircle, Edit, Eye, FileText, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,19 +41,27 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
     );
 
     const handleSetDefault = (key: string) => {
-        router.post(route('templates.set-default', key), {}, {
-            preserveScroll: true,
-            onSuccess: () => toast.success('Default template updated'),
-            onError: () => toast.error('Failed to set default template'),
-        });
+        router.post(
+            route('templates.set-default', key),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => toast.success('Default template updated'),
+                onError: () => toast.error('Failed to set default template'),
+            },
+        );
     };
 
     const handleRemoveDefault = (key: string) => {
-        router.post(route('templates.remove-default', key), {}, {
-            preserveScroll: true,
-            onSuccess: () => toast.success('Default template removed'),
-            onError: () => toast.error('Failed to remove default template'),
-        });
+        router.post(
+            route('templates.remove-default', key),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => toast.success('Default template removed'),
+                onError: () => toast.error('Failed to remove default template'),
+            },
+        );
     };
 
     return (
@@ -64,9 +72,7 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
                 <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-tracking-light text-3xl font-bold">Document Templates</h1>
-                        <p className="text-muted-foreground">
-                            Preview, customize, and set default Blade templates for all document types
-                        </p>
+                        <p className="text-muted-foreground">Preview, customize, and set default Blade templates for all document types</p>
                     </div>
                 </div>
 
@@ -83,9 +89,7 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
                         {Object.entries(grouped).map(([type, typeTemplates]) => (
                             <div key={type}>
                                 <div className="mb-4 flex items-center gap-2">
-                                    <h2 className="text-xl font-semibold text-gray-900">
-                                        {documentTypes[type] || type}
-                                    </h2>
+                                    <h2 className="text-xl font-semibold text-gray-900">{documentTypes[type] || type}</h2>
                                     {defaults[type] && (
                                         <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-0.5 text-xs font-medium text-green-700">
                                             <CheckCircle className="h-3 w-3" />
@@ -107,7 +111,7 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
                                                 className={`rounded-lg border shadow-sm hover:shadow-md ${isDefault ? 'ring-2 ring-green-400' : 'border-gray-200'}`}
                                             >
                                                 {isDefault && (
-                                                    <div className="flex items-center gap-1.5 rounded-t-lg bg-green-50 px-4 py-1.5 text-xs font-medium text-green-700 border-b border-green-200">
+                                                    <div className="flex items-center gap-1.5 rounded-t-lg border-b border-green-200 bg-green-50 px-4 py-1.5 text-xs font-medium text-green-700">
                                                         <Star className="h-3 w-3 fill-green-600" />
                                                         Default {documentTypes[tmpl.type] || tmpl.type} Template
                                                     </div>
@@ -124,12 +128,14 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
                                                     <div className="mb-3 flex items-start justify-between">
                                                         <div className="flex-1">
                                                             <h3 className="text-lg font-semibold text-gray-900">{tmpl.label}</h3>
-                                                            <p className="mt-1 text-xs text-gray-500 font-mono">{tmpl.key}</p>
+                                                            <p className="mt-1 font-mono text-xs text-gray-500">{tmpl.key}</p>
                                                         </div>
                                                     </div>
 
                                                     <div className="mb-3 flex flex-wrap gap-2">
-                                                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${typeColors[tmpl.type] || 'bg-gray-100 text-gray-800'}`}>
+                                                        <span
+                                                            className={`rounded-full px-3 py-1 text-xs font-medium ${typeColors[tmpl.type] || 'bg-gray-100 text-gray-800'}`}
+                                                        >
                                                             {tmpl.type}
                                                         </span>
                                                     </div>
@@ -156,7 +162,7 @@ export default function Index({ templates, documentTypes, defaults }: IndexProps
                                                                 variant="outline"
                                                                 size="sm"
                                                                 onClick={() => handleRemoveDefault(tmpl.key)}
-                                                                className="w-full text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                                                className="w-full border-red-200 text-red-600 hover:border-red-300 hover:text-red-700"
                                                             >
                                                                 Remove Default
                                                             </Button>

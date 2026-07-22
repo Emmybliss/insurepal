@@ -1,6 +1,0 @@
-import{j as e}from"./react-vendor-CwKFau2U.js";import{a as m}from"./app-CwX3RDlr.js";import{c as t}from"./index-f0D_fH4e.js";import{A as p,B as x}from"./mode-toggle-aXW6lh9a.js";import{c as d}from"./createLucideIcon-Ct-J2jgI.js";/**
- * @license lucide-react v0.475.0 - ISC
- *
- * This source code is licensed under the ISC license.
- * See the LICENSE file in the root directory of this source tree.
- */const u=[["rect",{width:"20",height:"14",x:"2",y:"3",rx:"2",key:"48i651"}],["line",{x1:"8",x2:"16",y1:"21",y2:"21",key:"1svkeh"}],["line",{x1:"12",x2:"12",y1:"17",y2:"21",key:"vw1qmm"}]],h=d("Monitor",u);function v({className:r="",...n}){const{appearance:o,updateAppearance:s}=m(),l=[{value:"light",icon:p,label:"Light"},{value:"dark",icon:x,label:"Dark"},{value:"system",icon:h,label:"System"}];return e.jsx("div",{className:t("inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800",r),...n,children:l.map(({value:a,icon:i,label:c})=>e.jsxs("button",{onClick:()=>s(a),className:t("flex items-center rounded-md px-3.5 py-1.5 transition-colors",o===a?"bg-white shadow-xs dark:bg-neutral-700 dark:text-neutral-100":"text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60"),children:[e.jsx(i,{className:"-ml-1 h-4 w-4"}),e.jsx("span",{className:"ml-1.5 text-sm",children:c})]},a))})}export{v as A,h as M};

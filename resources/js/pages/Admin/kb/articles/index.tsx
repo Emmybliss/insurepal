@@ -66,14 +66,7 @@ interface AdminArticlesIndexProps {
     canPublish: boolean;
 }
 
-export default function AdminArticlesIndex({
-    articles,
-    categories,
-    filters,
-    stats,
-    canCreate,
-    canEdit,
-}: AdminArticlesIndexProps) {
+export default function AdminArticlesIndex({ articles, categories, filters, stats, canCreate, canEdit }: AdminArticlesIndexProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [categoryFilter, setCategoryFilter] = useState(filters.category || '');

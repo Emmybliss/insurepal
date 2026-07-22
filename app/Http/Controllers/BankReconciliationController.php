@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBankReconciliationRequest;
 use App\Models\BankReconciliation;
 use App\Models\ClientBankAccount;
 use App\Services\Naicom\BankReconciliationService;
@@ -40,15 +41,11 @@ class BankReconciliationController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreBankReconciliationRequest $request)
     {
         $this->authorize('naicom-reports.generate');
 
-        $validated = $request->validate([
-            'client_bank_account_id' => 'required|exists:client_bank_accounts,id',
-            'reconciliation_date' => 'required|date',
-            'closing_balance' => 'nullable|numeric',
-        ]);
+        $validated = $request->validated();
 
         $reconciliation = $this->reconciliationService->create(
             auth()->user()->tenant_id,
@@ -87,7 +84,7 @@ class BankReconciliationController extends Controller
 
         $validated = $request->validate([
             'actual_closing_balance' => 'nullable|numeric',
-        ]);
+        ]); // single field — leave inline
 
         $this->reconciliationService->reconcile(
             $bankReconciliation,

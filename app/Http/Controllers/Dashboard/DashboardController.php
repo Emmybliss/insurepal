@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Enums\CommissionChartGroupBy;
 use App\Http\Controllers\Controller;
 use App\Models\Claim;
+use App\Models\CommissionEntry;
 use App\Models\Customer;
 use App\Models\Policy;
 use App\Models\Quote;
 use App\Models\Tenant;
+use App\Services\CommissionQueryService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -42,7 +46,7 @@ class DashboardController extends Controller
         }
 
         if ($user->tenant->type === 'broker') {
-            return $this->brokerDashboard($user->tenant);
+            return $this->brokerDashboard($user->tenant, $request);
         }
 
         // Default customer dashboard
@@ -125,24 +129,29 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function brokerDashboard($tenant)
+    private function brokerDashboard($tenant, Request $request)
     {
         $stats = [
             'total_customers' => Customer::forTenant($tenant->id)->count(),
             'total_quotes' => Quote::forTenant($tenant->id)->count(),
             'total_policies' => Policy::forTenant($tenant->id)->count(),
             'active_policies' => Policy::forTenant($tenant->id)->active()->count(),
-            'commission_earned' => Policy::forTenant($tenant->id)
-                ->active()
-                ->sum('commission_amount'),
+            'commission_earned' => CommissionEntry::where('tenant_id', $tenant->id)->sum('amount'),
             'expiring_policies' => Policy::forTenant($tenant->id)->expiring(60)->count(),
             'expired_policies' => Policy::forTenant($tenant->id)->expired()->count(),
+            'net_premium' => (float) Policy::forTenant($tenant->id)->active()
+                ->sum(\Illuminate\Support\Facades\DB::raw('premium_amount - COALESCE(commission_amount, 0)')),
         ];
 
         return Inertia::render('dashboard/broker', [
             'tenant' => $tenant,
             'stats' => $stats,
-            'premium_trends' => $this->getPremiumTrends($tenant),
+            'commission_chart' => $this->getCommissionChartData($tenant->id, $request),
+            'commission_chart_filters' => [
+                'group_by' => $request->get('group_by', 'date'),
+                'from' => $request->get('from', now()->subMonths(5)->startOfMonth()->toDateString()),
+                'to' => $request->get('to', now()->toDateString()),
+            ],
             'recent_quotes' => Quote::forTenant($tenant->id)
                 ->with(['customer', 'insuranceProduct'])
                 ->latest()
@@ -194,6 +203,32 @@ class DashboardController extends Controller
                 'name' => $type->name,
                 'key' => strtolower($type->code),
             ]),
+        ];
+    }
+
+    private function getCommissionChartData(int $tenantId, Request $request): array
+    {
+        $groupBy = CommissionChartGroupBy::tryFrom($request->get('group_by', 'date')) ?? CommissionChartGroupBy::Date;
+
+        $from = $request->filled('from')
+            ? Carbon::parse($request->from)
+            : now()->subMonths(5)->startOfMonth();
+
+        $to = $request->filled('to')
+            ? Carbon::parse($request->to)->endOfDay()
+            : now()->endOfDay();
+
+        $service = app(CommissionQueryService::class);
+
+        $data = match ($groupBy) {
+            CommissionChartGroupBy::Date => $service->getCommissionByDate($tenantId, $from, $to),
+            CommissionChartGroupBy::PolicyClass => $service->getCommissionByPolicyClass($tenantId, $from, $to),
+            CommissionChartGroupBy::PolicyProduct => $service->getCommissionByPolicyProduct($tenantId, $from, $to),
+        };
+
+        return [
+            'group_by' => $groupBy->value,
+            'data' => $data->toArray(),
         ];
     }
 }

@@ -207,7 +207,7 @@ export default function Profile({
                                                     />
                                                 ) : (
                                                     <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                                        <Camera className="h-6 w-6 mb-1" />
+                                                        <Camera className="mb-1 h-6 w-6" />
                                                         <span className="text-xs">Upload Signature</span>
                                                     </div>
                                                 )}
@@ -237,8 +237,8 @@ export default function Profile({
                                         <div className="space-y-1">
                                             <h3 className="text-lg font-medium">Official Signature</h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Upload a clear image of your signature on a white background.
-                                                This will be used for documents you prepare.
+                                                Upload a clear image of your signature on a white background. This will be used for documents you
+                                                prepare.
                                             </p>
                                             {errors.signature && <p className="mt-1 text-xs text-destructive">{errors.signature}</p>}
                                         </div>

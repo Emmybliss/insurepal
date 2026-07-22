@@ -16,6 +16,15 @@ export function formatCurrency(amount: number | string, currency: string = 'USD'
     }).format(value);
 }
 
+export function formatAmount(value: number | string | null | undefined, maxDecimals = 2): string {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (num === null || num === undefined || isNaN(num)) return '0.00';
+    return num.toLocaleString('en-NG', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: maxDecimals,
+    });
+}
+
 export function formatDate(
     date: string | Date | null | undefined,
     locale: string = 'en-US',

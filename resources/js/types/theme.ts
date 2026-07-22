@@ -9,7 +9,7 @@ export interface Theme {
     secondary_color: string;
     accent_color: string;
     gradient: ThemeGradient;
-    sidebar_style: 'solid' | 'gradient';
+    sidebar_style: 'solid' | 'gradient' | 'transparent';
     header_style: 'solid' | 'gradient';
     body_style: 'solid' | 'gradient' | 'none';
 }

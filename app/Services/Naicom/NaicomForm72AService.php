@@ -2,6 +2,7 @@
 
 namespace App\Services\Naicom;
 
+use App\DTOs\Naicom\Form72ADTO;
 use App\Models\Receipt;
 use Carbon\Carbon;
 
@@ -51,16 +52,20 @@ class NaicomForm72AService
             ];
         }
 
-        return [
-            'rows' => $rows,
-            'monthly_summaries' => $this->buildMonthlySummaries($rows),
-            'period' => [
+        $monthlySummaries = $this->buildMonthlySummaries($rows);
+
+        $dto = new Form72ADTO(
+            rows: $rows,
+            monthlySummaries: $monthlySummaries,
+            period: [
                 'start' => $periodStart->toDateString(),
                 'end' => $periodEnd->toDateString(),
                 'half' => $reportingHalf,
                 'year' => $reportingYear,
             ],
-        ];
+        );
+
+        return $dto->toArray();
     }
 
     protected function calculateCashInHand(int $tenantId, Carbon $periodStart, Carbon $monthEnd): float

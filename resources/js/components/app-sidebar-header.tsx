@@ -7,7 +7,6 @@ import NavigationButtons from './custom/NavigationButtons';
 import NotificationIcon from './custom/NotificationIcon';
 import { ProfileDropDownMenu } from './custom/ProfileDropDownMenu';
 import { LanguageSwitcherWithLabel } from './LanguageSwitcher';
-import { ThemeSwitcher } from './theme/theme-switcher';
 import { Button } from './ui/button';
 import { SidebarTrigger } from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -36,7 +35,6 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                     <TooltipContent>Reload page</TooltipContent>
                 </Tooltip>
                 <NotificationIcon />
-                <ThemeSwitcher />
                 <LanguageSwitcherWithLabel />
                 <Tooltip>
                     <TooltipTrigger asChild>

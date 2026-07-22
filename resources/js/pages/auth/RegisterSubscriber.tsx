@@ -1,8 +1,8 @@
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Head, usePage } from '@inertiajs/react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { Building2, LoaderCircle, Users } from 'lucide-react';
 import { useState } from 'react';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';

@@ -31,6 +31,7 @@ class BrokerSlip extends Model
         'reporting_broker_commission',
         'fees',
         'taxes',
+        'tax_rate',
         'discount',
         'net_premium',
         'period_start',
@@ -58,6 +59,7 @@ class BrokerSlip extends Model
         'reporting_broker_commission' => 'decimal:2',
         'fees' => 'decimal:2',
         'taxes' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'discount' => 'decimal:2',
         'net_premium' => 'decimal:2',
         'period_start' => 'date',
@@ -106,9 +108,14 @@ class BrokerSlip extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function risks(): HasMany
+    {
+        return $this->hasMany(BrokerSlipRisk::class);
+    }
+
     public function items(): HasMany
     {
-        return $this->hasMany(BrokerSlipItem::class);
+        return $this->risks();
     }
 
     public function clauses(): HasMany
@@ -129,6 +136,89 @@ class BrokerSlip extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(BrokerSlipApproval::class);
+    }
+
+    public function getTotalCoverageAmountAttribute(): float
+    {
+        return $this->sum_insured;
+    }
+
+    public function getSumInsuredAttribute(): float
+    {
+        return (float) ($this->attributes['sum_insured'] ?? 0);
+    }
+
+    public function getTotalGrossPremiumAttribute(): float
+    {
+        return $this->gross_premium;
+    }
+
+    public function getGrossPremiumAttribute(): float
+    {
+        return (float) ($this->attributes['gross_premium'] ?? 0);
+    }
+
+    public function getTotalNetPremiumAttribute(): float
+    {
+        return $this->net_premium;
+    }
+
+    public function getNetPremiumAttribute(): float
+    {
+        return (float) ($this->attributes['net_premium'] ?? 0);
+    }
+
+    public function getTotalCommissionAttribute(): float
+    {
+        return $this->commission_amount;
+    }
+
+    public function getCommissionAmountAttribute(): float
+    {
+        return (float) ($this->attributes['commission_amount'] ?? 0);
+    }
+
+    public function getTotalTaxesAttribute(): float
+    {
+        return $this->taxes;
+    }
+
+    public function getTaxesAttribute(): float
+    {
+        return (float) ($this->attributes['taxes'] ?? 0);
+    }
+
+    public function getTotalFeesAttribute(): float
+    {
+        return $this->fees;
+    }
+
+    public function getFeesAttribute(): float
+    {
+        return (float) ($this->attributes['fees'] ?? 0);
+    }
+
+    public function getRateAttribute(): mixed
+    {
+        if ($this->relationLoaded('risks')) {
+            return $this->risks->avg('rate');
+        }
+
+        return $this->attributes['rate'] ?? 0;
+    }
+
+    public function getRateBasisAttribute(): string
+    {
+        if ($this->relationLoaded('risks') && $this->risks->count() === 1) {
+            return $this->risks->first()->rate_basis ?? 'percentage';
+        }
+
+        return $this->attributes['rate_basis'] ?? 'percentage';
+    }
+
+    public function getRiskCountAttribute(): int
+    {
+        return $this->risks->count();
     }
 
     public function scopeByStatus($query, BrokerSlipStatus|string $status)

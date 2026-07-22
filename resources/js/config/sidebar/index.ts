@@ -1,30 +1,15 @@
 import { useAuth } from '@/hooks/use-permissions';
 import { usePlan } from '@/hooks/use-plan';
 import { type NavItem } from '@/types';
+import { Award, Bell, Building, Building2, CreditCard, FileText, HelpCircle, ShieldCheck, Trash2 } from 'lucide-react';
 import { getBrokerNavItems } from './broker';
 import { getUnderwriterNavItems } from './underwriter';
-import {
-    Award,
-    Bell,
-    Building,
-    Building2,
-    CreditCard,
-    FileText,
-    HelpCircle,
-    ShieldCheck,
-    Trash2,
-} from 'lucide-react';
 
 export type AuthHelpers = ReturnType<typeof useAuth>;
 export type PlanHelpers = ReturnType<typeof usePlan>;
 export type TranslateFn = (key: string) => string;
 
-export function getSidebarConfig(
-    tenantType: 'underwriter' | 'broker',
-    auth: AuthHelpers,
-    plan: PlanHelpers,
-    t: TranslateFn,
-): NavItem[] {
+export function getSidebarConfig(tenantType: 'underwriter' | 'broker', auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
     if (tenantType === 'underwriter') {
         return getUnderwriterNavItems(auth, plan, t);
     }
@@ -32,11 +17,7 @@ export function getSidebarConfig(
     return getBrokerNavItems(auth, plan, t);
 }
 
-export function getSettingsNavItems(
-    auth: AuthHelpers,
-    plan: PlanHelpers,
-    t: TranslateFn,
-): NavItem[] {
+export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
     const { can, hasRole, hasAnyRole } = auth;
     const { hasPlan } = plan;
 
@@ -75,7 +56,7 @@ export function getSettingsNavItems(
             });
         }
 
-        if (can('manage_certificate_settings') || can('edit_settings')) {
+        if (hasRole('underwriter') && (can('manage_certificate_settings') || can('edit_settings'))) {
             items.push({
                 title: t('Certificates'),
                 href: route('settings.certificates'),
@@ -85,7 +66,7 @@ export function getSettingsNavItems(
 
         if (hasAnyRole(['underwriter', 'broker'])) {
             items.push({
-                title: t('Insurance Companies'),
+                title: t('Underwriters'),
                 href: route('settings.insurance-companies.index'),
                 icon: Building2,
             });

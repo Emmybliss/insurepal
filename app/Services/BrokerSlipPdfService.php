@@ -5,9 +5,10 @@ namespace App\Services;
 use App\Enums\BrokerSlipStatus;
 use App\Models\BrokerSlip;
 use App\Models\TenantDefaultTemplate;
+use App\Models\TenantTemplateOverride;
 use App\Services\Documents\DocumentVerificationService;
 use App\Services\Documents\TenantBrandingService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 use Illuminate\Support\Facades\Storage;
 
 class BrokerSlipPdfService
@@ -15,6 +16,7 @@ class BrokerSlipPdfService
     public function __construct(
         protected TenantBrandingService $brandingService,
         protected DocumentVerificationService $verificationService,
+        protected PdfService $pdfService,
     ) {}
 
     public function generatePdf(BrokerSlip $slip, bool $preview = false): string
@@ -22,17 +24,30 @@ class BrokerSlipPdfService
         $slip->loadMissing([
             'placement.customer',
             'placement.insured',
+            'placement.policyClass',
             'placement.policyProduct.policyClass',
             'placementMarket.insuranceCompany',
-            'items' => fn ($q) => $q->orderBy('sort_order'),
+            'risks' => fn ($q) => $q->orderBy('sort_order'),
             'clauses' => fn ($q) => $q->orderBy('sort_order'),
             'createdBy',
             'tenant',
         ]);
 
         $tenant = $slip->tenant;
-        $user = auth()->user();
-        $branding = $this->brandingService->getBrandingData($tenant);
+        $user = $slip->createdBy ?? auth()->user();
+
+        $defaultTemplateKey = TenantDefaultTemplate::getDefaultTemplateKey($slip->tenant_id, 'broker_slip')
+            ?? 'broker_slip.standard';
+
+        $templateOverride = TenantTemplateOverride::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('template_key', $defaultTemplateKey)
+            ->first();
+
+        $branding = $this->brandingService->getBrandingData(
+            $tenant,
+            $templateOverride?->only(['header_image', 'footer_image', 'signature', 'stamp'])
+        );
 
         $watermarkText = $this->getWatermarkText($slip->status);
 
@@ -46,9 +61,10 @@ class BrokerSlipPdfService
             'customer' => $slip->placement->customer,
             'insured' => $slip->placement->insured ?? $slip->placement->customer,
             'insurer' => $slip->placementMarket?->insuranceCompany,
-            'items' => $slip->items,
+            'risks' => $slip->risks,
             'clauses' => $slip->clauses,
             'branding' => $branding,
+            'preparer_signature_path' => $user ? $this->brandingService->getOptimizedImageLocalPath($user->signature, 'signature') : null,
             'preparer_signature' => $user ? $this->brandingService->imageToBase64($user->signature) : null,
             'preparer_name' => $user?->name ?? 'Preparer',
             'watermark' => $watermarkText,
@@ -59,18 +75,13 @@ class BrokerSlipPdfService
             'barcode_data' => $slip->slip_number,
         ];
 
-        $defaultTemplateKey = TenantDefaultTemplate::getDefaultTemplateKey($slip->tenant_id, 'broker_slip')
-            ?? 'broker_slip.standard';
-
         $registry = config('document-templates.templates', []);
         $templateConfig = $registry[$defaultTemplateKey] ?? null;
         $bladeTemplate = $templateConfig['view_path'] ?? 'pdf.templates.broker-slips.standard';
 
         $html = view($bladeTemplate, $data)->render();
-        $pdf = Pdf::loadHTML($html);
-        $pdf->setPaper('A4');
 
-        return $pdf->output();
+        return $this->pdfService->renderHtml($html);
     }
 
     public function savePdf(BrokerSlip $slip): string
@@ -88,9 +99,7 @@ class BrokerSlipPdfService
     protected function getWatermarkText(string $status): ?string
     {
         return match ($status) {
-            BrokerSlipStatus::Draft->value => 'DRAFT',
             BrokerSlipStatus::PendingReview->value => 'PENDING APPROVAL',
-            BrokerSlipStatus::ChangesRequested->value => 'DRAFT',
             BrokerSlipStatus::Approved->value => 'APPROVED',
             BrokerSlipStatus::Issued->value => null,
             BrokerSlipStatus::Superseded->value => 'SUPERSEDED',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TransactionType;
 use App\Models\Concerns\BelongsToTenant;
 use App\Traits\DeletesStorageFiles;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,8 +24,13 @@ class DebitNote extends Model
         'broker_id',
         'amount',
         'tax_amount',
+        'tax_rate',
         'total_amount',
+        'transaction_type',
+        'policy_type',
+        'class_of_business',
         'description',
+        'settlement_condition',
         'issue_date',
         'due_date',
         'created_by_id',
@@ -47,6 +53,9 @@ class DebitNote extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'tax_rate' => 'decimal:4',
+        'total_amount' => 'decimal:2',
         'issue_date' => 'date',
         'due_date' => 'date',
         'paid_at' => 'datetime',
@@ -54,6 +63,7 @@ class DebitNote extends Model
         'premium_breakdown' => 'array',
         'metadata' => 'array',
         'snapshot_json' => 'array',
+        'transaction_type' => TransactionType::class,
     ];
 
     protected static function booted(): void
@@ -83,6 +93,11 @@ class DebitNote extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_id');
+    }
+
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class);
     }
 
     // Status Constants
@@ -147,5 +162,20 @@ class DebitNote extends Model
     public function getPolicyDisplayNameAttribute(): string
     {
         return $this->policy?->policy_number ?? 'To Be Advised';
+    }
+
+    public function getFormattedAmountAttribute(): string
+    {
+        return '₦'.number_format((float) $this->amount, 0);
+    }
+
+    public function getFormattedTaxAmountAttribute(): string
+    {
+        return '₦'.number_format((float) $this->tax_amount, 2);
+    }
+
+    public function getFormattedTotalAmountAttribute(): string
+    {
+        return '₦'.number_format((float) $this->total_amount, 0);
     }
 }

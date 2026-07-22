@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -71,6 +72,12 @@ class HandleInertiaRequests extends Middleware
                 'primary_role' => $user->getPrimaryRoleName(),
             ],
             'tenant_id' => $user->tenant_id,
+            'tenant' => $tenant ? [
+                'name' => $tenant->name,
+                'logo' => $tenant->logo,
+                'logo_url' => $tenant->logo ? Storage::url($tenant->logo) : null,
+                'slogan' => $tenant->slogan,
+            ] : null,
             'tenant_plan' => $tenant?->subscriptionPlan ? [
                 'slug' => $tenant->subscriptionPlan->slug,
                 'name' => $tenant->subscriptionPlan->name,
@@ -104,12 +111,6 @@ class HandleInertiaRequests extends Middleware
             return Tenant::getDefaultTheme();
         }
 
-        $theme = $user->tenant->getTheme();
-
-        return [
-            'primary_color' => $theme['primary_color'] ?? '#3b82f6',
-            'secondary_color' => $theme['secondary_color'] ?? '#8b5cf6',
-            'accent_color' => $theme['accent_color'] ?? '#10b981',
-        ];
+        return $user->tenant->getTheme();
     }
 }

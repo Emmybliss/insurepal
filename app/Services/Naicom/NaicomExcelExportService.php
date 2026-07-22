@@ -104,31 +104,29 @@ class NaicomExcelExportService
 
         $monthCols = ['B', 'C', 'D', 'E', 'F', 'G'];
 
-        foreach ($lines as $line) {
-            $data = $line->data;
-            $excelRow = match ($line->row_number) {
-                1 => 7, 2 => 8, 3 => 9,
-                5 => 14, 6 => 15, 7 => 16, 8 => 17, 9 => 18,
-                default => null,
-            };
-            if ($excelRow === null) {
+        $linesByMonth = $lines->keyBy('month');
+
+        $startMonth = $half === 'H1' ? 1 : 7;
+
+        for ($i = 0; $i < 6; $i++) {
+            $m = $startMonth + $i;
+            $col = $monthCols[$i] ?? null;
+            if (! $col) {
                 continue;
             }
-            $valueKey = match ($line->row_number) {
-                1 => 'cash_in_hand', 2 => 'cheque_in_hand', 3 => 'bank_balance',
-                5 => 'premium_awaiting_remittance', 6 => 'commission_awaiting_co_broker',
-                7 => 'commission_awaiting_reporting_broker', 8 => 'vat_deducted_awaiting',
-                9 => 'others',
-                default => 'value',
-            };
-            $monthlyValues = $data[$valueKey] ?? (is_array($data) && isset($data['monthly']) ? $data['monthly'] : []);
-            if (is_array($monthlyValues)) {
-                foreach ($monthlyValues as $mi => $mv) {
-                    if (isset($monthCols[$mi])) {
-                        $this->setNumeric($sheet, "{$monthCols[$mi]}{$excelRow}", $mv);
-                    }
-                }
-            }
+
+            $line = $linesByMonth->get($m);
+            $data = $line?->data ?? [];
+
+            $this->setNumeric($sheet, "{$col}7", $data['cash_in_hand'] ?? 0);
+            $this->setNumeric($sheet, "{$col}8", $data['cheques_in_hand'] ?? 0);
+            $this->setNumeric($sheet, "{$col}9", $data['bank_balance'] ?? 0);
+
+            $this->setNumeric($sheet, "{$col}14", $data['premium_awaiting_remittance'] ?? 0);
+            $this->setNumeric($sheet, "{$col}15", $data['commission_co_broker_awaiting'] ?? 0);
+            $this->setNumeric($sheet, "{$col}16", $data['commission_reporting_broker_awaiting'] ?? 0);
+            $this->setNumeric($sheet, "{$col}17", $data['vat_awaiting_remittance'] ?? 0);
+            $this->setNumeric($sheet, "{$col}18", $data['others'] ?? 0);
         }
 
         $row10labels = ['B10', 'C10', 'D10', 'E10', 'F10', 'G10'];
@@ -412,8 +410,22 @@ class NaicomExcelExportService
         $run->update(['metadata' => $metadata]);
     }
 
-    public function downloadResponse(string $filePath): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadResponse(string $filePath): \Symfony\Component\HttpFoundation\Response
     {
-        return response()->download($filePath)->deleteFileAfterSend(true);
+        if (! file_exists($filePath)) {
+            abort(404);
+        }
+
+        $content = file_get_contents($filePath);
+        @unlink($filePath);
+
+        $name = basename($filePath);
+        $mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+        return response($content, 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'attachment; filename="'.$name.'"',
+            'Content-Length' => strlen($content),
+        ]);
     }
 }

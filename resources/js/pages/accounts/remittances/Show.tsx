@@ -1,19 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Banknote, RotateCcw, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Banknote, CheckCircle, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 interface Insurer {
@@ -79,23 +71,29 @@ export default function Show({ remittance }: Props) {
 
     const handleReverse = () => {
         setProcessing(true);
-        router.post(route('remittances.reverse', remittance.id), { reversal_reason: reversalReason }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setReverseDialogOpen(false);
-                setReversalReason('');
-                setProcessing(false);
+        router.post(
+            route('remittances.reverse', remittance.id),
+            { reversal_reason: reversalReason },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setReverseDialogOpen(false);
+                    setReversalReason('');
+                    setProcessing(false);
+                },
+                onError: () => setProcessing(false),
             },
-            onError: () => setProcessing(false),
-        });
+        );
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Remittances', href: route('remittances.index') },
-            { title: remittance.remittance_number },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Remittances', href: route('remittances.index') },
+                { title: remittance.remittance_number },
+            ]}
+        >
             <Head title={remittance.remittance_number} />
 
             <div className="flex flex-col gap-6 p-6">
@@ -131,8 +129,7 @@ export default function Show({ remittance }: Props) {
                                         <DialogTitle>Reverse Remittance</DialogTitle>
                                         <DialogDescription>
                                             Are you sure you want to reverse {remittance.remittance_number} for{' '}
-                                            {formatCurrency(remittance.total_amount, remittance.currency)}?
-                                            This action cannot be undone.
+                                            {formatCurrency(remittance.total_amount, remittance.currency)}? This action cannot be undone.
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-2">
@@ -151,11 +148,7 @@ export default function Show({ remittance }: Props) {
                                         <Button variant="outline" onClick={() => setReverseDialogOpen(false)}>
                                             Cancel
                                         </Button>
-                                        <Button
-                                            variant="destructive"
-                                            onClick={handleReverse}
-                                            disabled={processing || !reversalReason.trim()}
-                                        >
+                                        <Button variant="destructive" onClick={handleReverse} disabled={processing || !reversalReason.trim()}>
                                             {processing ? 'Reversing...' : 'Confirm Reversal'}
                                         </Button>
                                     </DialogFooter>
@@ -176,9 +169,16 @@ export default function Show({ remittance }: Props) {
                                 {remittance.remittance_number}
                             </div>
                             <div className="space-y-1 text-sm">
-                                <p><span className="text-muted-foreground">Date:</span> {remittance.remittance_date}</p>
-                                <p><span className="text-muted-foreground">Method:</span> <span className="capitalize">{remittance.payment_method.replace('_', ' ')}</span></p>
-                                <p><span className="text-muted-foreground">Reference:</span> {remittance.reference ?? '—'}</p>
+                                <p>
+                                    <span className="text-muted-foreground">Date:</span> {remittance.remittance_date}
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Method:</span>{' '}
+                                    <span className="capitalize">{remittance.payment_method.replace('_', ' ')}</span>
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Reference:</span> {remittance.reference ?? '—'}
+                                </p>
                             </div>
                             <Badge variant={statusBadge[remittance.status]}>
                                 {remittance.status.charAt(0).toUpperCase() + remittance.status.slice(1)}
@@ -191,9 +191,7 @@ export default function Show({ remittance }: Props) {
                             <CardTitle className="text-sm font-medium">Amount</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-bold">
-                                {formatCurrency(remittance.total_amount, remittance.currency)}
-                            </p>
+                            <p className="text-3xl font-bold">{formatCurrency(remittance.total_amount, remittance.currency)}</p>
                             <p className="text-sm text-muted-foreground">{remittance.currency}</p>
                         </CardContent>
                     </Card>
@@ -216,9 +214,16 @@ export default function Show({ remittance }: Props) {
                     <CardContent>
                         {remittance.client_bank_account ? (
                             <div className="space-y-1 text-sm">
-                                <p><span className="text-muted-foreground">Bank:</span> {remittance.client_bank_account.bank_name}</p>
-                                <p><span className="text-muted-foreground">Account:</span> {remittance.client_bank_account.account_name}</p>
-                                <p><span className="text-muted-foreground">Number:</span> <span className="font-mono">{remittance.client_bank_account.account_number}</span></p>
+                                <p>
+                                    <span className="text-muted-foreground">Bank:</span> {remittance.client_bank_account.bank_name}
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Account:</span> {remittance.client_bank_account.account_name}
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Number:</span>{' '}
+                                    <span className="font-mono">{remittance.client_bank_account.account_number}</span>
+                                </p>
                             </div>
                         ) : (
                             <p className="text-sm text-muted-foreground">No bank account linked</p>
@@ -249,9 +254,7 @@ export default function Show({ remittance }: Props) {
                                                 <td className="px-4 py-3 text-muted-foreground">
                                                     {alloc.allocatable_type} #{alloc.allocatable_id}
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-mono">
-                                                    {formatCurrency(alloc.amount, alloc.currency)}
-                                                </td>
+                                                <td className="px-4 py-3 text-right font-mono">{formatCurrency(alloc.amount, alloc.currency)}</td>
                                                 <td className="px-4 py-3">{alloc.currency}</td>
                                             </tr>
                                         ))}
@@ -268,7 +271,7 @@ export default function Show({ remittance }: Props) {
                             <CardTitle>Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{remittance.notes}</p>
+                            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{remittance.notes}</p>
                         </CardContent>
                     </Card>
                 )}
@@ -279,7 +282,7 @@ export default function Show({ remittance }: Props) {
                             <CardTitle>Reversal Reason</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{remittance.reversal_reason}</p>
+                            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{remittance.reversal_reason}</p>
                         </CardContent>
                     </Card>
                 )}

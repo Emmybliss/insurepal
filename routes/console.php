@@ -13,3 +13,4 @@ Schedule::command('reports:process-scheduled')->dailyAt('02:00');
 Schedule::command('notifications:payment-due-reminders')->dailyAt('08:00');
 Schedule::command('policies:send-expiry-notifications')->dailyAt('08:00');
 Schedule::command('recycle-bin:prune')->dailyAt('02:00');
+Schedule::command('email:sync-all')->everyFifteenMinutes();

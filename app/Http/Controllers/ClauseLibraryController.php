@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreClauseLibraryRequest;
+use App\Http\Requests\UpdateClauseLibraryRequest;
 use App\Models\ClauseLibrary;
 use App\Models\PolicyClass;
 use App\Services\ClauseLibraryService;
@@ -34,31 +36,18 @@ class ClauseLibraryController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreClauseLibraryRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'clause_type' => ['required', 'string', 'in:coverage,warranty,exclusion,subjectivity,condition,special'],
-            'title' => ['required', 'string', 'max:200'],
-            'content' => ['required', 'string'],
-            'policy_class_id' => ['nullable', 'exists:policy_classes,id'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
-        $this->clauseLibraryService->createClause($validated);
+        $this->clauseLibraryService->createClause($request->user(), $validated);
 
         return to_route('clause-library.index');
     }
 
-    public function update(Request $request, ClauseLibrary $clauseLibrary): RedirectResponse
+    public function update(UpdateClauseLibraryRequest $request, ClauseLibrary $clauseLibrary): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => ['sometimes', 'string', 'max:200'],
-            'content' => ['sometimes', 'string'],
-            'clause_type' => ['sometimes', 'string', 'in:coverage,warranty,exclusion,subjectivity,condition,special'],
-            'policy_class_id' => ['nullable', 'exists:policy_classes,id'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $this->clauseLibraryService->updateClause($clauseLibrary, $validated);
 

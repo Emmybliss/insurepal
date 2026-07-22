@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LandingPageRequest;
 use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -27,14 +28,9 @@ class LandingPageController extends Controller
     /**
      * Handle demo request form submission.
      */
-    public function demoRequest(Request $request)
+    public function demoRequest(LandingPageRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'company' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-        ]);
+        $validated = $request->validated();
 
         $adminEmail = config('mail.from.address', 'support@insurepal.app');
 

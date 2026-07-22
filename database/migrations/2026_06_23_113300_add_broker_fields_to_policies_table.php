@@ -25,9 +25,23 @@ return new class extends Migration
 
     public function down(): void
     {
+        try {
+            Schema::table('policies', function (Blueprint $table) {
+                $table->dropForeign(['issued_by_id']);
+            });
+        } catch (\Exception) {
+            // Foreign key already dropped
+        }
+
+        try {
+            Schema::table('policies', function (Blueprint $table) {
+                $table->dropForeign(['broker_id']);
+            });
+        } catch (\Exception) {
+            // Foreign key already dropped
+        }
+
         Schema::table('policies', function (Blueprint $table) {
-            $table->dropIndex(['source_type']);
-            $table->dropIndex(['broker_id']);
             $table->dropColumn([
                 'source_type',
                 'issued_by_id',

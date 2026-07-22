@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PolicyPaymentRequest;
 use App\Models\Policy;
 use App\Services\PolicyPaymentService;
 use Illuminate\Http\Request;
@@ -14,12 +15,8 @@ class PolicyPaymentController extends Controller
     /**
      * Initiate payment — create record and redirect to Paystack.
      */
-    public function initiate(Request $request, Policy $policy)
+    public function initiate(PolicyPaymentRequest $request, Policy $policy)
     {
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'invoice_id' => 'nullable|exists:invoices,id',
-        ]);
 
         $user = $request->user();
         $customer = \App\Models\Customer::query()->where('user_id', $user?->id)->first()

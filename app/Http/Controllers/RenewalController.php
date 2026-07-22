@@ -2,13 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RenewalActionRequest;
+use App\Http\Requests\UpdateRenewalRequest;
 use App\Models\Policy;
+use App\Services\Policies\RenewPolicyService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class RenewalController extends Controller
 {
+    public function __construct(
+        private RenewPolicyService $renewPolicyService,
+    ) {}
+
     /**
      * Display a listing of policy renewals.
      */
@@ -27,7 +34,7 @@ class RenewalController extends Controller
             ->where('tenant_id', $tenantId)
             ->when($customerScope, fn ($q) => $q->where('customer_id', $customerScope))
             ->with(['customer', 'quote', 'policyClass', 'tenant'])
-            ->whereIn('status', ['active', 'expired']);
+            ->whereIn('status', ['active', 'expired', 'recorded']);
 
         // Filter by renewal status
         switch ($request->get('filter', 'all')) {
@@ -70,11 +77,12 @@ class RenewalController extends Controller
             ->when($customerScope, fn ($q) => $q->where('customer_id', $customerScope));
 
         $stats = [
-            'upcoming_count' => (clone $statsBase)->where('status', 'active')
+            'upcoming_count' => (clone $statsBase)->whereIn('status', ['active', 'recorded'])
                 ->where('expiry_date', '>=', now())
                 ->where('expiry_date', '<=', now()->addDays(60))
+                ->whereNull('renewed_at')
                 ->count(),
-            'overdue_count' => (clone $statsBase)->whereIn('status', ['active', 'expired'])
+            'overdue_count' => (clone $statsBase)->whereIn('status', ['active', 'expired', 'recorded'])
                 ->where('expiry_date', '<', now())
                 ->whereNull('renewed_at')
                 ->count(),
@@ -82,7 +90,7 @@ class RenewalController extends Controller
                 ->whereMonth('renewed_at', now()->month)
                 ->whereYear('renewed_at', now()->year)
                 ->count(),
-            'total_active' => (clone $statsBase)->whereIn('status', ['active', 'expired'])->count(),
+            'total_active' => (clone $statsBase)->whereIn('status', ['active', 'expired', 'recorded'])->count(),
         ];
 
         return Inertia::render('Renewals/Index', [
@@ -141,13 +149,9 @@ class RenewalController extends Controller
     /**
      * Update the specified renewal in storage.
      */
-    public function update(Request $request, Policy $policy)
+    public function update(UpdateRenewalRequest $request, Policy $policy)
     {
-        $validated = $request->validate([
-            'expiry_date' => 'required|date|after:today',
-            'premium_amount' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $policy->update($validated);
 
@@ -170,21 +174,11 @@ class RenewalController extends Controller
     /**
      * Process renewal for a specific policy
      */
-    public function processRenewal(Request $request, Policy $policy)
+    public function processRenewal(RenewalActionRequest $request, Policy $policy)
     {
-        $validated = $request->validate([
-            'new_expiry_date' => 'required|date|after:today',
-            'new_premium' => 'required|numeric|min:0',
-            'renewal_notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
-        // Create renewal record
-        $policy->update([
-            'renewed_at' => now(),
-            'expiry_date' => $validated['new_expiry_date'],
-            'premium_amount' => $validated['new_premium'],
-            'notes' => $validated['renewal_notes'],
-        ]);
+        $this->renewPolicyService->renew($policy, $validated);
 
         return redirect()->route('renewals.show', $policy)
             ->with('success', 'Policy renewed successfully.');
@@ -195,7 +189,7 @@ class RenewalController extends Controller
      */
     public function sendReminders(Request $request)
     {
-        $policies = Policy::where('status', 'active')
+        $policies = Policy::whereIn('status', ['active', 'recorded'])
             ->where('expiry_date', '>=', now())
             ->where('expiry_date', '<=', now()->addDays(30))
             ->whereNull('renewed_at')
@@ -213,7 +207,7 @@ class RenewalController extends Controller
     {
         $request->validate([
             'channel' => 'required|in:email,sms,portal',
-        ]);
+        ]); // single field — leave inline
 
         if ($policy->tenant_id !== \Illuminate\Support\Facades\Auth::user()->tenant_id) {
             abort(403);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Shared\NotificationIdsRequest;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -78,12 +79,9 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function markAsRead(Request $request)
+    public function markAsRead(NotificationIdsRequest $request)
     {
-        $notificationIds = $request->validate([
-            'notification_ids' => 'required|array',
-            'notification_ids.*' => 'exists:app_notifications,id',
-        ])['notification_ids'];
+        $notificationIds = $request->validated()['notification_ids'];
 
         Notification::whereIn('id', $notificationIds)
             ->forUser(Auth::user()->id)
@@ -93,12 +91,9 @@ class NotificationController extends Controller
         return back()->with('success', 'Notifications marked as read.');
     }
 
-    public function markAsUnread(Request $request)
+    public function markAsUnread(NotificationIdsRequest $request)
     {
-        $notificationIds = $request->validate([
-            'notification_ids' => 'required|array',
-            'notification_ids.*' => 'exists:app_notifications,id',
-        ])['notification_ids'];
+        $notificationIds = $request->validated()['notification_ids'];
 
         Notification::whereIn('id', $notificationIds)
             ->forUser(Auth::user()->id)
@@ -128,12 +123,9 @@ class NotificationController extends Controller
         return back()->with('success', 'Notification deleted successfully.');
     }
 
-    public function bulkDelete(Request $request)
+    public function bulkDelete(NotificationIdsRequest $request)
     {
-        $notificationIds = $request->validate([
-            'notification_ids' => 'required|array',
-            'notification_ids.*' => 'exists:app_notifications,id',
-        ])['notification_ids'];
+        $notificationIds = $request->validated()['notification_ids'];
 
         Notification::whereIn('id', $notificationIds)
             ->forUser(Auth::user()->id)

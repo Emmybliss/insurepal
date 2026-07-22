@@ -1,3 +1,4 @@
+import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
 import { Calculator, Car, Heart, Home, Plus, Save, Send, User } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -338,8 +338,14 @@ export default function Create({ customers, products, customer, product }: Props
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <Button type="button" variant="outline" size="sm" onClick={() => setCustomerModalOpen(true)} className="shrink-0 self-start mt-0">
-                                                <Plus className="h-4 w-4 mr-1" />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setCustomerModalOpen(true)}
+                                                className="mt-0 shrink-0 self-start"
+                                            >
+                                                <Plus className="mr-1 h-4 w-4" />
                                                 Add New
                                             </Button>
                                         </div>

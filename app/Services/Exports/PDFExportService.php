@@ -2,22 +2,20 @@
 
 namespace App\Services\Exports;
 
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class PDFExportService
 {
+    public function __construct(
+        protected PdfService $pdfService
+    ) {}
+
     public function exportReport(string $reportType, array $data, string $period): string
     {
         $viewData = $this->prepareViewData($reportType, $data, $period);
         $view = $this->getViewName($reportType);
 
-        $pdf = Pdf::loadView($view, $viewData);
-        $pdf->setPaper('A4', 'portrait');
-        $pdf->setOptions([
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => true,
-            'defaultFont' => 'Arial',
-        ]);
+        $pdfContent = $this->pdfService->renderView($view, $viewData);
 
         $filename = 'report_'.$reportType.'_'.now()->format('Y_m_d_H_i_s').'.pdf';
         $filepath = storage_path('app/exports/'.$filename);
@@ -27,7 +25,7 @@ class PDFExportService
             mkdir(dirname($filepath), 0755, true);
         }
 
-        $pdf->save($filepath);
+        file_put_contents($filepath, $pdfContent);
 
         return $filepath;
     }

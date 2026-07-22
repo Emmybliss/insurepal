@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreSubscriptionRequest;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\PaymentReceiptService;
@@ -119,13 +120,26 @@ class BillingController extends Controller
      */
     public function changePlan(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'plan_id' => 'required|exists:subscription_plans,id',
         ]);
 
-        // Forward to subscription controller to handle payment initialization
+        $storeRequest = new StoreSubscriptionRequest(
+            $request->query->all(),
+            $request->request->all(),
+            $request->attributes->all(),
+            $request->cookies->all(),
+            $request->files->all(),
+            $request->server->all(),
+            $request->getContent()
+        );
+        $storeRequest->setContainer(app());
+        $storeRequest->setRedirector(app(\Illuminate\Routing\Redirector::class));
+        $storeRequest->setUserResolver(fn () => $request->user());
+        $storeRequest->validateResolved();
+
         return app(\App\Http\Controllers\SubscriptionController::class)
-            ->initializeSubscription($request);
+            ->initializeSubscription($storeRequest);
     }
 
     /**

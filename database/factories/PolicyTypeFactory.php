@@ -20,7 +20,7 @@ class PolicyTypeFactory extends Factory
 
         return [
             'name' => $type['name'],
-            'code' => $type['code'].'_'.$this->faker->randomNumber(3),
+            'code' => $type['code'].'_'.$this->faker->unique()->randomNumber(5),
             'description' => $this->faker->sentence(),
             'is_active' => $this->faker->boolean(80),
             'form_fields' => [

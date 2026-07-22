@@ -202,7 +202,7 @@ class DashboardController extends Controller
             'total_quotes' => Quote::forTenant($tenant->id)->count(),
             'total_policies' => Policy::forTenant($tenant->id)->count(),
             'active_policies' => Policy::forTenant($tenant->id)->active()->count(),
-            'commission_earned' => (float) Policy::forTenant($tenant->id)->active()->sum('commission_amount'),
+            'commission_earned' => (float) Policy::forTenant($tenant->id)->whereIn('status', [Policy::STATUS_ACTIVE, Policy::STATUS_RECORDED])->sum('commission_amount'),
             'expiring_policies' => Policy::forTenant($tenant->id)->expiring(60)->count(),
             'expired_policies' => Policy::forTenant($tenant->id)->expired()->count(),
         ];

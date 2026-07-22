@@ -2,22 +2,17 @@ import { Can } from '@/components/auth/permission-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {} from '@/components/ui/tooltip';
+import { useCanSms } from '@/hooks/use-plan';
 import AppLayout from '@/layouts/app-layout';
 import { PageProps } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, CalendarDays, CheckCircle, Clock, MoreHorizontal, Send } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle, Clock, Eye, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCanSms } from '@/hooks/use-plan';
 
 interface Policy {
     id: number;
@@ -263,7 +258,7 @@ export default function RenewalsIndex({ renewals, stats, filters }: RenewalsInde
                                                     <Label className="hidden text-xs whitespace-nowrap sm:inline-block">Auto Notify</Label>
                                                 </div>
 
-<DropdownMenu>
+                                                <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="outline" size="sm">
                                                             <Send className="mr-2 h-4 w-4" />
@@ -284,7 +279,7 @@ export default function RenewalsIndex({ renewals, stats, filters }: RenewalsInde
                                                         ) : (
                                                             <DropdownMenuItem
                                                                 onClick={() => router.visit(upgradeUrl)}
-                                                                className="text-muted-foreground cursor-not-allowed"
+                                                                className="cursor-not-allowed text-muted-foreground"
                                                             >
                                                                 <AlertCircle className="mr-2 h-4 w-4" />
                                                                 Send via SMS (Enterprise)
@@ -299,7 +294,7 @@ export default function RenewalsIndex({ renewals, stats, filters }: RenewalsInde
                                                 <Can permission="view_policies">
                                                     <Link href={route('renewals.show', { policy: policy?.id })}>
                                                         <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <Eye className="h-4 w-4" />
                                                         </Button>
                                                     </Link>
                                                 </Can>

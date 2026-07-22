@@ -89,35 +89,27 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
 
         try {
             if (editingBranch) {
-                await router.put(
-                    route('admin.insurance-companies.branches.update', [company.id, editingBranch.id]),
-                    formData as any,
-                    {
-                        onSuccess: () => {
-                            toast.success('Branch updated successfully');
-                            resetForm();
-                        },
-                        onError: (err) => {
-                            toast.error(Object.values(err)[0] as string || 'Failed to update branch');
-                        },
-                        onFinish: () => setProcessing(false),
-                    }
-                );
+                await router.put(route('admin.insurance-companies.branches.update', [company.id, editingBranch.id]), formData as any, {
+                    onSuccess: () => {
+                        toast.success('Branch updated successfully');
+                        resetForm();
+                    },
+                    onError: (err) => {
+                        toast.error((Object.values(err)[0] as string) || 'Failed to update branch');
+                    },
+                    onFinish: () => setProcessing(false),
+                });
             } else {
-                await router.post(
-                    route('admin.insurance-companies.branches.store', company.id),
-                    formData as any,
-                    {
-                        onSuccess: () => {
-                            toast.success('Branch created successfully');
-                            resetForm();
-                        },
-                        onError: (err) => {
-                            toast.error(Object.values(err)[0] as string || 'Failed to create branch');
-                        },
-                        onFinish: () => setProcessing(false),
-                    }
-                );
+                await router.post(route('admin.insurance-companies.branches.store', company.id), formData as any, {
+                    onSuccess: () => {
+                        toast.success('Branch created successfully');
+                        resetForm();
+                    },
+                    onError: (err) => {
+                        toast.error((Object.values(err)[0] as string) || 'Failed to create branch');
+                    },
+                    onFinish: () => setProcessing(false),
+                });
             }
         } catch {
             setProcessing(false);
@@ -154,7 +146,12 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                         <Link href={route('admin.insurance-companies.show', company.id)}>
                             <Button variant="outline">Back to Company</Button>
                         </Link>
-                        <Button onClick={() => { resetForm(); setShowForm(true); }}>
+                        <Button
+                            onClick={() => {
+                                resetForm();
+                                setShowForm(true);
+                            }}
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Branch
                         </Button>
@@ -170,9 +167,7 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
-                            <CardDescription>
-                                {editingBranch ? 'Update branch details' : 'Add a new branch for this company'}
-                            </CardDescription>
+                            <CardDescription>{editingBranch ? 'Update branch details' : 'Add a new branch for this company'}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleSubmit} className="space-y-4">
@@ -255,9 +250,7 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                                 <div className="flex items-center justify-between rounded-lg border p-4">
                                     <div>
                                         <p className="font-medium">Active Status</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Inactive branches won't be available for tenants to select
-                                        </p>
+                                        <p className="text-sm text-muted-foreground">Inactive branches won't be available for tenants to select</p>
                                     </div>
                                     <Switch
                                         checked={formData.is_active}
@@ -266,7 +259,9 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                                 </div>
 
                                 <div className="flex justify-end gap-2">
-                                    <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
+                                    <Button type="button" variant="outline" onClick={resetForm}>
+                                        Cancel
+                                    </Button>
                                     <Button type="submit" disabled={processing}>
                                         {processing ? 'Saving...' : editingBranch ? 'Update Branch' : 'Create Branch'}
                                     </Button>
@@ -286,7 +281,14 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                             <div className="py-8 text-center">
                                 <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <p className="mt-4 text-muted-foreground">No branches yet</p>
-                                <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setShowForm(true); }}>
+                                <Button
+                                    variant="outline"
+                                    className="mt-4"
+                                    onClick={() => {
+                                        resetForm();
+                                        setShowForm(true);
+                                    }}
+                                >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add First Branch
                                 </Button>
@@ -318,17 +320,19 @@ export default function InsuranceCompanyBranches({ company, branches }: Props) {
                                                     {!branch.email && !branch.phone && <span className="text-muted-foreground">—</span>}
                                                 </td>
                                                 <td className="py-3 text-center">
-                                                    <Switch
-                                                        checked={branch.is_active}
-                                                        onCheckedChange={() => handleToggle(branch)}
-                                                    />
+                                                    <Switch checked={branch.is_active} onCheckedChange={() => handleToggle(branch)} />
                                                 </td>
                                                 <td className="py-3 text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <Button variant="outline" size="sm" onClick={() => openEdit(branch)}>
                                                             Edit
                                                         </Button>
-                                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(branch)}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-red-600"
+                                                            onClick={() => handleDelete(branch)}
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>

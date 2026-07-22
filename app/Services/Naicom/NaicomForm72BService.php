@@ -2,6 +2,7 @@
 
 namespace App\Services\Naicom;
 
+use App\DTOs\Naicom\Form72BDTO;
 use App\Models\Policy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -36,12 +37,6 @@ class NaicomForm72BService
         $serialNumber = 0;
 
         foreach ($policies as $policy) {
-            $policy->loadMissing([
-                'customer',
-                'placement.markets' => fn ($q) => $q->where('is_lead', true),
-                'receiptAllocations.receipt',
-            ]);
-
             $serialNumber++;
 
             $month = $this->determineMonth($policy, $periodStart, $periodEnd);
@@ -49,18 +44,28 @@ class NaicomForm72BService
             $allocationData = $this->calculateAllocationData($policy);
             $commissionData = $this->calculateCommissionData($policy, $cutoffDate, $periodStart);
 
-            $premiumReceived = $this->calculatePremiumReceivedByBroker($policy);
+            $premiumReceived = $this->calculatePremiumReceivedByBroker($policy, $allocationData);
+
+            $insurerName = $policy->insurer?->name
+                ?? $policy->insurer_name
+                ?? $policy->placement?->markets?->first(fn ($m) => $m->is_lead)?->insuranceCompany?->name
+                ?? 'N/A';
+
+            $sumInsured = (float) ($policy->sum_insured ?? 0);
+            if ($sumInsured == 0 && $policy->relationLoaded('risks') && $policy->risks->isNotEmpty()) {
+                $sumInsured = (float) $policy->risks->sum('coverage_amount');
+            }
 
             $rows[] = [
                 'month' => $month,
                 'serial_number' => $serialNumber,
                 'customer_name' => $policy->customer?->display_name ?? 'N/A',
                 'customer_id' => $policy->customer_id,
-                'insurer_name' => $policy->insurer_name ?? 'N/A',
+                'insurer_name' => $insurerName,
                 'insurer_id' => $policy->insurer_id,
                 'cover_start' => $policy->effective_date?->toDateString(),
                 'cover_end' => $policy->expiry_date?->toDateString(),
-                'sum_insured' => (float) ($policy->sum_insured ?? 0),
+                'sum_insured' => $sumInsured,
                 'premium_direct_to_insurers' => $allocationData['direct_to_insurer'],
                 'premium_to_broker_local' => $allocationData['broker_local'],
                 'premium_to_broker_foreign' => $allocationData['broker_foreign'],
@@ -81,24 +86,34 @@ class NaicomForm72BService
 
         $monthlySummaries = $this->buildMonthlySummaries($rows, $periodStart, $periodEnd);
 
-        return [
-            'rows' => $rows,
-            'monthly_summaries' => $monthlySummaries,
-            'period' => [
+        $dto = new Form72BDTO(
+            rows: $rows,
+            monthlySummaries: $monthlySummaries,
+            period: [
                 'start' => $periodStart->toDateString(),
                 'end' => $periodEnd->toDateString(),
                 'half' => $reportingHalf,
                 'year' => $reportingYear,
                 'cutoff_date' => $cutoffDate->toDateString(),
             ],
-        ];
+        );
+
+        return $dto->toArray();
     }
 
     protected function loadPolicies(int $tenantId, Carbon $periodStart, Carbon $periodEnd): Collection
     {
         return Policy::query()
             ->where('tenant_id', $tenantId)
-            ->whereIn('status', ['active', 'expired', 'cancelled', 'approved'])
+            ->whereIn('status', ['active', 'expired', 'cancelled', 'approved', 'recorded', 'issued', 'suspended'])
+            ->with([
+                'customer',
+                'insurer',
+                'placement.markets' => fn ($q) => $q->where('is_lead', true)->with('insuranceCompany'),
+                'receiptAllocations.receipt',
+                'debitNotes',
+                'risks',
+            ])
             ->where(function ($q) use ($periodStart, $periodEnd) {
                 $q->whereBetween('effective_date', [$periodStart, $periodEnd])
                     ->orWhereBetween('expiry_date', [$periodStart, $periodEnd])
@@ -122,39 +137,59 @@ class NaicomForm72BService
     {
         $receiptAllocations = $policy->receiptAllocations;
 
-        $directToInsurer = $receiptAllocations
-            ->where('is_direct_to_insurer', true)
-            ->sum('amount');
+        $contractualGross = (float) ($policy->debitNotes->first()?->amount ?? $policy->premium_amount ?? 0);
 
-        $brokerLocal = $receiptAllocations
-            ->where('is_direct_to_insurer', false)
-            ->where('currency', 'NGN')
-            ->sum('amount');
+        if ($receiptAllocations->isNotEmpty()) {
+            $directToInsurer = (float) $receiptAllocations
+                ->where('is_direct_to_insurer', true)
+                ->sum('amount');
 
-        $brokerForeign = $receiptAllocations
-            ->where('is_direct_to_insurer', false)
-            ->where('currency', '!=', 'NGN')
-            ->sum('amount');
+            $brokerLocal = (float) $receiptAllocations
+                ->where('is_direct_to_insurer', false)
+                ->where('currency', 'NGN')
+                ->sum('amount');
 
-        $totalGross = $directToInsurer + $brokerLocal + $brokerForeign;
+            $brokerForeign = (float) $receiptAllocations
+                ->where('is_direct_to_insurer', false)
+                ->where('currency', '!=', 'NGN')
+                ->sum('amount');
 
-        if ($totalGross === 0.0) {
-            $totalGross = (float) ($policy->premium_amount ?? 0);
+            $allocatedGross = $directToInsurer + $brokerLocal + $brokerForeign;
+            $totalGross = $contractualGross > 0 ? $contractualGross : $allocatedGross;
+        } else {
+            $totalGross = $contractualGross;
+            $directToInsurer = 0.0;
+            $brokerLocal = 0.0;
+            $brokerForeign = 0.0;
+
+            if ($policy->is_direct_to_insurer) {
+                $directToInsurer = $totalGross;
+            } elseif (($policy->currency ?? 'NGN') === 'NGN') {
+                $brokerLocal = $totalGross;
+            } else {
+                $brokerForeign = $totalGross;
+            }
         }
 
         $coBroker = 0.0;
         $reportingBroker = 0.0;
-        if ($policy->relationLoaded('placement') && $policy->placement) {
+        if ($policy->placement) {
             $leadMarket = $policy->placement->markets?->first(fn ($m) => $m->is_lead);
             if ($leadMarket) {
                 $coBroker = (float) ($leadMarket->co_broker_commission ?? 0);
                 $reportingBroker = (float) ($leadMarket->reporting_broker_commission ?? 0);
+
+                if ($reportingBroker == 0 && $coBroker == 0 && (float) ($policy->commission_amount ?? 0) > 0) {
+                    $reportingBroker = (float) $policy->commission_amount;
+                }
             }
         }
 
         $netPremiumCalculated = $totalGross - $coBroker - $reportingBroker;
 
         $firstReceipt = $receiptAllocations->first()?->receipt;
+        $paymentMethod = $firstReceipt?->payment_method ?? $policy->payment_method;
+        $paymentDate = $firstReceipt?->payment_date?->toDateString() ?? $policy->payment_date?->toDateString();
 
         return [
             'direct_to_insurer' => $directToInsurer,
@@ -162,16 +197,20 @@ class NaicomForm72BService
             'broker_foreign' => $brokerForeign,
             'total_gross' => $totalGross,
             'net_premium_calculated' => max(0, $netPremiumCalculated),
-            'payment_method' => $firstReceipt?->payment_method,
-            'payment_date' => $firstReceipt?->payment_date?->toDateString(),
+            'payment_method' => $paymentMethod,
+            'payment_date' => $paymentDate,
         ];
     }
 
-    protected function calculatePremiumReceivedByBroker(Policy $policy): float
+    protected function calculatePremiumReceivedByBroker(Policy $policy, array $allocationData): float
     {
-        return $policy->receiptAllocations
-            ->where('is_direct_to_insurer', false)
-            ->sum('amount');
+        if ($policy->receiptAllocations->isNotEmpty()) {
+            return (float) $policy->receiptAllocations
+                ->where('is_direct_to_insurer', false)
+                ->sum('amount');
+        }
+
+        return $allocationData['broker_local'] + $allocationData['broker_foreign'];
     }
 
     protected function calculateCommissionData(Policy $policy, Carbon $cutoffDate, Carbon $periodStart): array
@@ -179,12 +218,20 @@ class NaicomForm72BService
         $coBroker = 0.0;
         $reportingBroker = 0.0;
 
-        if ($policy->relationLoaded('placement') && $policy->placement) {
+        if ($policy->placement) {
             $leadMarket = $policy->placement->markets?->first(fn ($m) => $m->is_lead);
             if ($leadMarket) {
                 $coBroker = (float) ($leadMarket->co_broker_commission ?? 0);
                 $reportingBroker = (float) ($leadMarket->reporting_broker_commission ?? 0);
+
+                if ($reportingBroker == 0 && $coBroker == 0 && (float) ($policy->commission_amount ?? 0) > 0) {
+                    $reportingBroker = (float) $policy->commission_amount;
+                }
             }
+        }
+
+        if ($reportingBroker == 0 && $coBroker == 0 && (float) ($policy->commission_amount ?? 0) > 0) {
+            $reportingBroker = (float) $policy->commission_amount;
         }
 
         $totalCommission = $coBroker + $reportingBroker;

@@ -242,7 +242,7 @@ class TenantRelationshipController extends Controller
 
         $request->validate([
             'decline_reason' => 'nullable|string|max:500',
-        ]);
+        ]); // single field — leave inline
 
         try {
             $relationship->decline(Auth::user(), $request->decline_reason);

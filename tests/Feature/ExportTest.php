@@ -309,6 +309,11 @@ class ExportTest extends TestCase
             'active_policies' => 150,
             'total_premium' => 5000000,
             'total_commission' => 250000,
+            'policy_renewals' => 20,
+            'policy_cancellations' => 5,
+            'outstanding_premiums' => 100000,
+            'debit_notes_issued' => 10,
+            'credit_notes_issued' => 5,
         ];
     }
 

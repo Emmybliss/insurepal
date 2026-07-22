@@ -3,10 +3,14 @@
 namespace App\Services;
 
 use App\Models\Subscription;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class PaymentReceiptService
 {
+    public function __construct(
+        protected PdfService $pdfService
+    ) {}
+
     /**
      * Get raw receipt data for a subscription payment
      */
@@ -54,25 +58,23 @@ class PaymentReceiptService
             'period_end' => ($subscription->current_period_end ?? $subscription->created_at)->format('F d, Y'),
 
             // Always use InsurePal logo for platform-generated receipts
+            'logo_path' => $this->getLogoPath(),
             'logo_data' => $this->getLogoAsBase64(),
 
         ];
 
     }
 
-    /**
-     * Generate a PDF receipt for a subscription payment
-     */
     public function generateReceipt(Subscription $subscription): \Illuminate\Http\Response
     {
         $receiptData = $this->getReceiptData($subscription);
 
-        // Generate PDF
-        $pdf = Pdf::loadView('pdfs.payment-receipt', $receiptData)
-            ->setPaper('a4', 'portrait')
-            ->setOptions(['dpi' => 96, 'defaultFont' => 'sans-serif', 'isPhpEnabled' => false]);
+        $pdfContent = $this->pdfService->renderView('pdfs.payment-receipt', $receiptData);
 
-        return $pdf->download('receipt-'.$receiptData['receipt_number'].'.pdf');
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="receipt-'.$receiptData['receipt_number'].'.pdf"',
+        ]);
     }
 
     /**
@@ -115,5 +117,21 @@ class PaymentReceiptService
         }
 
         return 'data:'.$mimeType.';base64,'.base64_encode($contents);
+    }
+
+    /**
+     * Get logo local file URL.
+     */
+    protected function getLogoPath(): ?string
+    {
+        $logoPath = public_path('images/insurepal-logo.png');
+
+        if (! file_exists($logoPath)) {
+            return null;
+        }
+
+        $normalizedPath = str_replace('\\', '/', $logoPath);
+
+        return 'file:///'.ltrim($normalizedPath, '/');
     }
 }

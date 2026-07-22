@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\EmailAccount;
 use App\Models\Policy;
 use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
@@ -11,6 +12,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -100,40 +102,40 @@ class PolicyRenewalMail extends Mailable implements ShouldQueue
     private function applyTenantSmtp(?Tenant $tenant): void
     {
         if (! $tenant) {
-            return; // use global .env defaults
+            return;
         }
 
-        $smtp = $tenant->smtp_settings;
+        $senderName = $tenant->company_name ?? $tenant->name ?? config('app.name');
 
-        if (! empty($smtp) && ! empty($smtp['use_custom'])) {
-            $senderName = $tenant->company_name ?? $tenant->name ?? config('app.name');
-            $senderEmail = ! empty($smtp['from_address'])
-                ? $smtp['from_address']
-                : (filter_var($smtp['username'] ?? '', FILTER_VALIDATE_EMAIL)
-                    ? $smtp['username']
-                    : ($tenant->contact_email ?? $tenant->email ?? config('mail.from.address')));
+        $systemAccount = EmailAccount::where('tenant_id', $tenant->id)
+            ->where('is_system_default', true)
+            ->where('is_active', true)
+            ->first();
+
+        if ($systemAccount && $systemAccount->smtp_host) {
+            $password = $systemAccount->credentials_encrypted
+                ? Crypt::decryptString($systemAccount->credentials_encrypted)
+                : null;
+
+            $senderEmail = $systemAccount->email;
 
             config([
-                'mail.mailers.smtp.host' => $smtp['host'] ?? config('mail.mailers.smtp.host'),
-                'mail.mailers.smtp.port' => $smtp['port'] ?? config('mail.mailers.smtp.port'),
-                'mail.mailers.smtp.encryption' => $smtp['encryption'] ?? config('mail.mailers.smtp.encryption'),
-                'mail.mailers.smtp.username' => $smtp['username'] ?? config('mail.mailers.smtp.username'),
-                'mail.mailers.smtp.password' => $smtp['password'] ?? config('mail.mailers.smtp.password'),
+                'mail.mailers.smtp.host' => $systemAccount->smtp_host,
+                'mail.mailers.smtp.port' => $systemAccount->smtp_port ?? 587,
+                'mail.mailers.smtp.encryption' => $systemAccount->smtp_port === 465 ? 'ssl' : 'tls',
+                'mail.mailers.smtp.username' => $systemAccount->email,
+                'mail.mailers.smtp.password' => $password ?? '',
                 'mail.from.address' => $senderEmail,
                 'mail.from.name' => $senderName,
             ]);
 
-            // Purge the resolved mailer so it picks up new config
             Mail::purge('smtp');
 
-            Log::info("[PolicyRenewalMail] Using custom SMTP for tenant: {$senderName} <{$senderEmail}>");
-
-            // Set from/replyTo on the Mailable
             $this->from($senderEmail, $senderName)
                 ->replyTo($tenant->contact_email ?? $tenant->email ?? $senderEmail, $senderName);
+
+            Log::info("[PolicyRenewalMail] Using system-default EmailAccount for tenant: {$senderName} <{$senderEmail}>");
         } else {
-            // Use global .env Mailtrap/SMTP credentials — no changes needed
-            $senderName = $tenant->company_name ?? $tenant->name ?? config('mail.from.name');
             $senderEmail = config('mail.from.address');
 
             $this->from($senderEmail, $senderName);

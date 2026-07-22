@@ -28,29 +28,21 @@ export default function ErrorPage({ status }: Props) {
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                     className="w-full max-w-2xl"
                 >
-                    <Card className="relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
+                    <Card className="relative overflow-hidden border-border/50 bg-card/60 shadow-2xl backdrop-blur-xl">
                         <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
 
-                        <CardHeader className="pb-6 pt-12 text-center">
+                        <CardHeader className="pt-12 pb-6 text-center">
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
                                 className="mb-8"
                             >
-                                <p className="text-5xl font-extrabold tracking-tight text-foreground lg:text-6xl">
-                                    {status}
-                                </p>
+                                <p className="text-5xl font-extrabold tracking-tight text-foreground lg:text-6xl">{status}</p>
                             </motion.div>
 
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <h1 className="text-3xl font-bold tracking-tight text-foreground lg:text-4xl">
-                                    We've hit a temporary snag.
-                                </h1>
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                                <h1 className="text-3xl font-bold tracking-tight text-foreground lg:text-4xl">We've hit a temporary snag.</h1>
                             </motion.div>
                         </CardHeader>
 
@@ -61,15 +53,9 @@ export default function ErrorPage({ status }: Props) {
                                 transition={{ delay: 0.3 }}
                                 className="space-y-4 text-lg leading-relaxed text-muted-foreground"
                             >
-                                <p>
-                                    We apologize for the inconvenience. Our team is working to restore service as quickly as possible.
-                                </p>
-                                <p>
-                                    This disruption may affect your current workflow, but your saved records and documents remain secure.
-                                </p>
-                                <p>
-                                    Please try again in a few moments.
-                                </p>
+                                <p>We apologize for the inconvenience. Our team is working to restore service as quickly as possible.</p>
+                                <p>This disruption may affect your current workflow, but your saved records and documents remain secure.</p>
+                                <p>Please try again in a few moments.</p>
                             </motion.div>
                         </CardContent>
 
@@ -118,13 +104,10 @@ export default function ErrorPage({ status }: Props) {
                             </Button>
                         </CardFooter>
 
-                        <div className="absolute bottom-0 left-0 w-full bg-muted/20 px-8 pb-6 pt-4 text-center">
+                        <div className="absolute bottom-0 left-0 w-full bg-muted/20 px-8 pt-4 pb-6 text-center">
                             <p className="text-sm text-muted-foreground">
                                 If the problem persists, contact support at{' '}
-                                <a
-                                    href="mailto:support@insurepal.app"
-                                    className="font-medium text-primary underline-offset-4 hover:underline"
-                                >
+                                <a href="mailto:support@insurepal.app" className="font-medium text-primary underline-offset-4 hover:underline">
                                     support@insurepal.app
                                 </a>
                             </p>

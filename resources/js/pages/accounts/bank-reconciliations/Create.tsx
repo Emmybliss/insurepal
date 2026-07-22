@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -65,11 +65,13 @@ export default function Create({ bankAccounts }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Bank Reconciliations', href: route('bank-reconciliations.index') },
-            { title: 'Create' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Bank Reconciliations', href: route('bank-reconciliations.index') },
+                { title: 'Create' },
+            ]}
+        >
             <Head title="Create Reconciliation" />
 
             <div className="flex flex-col gap-6 p-6">
@@ -81,9 +83,7 @@ export default function Create({ bankAccounts }: Props) {
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">Create Bank Reconciliation</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Reconcile a bank account balance with the system's calculated balance
-                        </p>
+                        <p className="text-sm text-muted-foreground">Reconcile a bank account balance with the system's calculated balance</p>
                     </div>
                 </div>
 
@@ -96,10 +96,7 @@ export default function Create({ bankAccounts }: Props) {
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="client_bank_account_id">Bank Account</Label>
-                                    <Select
-                                        value={form.client_bank_account_id}
-                                        onValueChange={(v) => update('client_bank_account_id', v)}
-                                    >
+                                    <Select value={form.client_bank_account_id} onValueChange={(v) => update('client_bank_account_id', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select bank account" />
                                         </SelectTrigger>
@@ -111,9 +108,7 @@ export default function Create({ bankAccounts }: Props) {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {errors.client_bank_account_id && (
-                                        <p className="text-sm text-destructive">{errors.client_bank_account_id}</p>
-                                    )}
+                                    {errors.client_bank_account_id && <p className="text-sm text-destructive">{errors.client_bank_account_id}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -122,9 +117,7 @@ export default function Create({ bankAccounts }: Props) {
                                         value={form.reconciliation_date ? new Date(form.reconciliation_date) : undefined}
                                         onSelect={(date) => update('reconciliation_date', date ? date.toISOString().split('T')[0] : null)}
                                     />
-                                    {errors.reconciliation_date && (
-                                        <p className="text-sm text-destructive">{errors.reconciliation_date}</p>
-                                    )}
+                                    {errors.reconciliation_date && <p className="text-sm text-destructive">{errors.reconciliation_date}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -137,18 +130,16 @@ export default function Create({ bankAccounts }: Props) {
                                         onChange={(e) => update('closing_balance', e.target.value)}
                                         placeholder="Enter closing balance from bank statement"
                                     />
-                                    <p className="text-xs text-muted-foreground">
-                                        Leave empty if you want to enter it during reconciliation
-                                    </p>
-                                    {errors.closing_balance && (
-                                        <p className="text-sm text-destructive">{errors.closing_balance}</p>
-                                    )}
+                                    <p className="text-xs text-muted-foreground">Leave empty if you want to enter it during reconciliation</p>
+                                    {errors.closing_balance && <p className="text-sm text-destructive">{errors.closing_balance}</p>}
                                 </div>
                             </div>
 
                             <div className="flex justify-end gap-4 pt-4">
                                 <Link href={route('bank-reconciliations.index')}>
-                                    <Button type="button" variant="outline">Cancel</Button>
+                                    <Button type="button" variant="outline">
+                                        Cancel
+                                    </Button>
                                 </Link>
                                 <Button type="submit" disabled={processing}>
                                     <Save className="mr-2 h-4 w-4" />

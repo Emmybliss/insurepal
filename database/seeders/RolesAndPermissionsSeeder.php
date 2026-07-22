@@ -240,7 +240,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'view_customers', 'create_customers', 'edit_customers', 'delete_customers', 'import_customers', 'export_customers',
                     'view_quotes', 'create_quotes', 'edit_quotes', 'delete_quotes', 'send_quotes', 'duplicate_quotes',
-                    'view_policies', 'create_policies', 'edit_policies', 'renew_policies', 'endorse_policies',
+                    'view_policies', 'create_policies', 'edit_policies', 'delete_policies', 'renew_policies', 'endorse_policies',
                     'view_financial_notes', 'create_debit_notes', 'create_credit_notes', 'edit_financial_notes', 'process_payments',
                     'view_reports', 'generate_reports', 'export_reports', 'view_analytics',
                     'naicom-reports.view', 'naicom-reports.generate', 'naicom-reports.review', 'naicom-reports.adjust', 'naicom-reports.approve', 'naicom-reports.lock', 'naicom-reports.export', 'naicom-reports.submit', 'naicom-reports.restate',

@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { formatAmount } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
 import { Select } from '@radix-ui/react-select';
 import {
@@ -51,8 +52,13 @@ interface CreditNote {
     note_number: string;
     amount: number;
     formatted_amount: string;
+    total_amount: number;
+    formatted_total_amount: string;
+    tax_amount: number;
+    formatted_tax_amount: string;
     description: string;
     status: string;
+    transaction_type?: string;
     issue_date: string;
     due_date?: string;
     paid_at?: string;
@@ -165,7 +171,7 @@ export default function CreditNotesIndex({ notes, customers, filters, stats, tem
                             <FileText className="h-4 w-4 text-green-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-600">₦{stats.total_credit.toLocaleString()}</div>
+                            <div className="text-2xl font-bold text-green-600">₦{formatAmount(stats.total_credit)}</div>
                             <p className="text-xs text-muted-foreground">All credit notes</p>
                         </CardContent>
                     </Card>
@@ -176,7 +182,7 @@ export default function CreditNotesIndex({ notes, customers, filters, stats, tem
                             <AlertCircle className="h-4 w-4 text-yellow-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">₦{stats.outstanding_credit.toLocaleString()}</div>
+                            <div className="text-2xl font-bold text-yellow-600">₦{formatAmount(stats.outstanding_credit)}</div>
                             <p className="text-xs text-muted-foreground">Unpaid credit notes</p>
                         </CardContent>
                     </Card>
@@ -265,6 +271,7 @@ export default function CreditNotesIndex({ notes, customers, filters, stats, tem
                                         <tr className="border-b">
                                             <th className="px-4 py-3 text-left">Note Number</th>
                                             <th className="px-4 py-3 text-left">Customer</th>
+                                            <th className="px-4 py-3 text-left">Transaction Type</th>
                                             <th className="px-4 py-3 text-left">Amount</th>
                                             <th className="px-4 py-3 text-left">Status</th>
                                             <th className="px-4 py-3 text-left">Due Date</th>
@@ -283,10 +290,22 @@ export default function CreditNotesIndex({ notes, customers, filters, stats, tem
                                                         <User className="h-4 w-4 text-gray-400" />
                                                         <span className="text-sm">{getCustomerName(note.customer)}</span>
                                                     </div>
-                                                    <div className="text-xs text-gray-500">Policy: {note.policy?.policy_number ?? 'To Be Advised'}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Policy: {note.policy?.policy_number ?? 'To Be Advised'}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-semibold text-green-600">{note.formatted_amount}</div>
+                                                    <div className="text-sm capitalize">
+                                                        {note.transaction_type ? (
+                                                            note.transaction_type.replace(/_/g, ' ')
+                                                        ) : (
+                                                            <span className="text-gray-400">—</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-green-600">{note.formatted_total_amount}</div>
+                                                    <div className="text-xs text-gray-500">Tax: {note.formatted_tax_amount}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center space-x-2">
@@ -307,7 +326,7 @@ export default function CreditNotesIndex({ notes, customers, filters, stats, tem
                                                                 <span>{new Date(note.due_date).toLocaleDateString()}</span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-gray-400">N/A</span>
+                                                            <span className="text-gray-400">To Be Advised</span>
                                                         )}
                                                     </div>
                                                 </td>

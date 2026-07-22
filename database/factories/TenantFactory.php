@@ -16,10 +16,12 @@ class TenantFactory extends Factory
      */
     public function definition(): array
     {
+        $name = 'Tenant '.$this->faker->unique()->randomNumber(4);
+
         return [
-            'name' => $this->faker->company(),
-            'slug' => $this->faker->slug(),
-            'type' => $this->faker->randomElement(['insurer', 'broker', 'agent']),
+            'name' => $name,
+            'slug' => \Illuminate\Support\Str::slug($name),
+            'type' => $this->faker->randomElement(['broker', 'underwriter']),
             'email' => $this->faker->unique()->safeEmail(),
             'phone' => $this->faker->phoneNumber(),
             'address' => $this->faker->address(),
@@ -30,7 +32,7 @@ class TenantFactory extends Factory
             'trial_ends_at' => $this->faker->dateTimeBetween('now', '+30 days'),
             'default_locale' => 'en',
             'parent_tenant_id' => null,
-            'company_name' => $this->faker->company(),
+            'company_name' => $name,
             'contact_email' => $this->faker->safeEmail(),
             'contact_phone' => $this->faker->phoneNumber(),
             'city' => $this->faker->city(),

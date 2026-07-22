@@ -33,6 +33,13 @@ class IssuePolicyRequest extends FormRequest
             'insurer_address' => 'nullable|string',
             'insurer_email' => 'nullable|string',
             'insurer_phone' => 'nullable|string',
+            'risks' => ['nullable', 'array'],
+            'risks.*.description' => ['nullable', 'string', 'max:1000'],
+            'risks.*.coverage_amount' => ['required_with:risks', 'numeric', 'min:0'],
+            'risks.*.rate' => ['nullable', 'numeric', 'min:0'],
+            'risks.*.rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
+            'risks.*.premium' => ['required_with:risks', 'numeric', 'min:0'],
+            'risks.*.dynamic_fields' => ['nullable', 'array'],
         ];
     }
 }

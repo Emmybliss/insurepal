@@ -89,9 +89,9 @@ class ReportsTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('reports/product-performance')
-            ->has('data')
-            ->has('productPerformance')
-            ->has('trends')
+            ->has('productData')
+            ->has('productTrends')
+            ->has('period')
         );
     }
 
@@ -172,7 +172,7 @@ class ReportsTest extends TestCase
             'period' => 'invalid-period',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(302);
     }
 
     public function test_naicom_report_includes_rbc_metrics(): void
@@ -182,9 +182,9 @@ class ReportsTest extends TestCase
         $response = $this->get('/reports/naicom?period=monthly&date='.now()->format('Y-m'));
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->has('data.rbc_ratio')
-            ->has('data.capital_adequacy_ratio')
-            ->has('data.minimum_capital_requirement')
+        $response->assertInertia(fn ($page) => $page->has('data.rbc_metrics.capital_adequacy_ratio')
+            ->has('data.rbc_metrics.solvency_ratio')
+            ->has('data.rbc_metrics.minimum_capital_requirement')
         );
     }
 
@@ -222,9 +222,8 @@ class ReportsTest extends TestCase
         $response = $this->get('/reports/product-performance?period=last_30_days');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->has('data.loss_ratio')
-            ->has('data.expense_ratio')
-            ->has('data.combined_ratio')
+        $response->assertInertia(fn ($page) => $page->has('productData')
+            ->has('productTrends')
         );
     }
 

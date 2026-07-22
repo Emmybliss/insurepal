@@ -6,9 +6,7 @@ import { RefreshCw } from 'lucide-react';
 
 function mapPolicyDataForCertificate(policy: any, customer: any, tenant: any) {
     return {
-        customer_name: customer?.first_name && customer?.last_name
-            ? `${customer.first_name} ${customer.last_name}`
-            : customer?.company_name || 'N/A',
+        customer_name: customer?.first_name && customer?.last_name ? `${customer.first_name} ${customer.last_name}` : customer?.company_name || 'N/A',
         customer_address: customer?.address || 'N/A',
         customer_phone: customer?.phone || 'N/A',
         customer_email: customer?.email || 'N/A',

@@ -584,7 +584,7 @@ export default function QuoteShow({ quote, canEdit, canSend, canAccept, canRejec
                                             <Badge variant="default">{quote.policy.status}</Badge>
                                         </div>
                                         <div className="mt-3">
-                                            <Link href={route('policies.show', quote.policy.id)}>
+                                            <Link href={route('policy-management.show', quote.policy.id)}>
                                                 <Button variant="outline" size="sm" className="w-full">
                                                     View Policy
                                                 </Button>

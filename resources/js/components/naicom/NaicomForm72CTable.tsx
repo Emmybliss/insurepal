@@ -1,18 +1,5 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from '@/components/ui/dialog';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useState } from 'react';
 
 interface Form72CRow {
@@ -122,13 +109,13 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                                 <TableHead colSpan={6} className="text-xs font-semibold text-muted-foreground">
                                     POLICY INFORMATION
                                 </TableHead>
-                                <TableHead colSpan={8} className="text-xs font-semibold text-muted-foreground border-l">
+                                <TableHead colSpan={8} className="border-l text-xs font-semibold text-muted-foreground">
                                     PREMIUM RECEIVED AND AMOUNTS DUE TO STAKEHOLDERS
                                 </TableHead>
-                                <TableHead colSpan={4} className="text-xs font-semibold text-muted-foreground border-l">
+                                <TableHead colSpan={4} className="border-l text-xs font-semibold text-muted-foreground">
                                     REMITTANCE TO STAKEHOLDERS
                                 </TableHead>
-                                <TableHead colSpan={4} className="text-xs font-semibold text-muted-foreground border-l">
+                                <TableHead colSpan={4} className="border-l text-xs font-semibold text-muted-foreground">
                                     OUTSTANDING PAYMENT
                                 </TableHead>
                             </TableRow>
@@ -139,7 +126,7 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                                 <TableHead>Cover Start</TableHead>
                                 <TableHead>Cover End</TableHead>
                                 <TableHead className="text-right">Total Received</TableHead>
-                                <TableHead className="text-right border-l">Premium Due</TableHead>
+                                <TableHead className="border-l text-right">Premium Due</TableHead>
                                 <TableHead className="text-right">Deposit Made</TableHead>
                                 <TableHead className="text-right">Return Premium</TableHead>
                                 <TableHead className="text-right">Claims Due</TableHead>
@@ -148,11 +135,11 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                                 <TableHead className="text-right">Comm. Rep. Bkr</TableHead>
                                 <TableHead className="border-l">Remit Date</TableHead>
                                 <TableHead>Bank</TableHead>
-                                <TableHead className="text-right border-l">Prem. Remitted</TableHead>
+                                <TableHead className="border-l text-right">Prem. Remitted</TableHead>
                                 <TableHead className="text-right">Claim/Dep. Rem.</TableHead>
                                 <TableHead className="text-right">VAT Remitted</TableHead>
                                 <TableHead className="text-right">Comm. Remitted</TableHead>
-                                <TableHead className="text-right border-l">Out. Premium</TableHead>
+                                <TableHead className="border-l text-right">Out. Premium</TableHead>
                                 <TableHead className="text-right">Out. Claim/Dep.</TableHead>
                                 <TableHead className="text-right">Out. VAT</TableHead>
                                 <TableHead className="text-right">Out. Comm.</TableHead>
@@ -166,67 +153,102 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                Object.entries(groupByMonth(lines)).map(([month, monthRows]) => (
-                                    <TableRow key={`group-${month}`} className="bg-muted/50">
-                                        <TableCell colSpan={23} className="py-2 font-semibold">
-                                            {monthlySummaries.find((m) => m.month === Number(month))?.month_name ?? `Month ${month}`}
-                                        </TableCell>
-                                    </TableRow>,
-                                    monthRows.map((row) => (
-                                        <TableRow
-                                            key={row.serial_number}
-                                            className="cursor-pointer hover:bg-muted/50"
-                                            onClick={() => setSelectedRow(row)}
-                                        >
-                                            <TableCell className="text-muted-foreground">{row.serial_number}</TableCell>
-                                            <TableCell className="font-medium">
-                                                <div>{row.customer_name}</div>
-                                                {row.policy_number && (
-                                                    <div className="text-xs text-muted-foreground">{row.policy_number}</div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>{row.insurer_name}</TableCell>
-                                            <TableCell className="text-sm">{row.cover_start ?? '—'}</TableCell>
-                                            <TableCell className="text-sm">{row.cover_end ?? '—'}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.total_received)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm border-l">{formatCurrency(row.premium_due_to_insurers)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.deposit_made)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.returned_premium_due)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.claims_due_to_insured)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.vat_due)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.commission_due_co_broker)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.commission_due_reporting_broker)}</TableCell>
-                                            <TableCell className="text-sm whitespace-nowrap border-l">{row.remittance_date ?? '—'}</TableCell>
-                                            <TableCell className="text-sm max-w-[100px] truncate">{row.bank_name ?? '—'}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm border-l">{formatCurrency(row.premium_remitted)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.claim_return_deposit_remitted)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.vat_remitted)}</TableCell>
-                                            <TableCell className="text-right font-mono text-sm">{formatCurrency(row.commission_remitted)}</TableCell>
-                                            <TableCell className={`text-right font-mono text-sm border-l ${row.outstanding_premium > 0 ? 'text-amber-600 font-semibold' : ''}`}>{formatCurrency(row.outstanding_premium)}</TableCell>
-                                            <TableCell className={`text-right font-mono text-sm ${row.outstanding_claim_return_deposit > 0 ? 'text-amber-600 font-semibold' : ''}`}>{formatCurrency(row.outstanding_claim_return_deposit)}</TableCell>
-                                            <TableCell className={`text-right font-mono text-sm ${row.outstanding_vat > 0 ? 'text-amber-600 font-semibold' : ''}`}>{formatCurrency(row.outstanding_vat)}</TableCell>
-                                            <TableCell className={`text-right font-mono text-sm ${row.outstanding_commission > 0 ? 'text-amber-600 font-semibold' : ''}`}>{formatCurrency(row.outstanding_commission)}</TableCell>
-                                        </TableRow>
-                                    ))
+                                Object.entries(groupByMonth(lines)).map(
+                                    ([month, monthRows]) => (
+                                        (
+                                            <TableRow key={`group-${month}`} className="bg-muted/50">
+                                                <TableCell colSpan={23} className="py-2 font-semibold">
+                                                    {monthlySummaries.find((m) => m.month === Number(month))?.month_name ?? `Month ${month}`}
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                        monthRows.map((row) => (
+                                            <TableRow
+                                                key={row.serial_number}
+                                                className="cursor-pointer hover:bg-muted/50"
+                                                onClick={() => setSelectedRow(row)}
+                                            >
+                                                <TableCell className="text-muted-foreground">{row.serial_number}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div>{row.customer_name}</div>
+                                                    {row.policy_number && <div className="text-xs text-muted-foreground">{row.policy_number}</div>}
+                                                </TableCell>
+                                                <TableCell>{row.insurer_name}</TableCell>
+                                                <TableCell className="text-sm">{row.cover_start ?? '—'}</TableCell>
+                                                <TableCell className="text-sm">{row.cover_end ?? '—'}</TableCell>
+                                                <TableCell className="text-right font-mono text-sm">{formatCurrency(row.total_received)}</TableCell>
+                                                <TableCell className="border-l text-right font-mono text-sm">
+                                                    {formatCurrency(row.premium_due_to_insurers)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">{formatCurrency(row.deposit_made)}</TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.returned_premium_due)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.claims_due_to_insured)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">{formatCurrency(row.vat_due)}</TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.commission_due_co_broker)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.commission_due_reporting_broker)}
+                                                </TableCell>
+                                                <TableCell className="border-l text-sm whitespace-nowrap">{row.remittance_date ?? '—'}</TableCell>
+                                                <TableCell className="max-w-[100px] truncate text-sm">{row.bank_name ?? '—'}</TableCell>
+                                                <TableCell className="border-l text-right font-mono text-sm">
+                                                    {formatCurrency(row.premium_remitted)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.claim_return_deposit_remitted)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm">{formatCurrency(row.vat_remitted)}</TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatCurrency(row.commission_remitted)}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={`border-l text-right font-mono text-sm ${row.outstanding_premium > 0 ? 'font-semibold text-amber-600' : ''}`}
+                                                >
+                                                    {formatCurrency(row.outstanding_premium)}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={`text-right font-mono text-sm ${row.outstanding_claim_return_deposit > 0 ? 'font-semibold text-amber-600' : ''}`}
+                                                >
+                                                    {formatCurrency(row.outstanding_claim_return_deposit)}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={`text-right font-mono text-sm ${row.outstanding_vat > 0 ? 'font-semibold text-amber-600' : ''}`}
+                                                >
+                                                    {formatCurrency(row.outstanding_vat)}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={`text-right font-mono text-sm ${row.outstanding_commission > 0 ? 'font-semibold text-amber-600' : ''}`}
+                                                >
+                                                    {formatCurrency(row.outstanding_commission)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ),
                                 )
-                            )
                             )}
                             {lines.length > 0 && (
                                 <TableRow className="bg-muted font-semibold">
-                                    <TableCell colSpan={5} className="text-right">Totals</TableCell>
+                                    <TableCell colSpan={5} className="text-right">
+                                        Totals
+                                    </TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.total_received)}</TableCell>
-                                    <TableCell className="text-right font-mono border-l">{formatCurrency(totals.premium_due)}</TableCell>
+                                    <TableCell className="border-l text-right font-mono">{formatCurrency(totals.premium_due)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.deposit_made)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.returned_premium)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.claims_due)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.vat_due)}</TableCell>
                                     <TableCell className="text-right font-mono" colSpan={2}></TableCell>
                                     <TableCell className="border-l text-center text-xs" colSpan={2}></TableCell>
-                                    <TableCell className="text-right font-mono border-l">{formatCurrency(totals.premium_remitted)}</TableCell>
+                                    <TableCell className="border-l text-right font-mono">{formatCurrency(totals.premium_remitted)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.claim_return_remitted)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.vat_remitted)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.commission_remitted)}</TableCell>
-                                    <TableCell className="text-right font-mono border-l">{formatCurrency(totals.outstanding_premium)}</TableCell>
+                                    <TableCell className="border-l text-right font-mono">{formatCurrency(totals.outstanding_premium)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.outstanding_claim)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.outstanding_vat)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatCurrency(totals.outstanding_commission)}</TableCell>
@@ -237,8 +259,13 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                 </div>
             </div>
 
-            <Dialog open={!!selectedRow} onOpenChange={(o) => { if (!o) setSelectedRow(null); }}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <Dialog
+                open={!!selectedRow}
+                onOpenChange={(o) => {
+                    if (!o) setSelectedRow(null);
+                }}
+            >
+                <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{selectedRow?.customer_name}</DialogTitle>
                         <DialogDescription>
@@ -249,47 +276,49 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                         <div className="grid grid-cols-3 gap-4 text-sm">
                             <div className="col-span-3 border-b pb-2">
                                 <p className="font-semibold text-muted-foreground">Cover Period</p>
-                                <p>{selectedRow.cover_start ?? '—'} → {selectedRow.cover_end ?? '—'}</p>
+                                <p>
+                                    {selectedRow.cover_start ?? '—'} → {selectedRow.cover_end ?? '—'}
+                                </p>
                             </div>
 
                             <div className="col-span-3 border-b pb-2">
-                                <p className="font-semibold text-muted-foreground mb-1">Premium Received & Amounts Due</p>
+                                <p className="mb-1 font-semibold text-muted-foreground">Premium Received & Amounts Due</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Total Received</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.total_received)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.total_received)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Premium Due to Insurers</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.premium_due_to_insurers)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.premium_due_to_insurers)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Deposit Made</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.deposit_made)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.deposit_made)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Returned Premium Due</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.returned_premium_due)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.returned_premium_due)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Claims Due to Insured</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.claims_due_to_insured)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.claims_due_to_insured)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">VAT Due</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.vat_due)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.vat_due)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Commission Due (Co-Bkr)</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.commission_due_co_broker)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.commission_due_co_broker)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Commission Due (Rep. Bkr)</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.commission_due_reporting_broker)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.commission_due_reporting_broker)}</p>
                             </div>
 
                             <div className="col-span-3 border-b pb-2">
-                                <p className="font-semibold text-muted-foreground mb-1">Remittance to Stakeholders</p>
+                                <p className="mb-1 font-semibold text-muted-foreground">Remittance to Stakeholders</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Remittance Date</p>
@@ -301,39 +330,47 @@ export function NaicomForm72CTable({ lines, monthlySummaries }: Props) {
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Premium Remitted</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.premium_remitted)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.premium_remitted)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Claim/Deposit Remitted</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.claim_return_deposit_remitted)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.claim_return_deposit_remitted)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">VAT Remitted</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.vat_remitted)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.vat_remitted)}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Commission Remitted</p>
-                                <p className="font-medium font-mono">{formatCurrency(selectedRow.commission_remitted)}</p>
+                                <p className="font-mono font-medium">{formatCurrency(selectedRow.commission_remitted)}</p>
                             </div>
 
                             <div className="col-span-3 border-b pb-2">
-                                <p className="font-semibold text-muted-foreground mb-1">Outstanding Payments</p>
+                                <p className="mb-1 font-semibold text-muted-foreground">Outstanding Payments</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Outstanding Premium</p>
-                                <p className={`font-medium font-mono ${selectedRow.outstanding_premium > 0 ? 'text-amber-600' : ''}`}>{formatCurrency(selectedRow.outstanding_premium)}</p>
+                                <p className={`font-mono font-medium ${selectedRow.outstanding_premium > 0 ? 'text-amber-600' : ''}`}>
+                                    {formatCurrency(selectedRow.outstanding_premium)}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Outstanding Claim/Dep.</p>
-                                <p className={`font-medium font-mono ${selectedRow.outstanding_claim_return_deposit > 0 ? 'text-amber-600' : ''}`}>{formatCurrency(selectedRow.outstanding_claim_return_deposit)}</p>
+                                <p className={`font-mono font-medium ${selectedRow.outstanding_claim_return_deposit > 0 ? 'text-amber-600' : ''}`}>
+                                    {formatCurrency(selectedRow.outstanding_claim_return_deposit)}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Outstanding VAT</p>
-                                <p className={`font-medium font-mono ${selectedRow.outstanding_vat > 0 ? 'text-amber-600' : ''}`}>{formatCurrency(selectedRow.outstanding_vat)}</p>
+                                <p className={`font-mono font-medium ${selectedRow.outstanding_vat > 0 ? 'text-amber-600' : ''}`}>
+                                    {formatCurrency(selectedRow.outstanding_vat)}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Outstanding Commission</p>
-                                <p className={`font-medium font-mono ${selectedRow.outstanding_commission > 0 ? 'text-amber-600' : ''}`}>{formatCurrency(selectedRow.outstanding_commission)}</p>
+                                <p className={`font-mono font-medium ${selectedRow.outstanding_commission > 0 ? 'text-amber-600' : ''}`}>
+                                    {formatCurrency(selectedRow.outstanding_commission)}
+                                </p>
                             </div>
 
                             {(selectedRow.over_remitted_premium > 0 || selectedRow.over_remitted_commission > 0) && (

@@ -2,17 +2,33 @@
 
 namespace App\Providers;
 
+use App\Models\BrokerSlip;
 use App\Models\CommunicationMessage;
 use App\Models\CommunicationThread;
+use App\Models\CreditNote;
 use App\Models\Customer;
+use App\Models\DebitNote;
 use App\Models\Expense;
+use App\Models\Invoice;
+use App\Models\Placement;
 use App\Models\Policy;
 use App\Models\Quote;
+use App\Models\Receipt;
+use App\Models\SupportTicket;
+use App\Policies\BrokerSlipPolicy;
 use App\Policies\CommunicationMessagePolicy;
 use App\Policies\CommunicationThreadPolicy;
+use App\Policies\CreditNotePolicy;
 use App\Policies\CustomerPolicy;
+use App\Policies\DebitNotePolicy;
 use App\Policies\ExpensePolicy;
+use App\Policies\InvoicePolicy;
+use App\Policies\PlacementPolicy;
+use App\Policies\PolicyPolicy;
 use App\Policies\QuotePolicy;
+use App\Policies\ReceiptPolicy;
+use App\Policies\SupportTicketPolicy;
+use App\Policies\TenantAccessPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -25,11 +41,19 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        Customer::class => CustomerPolicy::class,
-        Expense::class => ExpensePolicy::class,
-        Quote::class => QuotePolicy::class,
-        CommunicationThread::class => CommunicationThreadPolicy::class,
+        BrokerSlip::class => BrokerSlipPolicy::class,
         CommunicationMessage::class => CommunicationMessagePolicy::class,
+        CommunicationThread::class => CommunicationThreadPolicy::class,
+        CreditNote::class => CreditNotePolicy::class,
+        Customer::class => CustomerPolicy::class,
+        DebitNote::class => DebitNotePolicy::class,
+        Expense::class => ExpensePolicy::class,
+        Invoice::class => InvoicePolicy::class,
+        Placement::class => PlacementPolicy::class,
+        Policy::class => PolicyPolicy::class,
+        Quote::class => QuotePolicy::class,
+        Receipt::class => ReceiptPolicy::class,
+        SupportTicket::class => SupportTicketPolicy::class,
     ];
 
     /**
@@ -38,6 +62,11 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+
+        // Tenant Access Gate — reusable tenant isolation for any model with tenant_id
+        Gate::define('tenant-access', function ($user, $model) {
+            return app(TenantAccessPolicy::class)->access($user, $model);
+        });
 
         // Certificate Template Gates
         Gate::define('view_certificate_templates', function ($user) {
@@ -207,6 +236,29 @@ class AuthServiceProvider extends ServiceProvider
 
             return $hasPermission;
         });
+
+        // NAICOM Report Gates
+        $naicomPermissions = [
+            'naicom-reports.view',
+            'naicom-reports.generate',
+            'naicom-reports.review',
+            'naicom-reports.adjust',
+            'naicom-reports.approve',
+            'naicom-reports.lock',
+            'naicom-reports.export',
+            'naicom-reports.submit',
+            'naicom-reports.restate',
+        ];
+
+        foreach ($naicomPermissions as $permission) {
+            Gate::define($permission, function ($user) use ($permission) {
+                try {
+                    return $user->hasPermissionTo($permission);
+                } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist) {
+                    return false;
+                }
+            });
+        }
 
         // Tenant Relationship Gates
         Gate::define('view_tenant_relationships', function ($user) {

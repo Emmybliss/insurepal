@@ -81,6 +81,7 @@ class TwoFactorController extends Controller
      */
     public function confirm(Request $request): RedirectResponse
     {
+        // single field — leave inline
         $request->validate(['code' => 'required|string']);
 
         $user = $request->user();
@@ -108,6 +109,7 @@ class TwoFactorController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // single field — leave inline
         $request->validate(['password' => 'required|string']);
 
         $user = $request->user();

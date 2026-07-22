@@ -2,7 +2,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Head } from '@inertiajs/react';
 import { CheckCircle, Shield, XCircle } from 'lucide-react';
-import React from 'react';
 
 interface DocumentData {
     type: string;
@@ -57,9 +56,7 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
 
                 <div className="mb-8 text-center">
                     <h1 className="text-2xl font-bold tracking-tight">Document Verification</h1>
-                    <p className="mt-1 text-muted-foreground">
-                        {found ? `${doc?.type ?? 'Document'} Authenticity Check` : 'Document Lookup'}
-                    </p>
+                    <p className="mt-1 text-muted-foreground">{found ? `${doc?.type ?? 'Document'} Authenticity Check` : 'Document Lookup'}</p>
                 </div>
 
                 {found && doc && (
@@ -91,9 +88,7 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
                                 <div className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-700 dark:bg-gray-800">
                                     <Shield className="h-8 w-8 text-gray-400" />
                                     <div className="text-left">
-                                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">
-                                            Verification Not Available
-                                        </p>
+                                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Verification Not Available</p>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
                                             No digital snapshot exists for this document version
                                         </p>
@@ -118,10 +113,7 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
                                     <div>
                                         <p className="text-sm text-muted-foreground">Status</p>
                                         <Badge
-                                            className={
-                                                statusStyles[doc.status] ||
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                                            }
+                                            className={statusStyles[doc.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'}
                                         >
                                             {doc.status.replace(/_/g, ' ').toUpperCase()}
                                         </Badge>
@@ -138,12 +130,16 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Amount ({doc.currency})</p>
-                                        <p className="font-medium">{doc.currency} {doc.amount}</p>
+                                        <p className="font-medium">
+                                            {doc.currency} {doc.amount}
+                                        </p>
                                     </div>
                                     {doc.total_amount !== doc.amount && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">Total Amount ({doc.currency})</p>
-                                            <p className="font-medium">{doc.currency} {doc.total_amount}</p>
+                                            <p className="font-medium">
+                                                {doc.currency} {doc.total_amount}
+                                            </p>
                                         </div>
                                     )}
                                     {doc.policy_number && (
@@ -172,8 +168,8 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
                                 <div>
                                     <h3 className="font-medium text-red-900 dark:text-red-300">Document Not Found</h3>
                                     <p className="mt-1 text-red-700 dark:text-red-400">
-                                        No document matches the provided verification token. The document may have been removed or the
-                                        link may be invalid.
+                                        No document matches the provided verification token. The document may have been removed or the link may be
+                                        invalid.
                                     </p>
                                 </div>
                             </div>
@@ -182,9 +178,7 @@ export default function DocumentVerify({ found, document: doc, integrityValid, v
                 )}
 
                 <div className="mt-12 border-t pt-6 text-center">
-                    <p className="text-sm text-muted-foreground">
-                        This is a digitally verified document issued by InsurePal
-                    </p>
+                    <p className="text-sm text-muted-foreground">This is a digitally verified document issued by InsurePal</p>
                     {found && doc && (
                         <p className="mt-1 text-xs text-muted-foreground">
                             {doc.type} #{doc.number} · Verified {formatDate(verifiedAt)}

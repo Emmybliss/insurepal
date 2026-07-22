@@ -142,6 +142,8 @@ interface Invoice {
     total_amount: number;
     due_date?: string;
     notes?: string;
+    file_path?: string;
+    file_name?: string;
     created_at: string;
 }
 
@@ -152,6 +154,8 @@ interface PolicyReceipt {
     amount_paid: number;
     payment_method?: string;
     payment_date?: string;
+    file_path?: string;
+    file_name?: string;
     created_at: string;
 }
 
@@ -207,6 +211,11 @@ interface Policy {
     receipts?: PolicyReceipt[];
     issued_by?: User;
     broker_tenant?: { id: number; name: string };
+    insurer_name?: string;
+    insurer_email?: string;
+    insurer_phone?: string;
+    insurer_address?: string;
+    commission_rate?: number;
 }
 
 interface Props {
@@ -265,7 +274,10 @@ const approvalStatusColors: Record<string, string> = {
 };
 
 const getPolicyStatus = (policy: Policy) => {
-    if (policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+    const dateStatuses = ['active', 'expired', 'recorded'];
+    if (!dateStatuses.includes(policy.status)) return policy.status;
+
+    if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -278,7 +290,6 @@ const getPolicyStatus = (policy: Policy) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 60) return 'expiring_soon';
-    if (diffDays <= 90) return 'active';
 
     return 'active';
 };
@@ -342,6 +353,7 @@ export default function Show({ policy }: Props) {
     };
 
     const getCustomerDisplayName = () => {
+        if (!policy?.customer) return '—';
         if (policy.customer.type === 'corporate') {
             return policy.customer.company_name || `${policy.customer.first_name} ${policy.customer.last_name}`;
         }
@@ -472,19 +484,15 @@ export default function Show({ policy }: Props) {
                                 return (
                                     <Badge className={`${statusColors[derivedStatus] || statusColors[policy.status]} flex items-center gap-1`}>
                                         {statusIcons[derivedStatus] || statusIcons[policy.status]}
-                                        {derivedStatus.replace('_', ' ').toUpperCase()}
+                                        {derivedStatus?.replace('_', ' ').toUpperCase() || ''}
                                     </Badge>
                                 );
                             })()}
                             <Badge className={`${approvalStatusColors[policy.approval_status]}`}>
-                                {policy.approval_status.replace('_', ' ').toUpperCase()}
+                                {policy.approval_status?.replace('_', ' ').toUpperCase() || ''}
                             </Badge>
-                            {policy.source_type === 'BROKER_RECORDED' && (
-                                <Badge className="bg-purple-100 text-purple-800">Broker Recorded</Badge>
-                            )}
-                            {policy.source_type === 'DIRECT_ISSUANCE' && (
-                                <Badge className="bg-blue-100 text-blue-800">Direct Issuance</Badge>
-                            )}
+                            {policy.source_type === 'BROKER_RECORDED' && <Badge className="bg-purple-100 text-purple-800">Broker Recorded</Badge>}
+                            {policy.source_type === 'DIRECT_ISSUANCE' && <Badge className="bg-blue-100 text-blue-800">Direct Issuance</Badge>}
                         </div>
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -594,7 +602,7 @@ export default function Show({ policy }: Props) {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                {policy.customer.type === 'corporate' ? <Users className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                                {policy.customer?.type === 'corporate' ? <Users className="h-5 w-5" /> : <User className="h-5 w-5" />}
                                 Customer Information
                             </CardTitle>
                         </CardHeader>
@@ -602,20 +610,20 @@ export default function Show({ policy }: Props) {
                             <div>
                                 <h4 className="font-medium text-gray-900">{getCustomerDisplayName()}</h4>
                                 <Badge variant="outline" className="mt-1">
-                                    {policy.customer.type === 'corporate' ? 'Corporate' : 'Individual'}
+                                    {policy.customer?.type === 'corporate' ? 'Corporate' : 'Individual'}
                                 </Badge>
                             </div>
 
                             <div className="space-y-2 text-sm">
                                 <div className="flex items-center gap-2">
                                     <User className="h-4 w-4 text-gray-400" />
-                                    <span>{policy.customer.email}</span>
+                                    <span>{policy.customer?.email || '—'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Phone className="h-4 w-4 text-gray-400" />
-                                    <span>{policy.customer.phone}</span>
+                                    <span>{policy.customer?.phone || '—'}</span>
                                 </div>
-                                {policy.customer.address && (
+                                {policy.customer?.address && (
                                     <div className="flex items-start gap-2">
                                         <MapPin className="mt-0.5 h-4 w-4 text-gray-400" />
                                         <div>
@@ -681,7 +689,7 @@ export default function Show({ policy }: Props) {
 
                             <div>
                                 <h4 className="text-sm font-medium text-gray-600">Payment Frequency</h4>
-                                <p className="font-medium capitalize">{policy.payment_frequency.replace('_', ' ')}</p>
+                                <p className="font-medium capitalize">{policy.payment_frequency?.replace('_', ' ') || ''}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -690,11 +698,7 @@ export default function Show({ policy }: Props) {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                {policy.source_type === 'BROKER_RECORDED' ? (
-                                    <Building2 className="h-5 w-5" />
-                                ) : (
-                                    <Shield className="h-5 w-5" />
-                                )}
+                                {policy.source_type === 'BROKER_RECORDED' ? <Building2 className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
                                 Issuance Details
                             </CardTitle>
                         </CardHeader>
@@ -706,11 +710,7 @@ export default function Show({ policy }: Props) {
                                         <User className="h-4 w-4 text-gray-400" />
                                         <span className="font-medium">{policy.issued_by.name}</span>
                                     </div>
-                                    {policy.issued_at && (
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            {formatDateTime(policy.issued_at)}
-                                        </p>
-                                    )}
+                                    {policy.issued_at && <p className="mt-1 text-xs text-gray-500">{formatDateTime(policy.issued_at)}</p>}
                                 </div>
                             )}
 
@@ -739,6 +739,53 @@ export default function Show({ policy }: Props) {
                                             <span className="font-medium">{policy.broker_slip_number ?? '—'}</span>
                                         </div>
                                     </div>
+
+                                    {policy.insurer_name && (
+                                        <>
+                                            <Separator />
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-gray-700">Underwriter (Insurer)</h4>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-600">Company</h4>
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <Building2 className="h-4 w-4 text-gray-400" />
+                                                    <span className="font-medium">{policy.insurer_name}</span>
+                                                </div>
+                                            </div>
+                                            {(policy.insurer_email || policy.insurer_phone) && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-600">Contact</h4>
+                                                    <div className="mt-1 space-y-1 text-sm">
+                                                        {policy.insurer_email && (
+                                                            <div className="flex items-center gap-2">
+                                                                <User className="h-4 w-4 text-gray-400" />
+                                                                <span>{policy.insurer_email}</span>
+                                                            </div>
+                                                        )}
+                                                        {policy.insurer_phone && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Phone className="h-4 w-4 text-gray-400" />
+                                                                <span>{policy.insurer_phone}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {policy.insurer_address && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-600">Address</h4>
+                                                    <p className="mt-1 text-sm">{policy.insurer_address}</p>
+                                                </div>
+                                            )}
+                                            {policy.commission_rate != null && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-600">Commission Rate</h4>
+                                                    <p className="mt-1 font-medium">{policy.commission_rate}%</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
 
                                     {policy.schedule_file_path && (
                                         <div>
@@ -797,8 +844,6 @@ export default function Show({ policy }: Props) {
                                     <span>Total Amount</span>
                                     <span className="text-green-600">{formatCurrency(policy.total_amount)}</span>
                                 </div>
-
-
                             </div>
                             <div className="mt-2 text-center text-xs text-gray-500">
                                 See <span className="font-medium">Financial Notes</span> section below to create & download notes
@@ -866,17 +911,19 @@ export default function Show({ policy }: Props) {
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
-                                    className={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key
+                                    className={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                                        activeTab === tab.key
                                             ? 'border-primary text-primary'
                                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
-                                        }`}
+                                    }`}
                                 >
                                     {tab.icon}
                                     {tab.label}
                                     {tab.count > 0 && (
                                         <span
-                                            className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-600'
-                                                }`}
+                                            className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                                                activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-600'
+                                            }`}
                                         >
                                             {tab.count}
                                         </span>
@@ -913,7 +960,7 @@ export default function Show({ policy }: Props) {
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${noteStatusColor(note.status)}`}
                                                             >
-                                                                {note.status.replace('_', ' ').toUpperCase()}
+                                                                {note.status?.replace('_', ' ').toUpperCase() || ''}
                                                             </span>
                                                         </td>
                                                         <td className="py-3 text-gray-500">{formatDate(note.created_at)}</td>
@@ -1002,7 +1049,7 @@ export default function Show({ policy }: Props) {
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${noteStatusColor(note.status)}`}
                                                             >
-                                                                {note.status.replace('_', ' ').toUpperCase()}
+                                                                {note.status?.replace('_', ' ').toUpperCase() || ''}
                                                             </span>
                                                         </td>
                                                         <td className="py-3 text-gray-500">{formatDate(note.created_at)}</td>
@@ -1093,7 +1140,7 @@ export default function Show({ policy }: Props) {
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${noteStatusColor(invoice.status)}`}
                                                             >
-                                                                {invoice.status.replace('_', ' ').toUpperCase()}
+                                                                {invoice.status?.replace('_', ' ').toUpperCase() || ''}
                                                             </span>
                                                         </td>
                                                         <td className="py-3 text-gray-500">{formatDate(invoice.created_at)}</td>
@@ -1185,7 +1232,7 @@ export default function Show({ policy }: Props) {
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${noteStatusColor(receipt.status)}`}
                                                             >
-                                                                {receipt.status.replace('_', ' ').toUpperCase()}
+                                                                {receipt.status?.replace('_', ' ').toUpperCase() || ''}
                                                             </span>
                                                         </td>
                                                         <td className="py-3">
@@ -1264,7 +1311,7 @@ export default function Show({ policy }: Props) {
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 {Object.entries(policy.coverage_details).map(([key, value]) => (
                                     <div key={key} className="space-y-1">
-                                        <h4 className="text-sm font-medium text-gray-600 capitalize">{key.replace(/_/g, ' ')}</h4>
+                                        <h4 className="text-sm font-medium text-gray-600 capitalize">{key?.replace(/_/g, ' ') || ''}</h4>
                                         <p className="font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
                                     </div>
                                 ))}
@@ -1441,13 +1488,13 @@ export default function Show({ policy }: Props) {
                                                         amendment.status === 'active'
                                                             ? 'default'
                                                             : amendment.status === 'approved'
-                                                                ? 'secondary'
-                                                                : amendment.status === 'pending_approval'
-                                                                    ? 'outline'
-                                                                    : 'destructive'
+                                                              ? 'secondary'
+                                                              : amendment.status === 'pending_approval'
+                                                                ? 'outline'
+                                                                : 'destructive'
                                                     }
                                                 >
-                                                    {amendment.status.replace('_', ' ').toUpperCase()}
+                                                    {amendment.status?.replace('_', ' ').toUpperCase() || ''}
                                                 </Badge>
                                             </div>
                                             <span className="text-sm text-gray-500">{formatDate(amendment.created_at)}</span>
@@ -1456,7 +1503,7 @@ export default function Show({ policy }: Props) {
                                         <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                                             <div>
                                                 <p className="text-gray-600">Type</p>
-                                                <p className="font-medium capitalize">{amendment.amendment_type.replace('_', ' ')}</p>
+                                                <p className="font-medium capitalize">{amendment.amendment_type?.replace('_', ' ') || ''}</p>
                                             </div>
                                             <div>
                                                 <p className="text-gray-600">Effective Date</p>

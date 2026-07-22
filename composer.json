@@ -10,7 +10,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "barryvdh/laravel-dompdf": "*",
         "iio/libmergepdf": "^4.0",
         "inertiajs/inertia-laravel": "^2.0",
         "intervention/image": "^3.11",
@@ -27,6 +26,7 @@
         "pusher/pusher-php-server": "^7.2",
         "simplesoftwareio/simple-qrcode": "*",
         "socialiteproviders/microsoft": "^4.7",
+        "spatie/browsershot": "^5.4",
         "spatie/image-optimizer": "^1.8",
         "spatie/laravel-permission": "^6.21",
         "spatie/pdf-to-image": "^3.2",

@@ -72,7 +72,7 @@ export default function ClientBankAccountsIndex({ accounts, filters }: Props) {
                         <CardTitle>All Accounts</CardTitle>
                         <div className="flex items-center gap-4">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search accounts..."
                                     className="pl-10"
@@ -81,7 +81,9 @@ export default function ClientBankAccountsIndex({ accounts, filters }: Props) {
                                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 />
                             </div>
-                            <Button variant="secondary" onClick={handleSearch}>Search</Button>
+                            <Button variant="secondary" onClick={handleSearch}>
+                                Search
+                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -113,7 +115,9 @@ export default function ClientBankAccountsIndex({ accounts, filters }: Props) {
                                             <td className="px-4 py-3 capitalize">{account.account_type}</td>
                                             <td className="px-4 py-3">{account.currency}</td>
                                             <td className="px-4 py-3 text-right">
-                                                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(account.opening_balance)}
+                                                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
+                                                    account.opening_balance,
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <Badge variant={account.is_active ? 'default' : 'secondary'}>

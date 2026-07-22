@@ -1,4 +1,4 @@
-import { PremiumChart, type PremiumTrendData } from '@/components/dashboard/premium-chart';
+import { CommissionChart, type CommissionChartData } from '@/components/dashboard/commission-chart';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-permissions';
 import useFlashToast from '@/hooks/useFlashToast';
 import { useLang } from '@/hooks/useLang';
-import { getTimeBasedGreeting } from '@/lib/greeting';
 import AppLayout from '@/layouts/app-layout';
+import { getTimeBasedGreeting } from '@/lib/greeting';
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Calendar, Clock, Eye, FileText, PlusCircle, Shield, TrendingUp, Users, XCircle } from 'lucide-react';
 
@@ -19,6 +19,7 @@ interface Stats {
     commission_earned: number;
     expiring_policies: number;
     expired_policies: number;
+    net_premium: number;
 }
 
 interface Quote {
@@ -64,22 +65,26 @@ interface Customer {
     created_at: string;
 }
 
+interface CommissionChartFilters {
+    group_by: string;
+    from: string;
+    to: string;
+}
+
 interface Props {
     tenant: {
         name: string;
         type: string;
     };
     stats: Stats;
-    premium_trends: {
-        data: PremiumTrendData[];
-        categories: { name: string; key: string }[];
-    };
+    commission_chart: CommissionChartData;
+    commission_chart_filters: CommissionChartFilters;
     recent_quotes: Quote[];
     customers: Customer[];
     expiring_policies: Policy[];
 }
 
-export default function BrokerDashboard({ tenant, stats, premium_trends, recent_quotes, expiring_policies }: Props) {
+export default function BrokerDashboard({ tenant, stats, commission_chart, commission_chart_filters, recent_quotes, expiring_policies }: Props) {
     useFlashToast();
     const { t } = useLang();
 
@@ -96,7 +101,10 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
     };
 
     const getPolicyStatus = (policy: Policy) => {
-        if (policy.status && policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+        const dateStatuses = ['active', 'expired', 'recorded'];
+        if (!dateStatuses.includes(policy.status)) return policy.status;
+
+        if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -109,7 +117,6 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays <= 60) return 'expiring_soon';
-        if (diffDays <= 90) return 'active';
 
         return 'active';
     };
@@ -156,11 +163,10 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
                 </div>
 
                 {/* Key Metrics */}
-                <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                     <Card
-                        className="cursor-pointer col-span-2 bg-gradient-to-br from-green-500/80 to-green-500/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
-                        onClick={() => router.get(route('policy-management.index'))}
+                        className="cursor-pointer bg-gradient-to-br from-green-500/80 to-green-500/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
+                        onClick={() => router.get(route('policy-management.recorded-policies'))}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{t('Commission Earned')}</CardTitle>
@@ -169,6 +175,20 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
                         <CardContent>
                             <div className="text-2xl font-bold">{formatCurrency(stats.commission_earned)}</div>
                             <p className="text-xs text-muted">{t('Total commissions earned')}</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card
+                        className="cursor-pointer bg-gradient-to-br from-cyan-600/80 to-cyan-600/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
+                        onClick={() => router.get(route('policy-management.recorded-policies'))}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">{t('Net Premium')}</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats.net_premium)}</div>
+                            <p className="text-xs text-muted">{t('Total net premium from active policies')}</p>
                         </CardContent>
                     </Card>
                     <Card
@@ -187,7 +207,7 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
 
                     <Card
                         className="cursor-pointer bg-gradient-to-br from-blue-600/80 to-blue-600/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
-                        onClick={() => router.get(route('policy-management.index'))}
+                        onClick={() => router.get(route('policy-management.recorded-policies'))}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{t('Total Policies')}</CardTitle>
@@ -201,7 +221,7 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
 
                     <Card
                         className="cursor-pointer bg-gradient-to-br from-blue-500/80 to-blue-500/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
-                        onClick={() => router.get(route('policy-management.index'), { status: 'active' })}
+                        onClick={() => router.get(route('policy-management.recorded-policies'), { status: 'active' })}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{t('Active Policies')}</CardTitle>
@@ -215,7 +235,7 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
 
                     <Card
                         className="cursor-pointer bg-gradient-to-br from-rose-500/80 to-rose-500/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
-                        onClick={() => router.get(route('policy-management.index'), { expiring_soon: 1 })}
+                        onClick={() => router.get(route('policy-management.recorded-policies'), { expiring_soon: 1 })}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{t('Expiring Policies')}</CardTitle>
@@ -229,7 +249,7 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
 
                     <Card
                         className="cursor-pointer bg-gradient-to-br from-red-600/80 to-red-600/60 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.98]"
-                        onClick={() => router.get(route('policy-management.index'), { status: 'expired' })}
+                        onClick={() => router.get(route('policy-management.recorded-policies'), { status: 'expired' })}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{t('Expired Policies')}</CardTitle>
@@ -253,15 +273,18 @@ export default function BrokerDashboard({ tenant, stats, premium_trends, recent_
                             <p className="text-xs text-muted">{t('Awaiting customer response')}</p>
                         </CardContent>
                     </Card>
-
-
                 </div>
 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    {/* Premium Chart - Takes 2 columns */}
+                    {/* Commission Chart - Takes 2 columns */}
                     <div className="lg:col-span-2">
-                        <PremiumChart data={premium_trends} />
+                        <CommissionChart
+                            data={commission_chart}
+                            groupBy={commission_chart_filters.group_by}
+                            from={commission_chart_filters.from}
+                            to={commission_chart_filters.to}
+                        />
                     </div>
 
                     {/* Quick Actions */}

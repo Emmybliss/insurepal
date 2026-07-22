@@ -16,7 +16,6 @@ export default function AppLayout({ children, breadcrumbs, ...props }: AppLayout
             <AnimatedPage>
                 <main className="p-4">{children}</main>
             </AnimatedPage>
-
         </AppLayoutTemplate>
     );
 }

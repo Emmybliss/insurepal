@@ -1,3 +1,4 @@
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import useFlashToast from '@/hooks/useFlashToast';
 import { Head, useForm } from '@inertiajs/react';
 import { Building2, CheckCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 interface Tenant {
     id: number;
@@ -128,7 +128,7 @@ export default function CompanyDetails({ tenant }: Props) {
                                         Company Name <span className="text-red-500">*</span>
                                     </Label>
                                     <CompanySearchCombobox
-                                        companyType={data.type as any || 'all'}
+                                        companyType={(data.type as any) || 'all'}
                                         value={data.company_name}
                                         scope="registry"
                                         onSelect={(company) => {

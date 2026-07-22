@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
-import { Building2, Plus, Star, Trash2, X } from 'lucide-react';
+import { Building2, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -103,27 +103,31 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
         if (!selectedCompany) return;
         setSaving(true);
         try {
-            await router.post(route('settings.insurance-companies.store'), {
-                insurance_company_id: selectedCompany.company_id,
-                insurance_company_branch_id: selectedCompany.branch?.id ?? null,
-                reference_code: referenceCode,
-                is_preferred: isPreferred,
-            }, {
-                onSuccess: () => {
-                    toast.success('Insurance company added successfully');
-                    setShowAddModal(false);
-                    setRegistryQuery('');
-                    setRegistryResults([]);
-                    setSelectedCompany(null);
-                    setReferenceCode('');
-                    setIsPreferred(false);
-                    fetchSaved();
+            await router.post(
+                route('settings.insurance-companies.store'),
+                {
+                    insurance_company_id: selectedCompany.company_id,
+                    insurance_company_branch_id: selectedCompany.branch?.id ?? null,
+                    reference_code: referenceCode,
+                    is_preferred: isPreferred,
                 },
-                onError: (err) => {
-                    toast.error(Object.values(err)[0] as string || 'Failed to add company');
+                {
+                    onSuccess: () => {
+                        toast.success('Insurance company added successfully');
+                        setShowAddModal(false);
+                        setRegistryQuery('');
+                        setRegistryResults([]);
+                        setSelectedCompany(null);
+                        setReferenceCode('');
+                        setIsPreferred(false);
+                        fetchSaved();
+                    },
+                    onError: (err) => {
+                        toast.error((Object.values(err)[0] as string) || 'Failed to add company');
+                    },
+                    onFinish: () => setSaving(false),
                 },
-                onFinish: () => setSaving(false),
-            });
+            );
         } catch {
             setSaving(false);
             toast.error('Failed to add company');
@@ -142,15 +146,19 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
     };
 
     const handleTogglePreferred = (company: SavedCompany) => {
-        router.put(route('settings.insurance-companies.update', company.id), {
-            is_preferred: !company.is_preferred,
-        } as any, {
-            onSuccess: () => {
-                toast.success(company.is_preferred ? 'Preferred status removed' : 'Set as preferred');
-                fetchSaved();
+        router.put(
+            route('settings.insurance-companies.update', company.id),
+            {
+                is_preferred: !company.is_preferred,
+            } as any,
+            {
+                onSuccess: () => {
+                    toast.success(company.is_preferred ? 'Preferred status removed' : 'Set as preferred');
+                    fetchSaved();
+                },
+                onError: () => toast.error('Failed to update'),
             },
-            onError: () => toast.error('Failed to update'),
-        });
+        );
     };
 
     return (
@@ -161,9 +169,7 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight">Insurance Companies</h2>
-                        <p className="text-muted-foreground">
-                            Manage the insurance companies and branches your organization works with
-                        </p>
+                        <p className="text-muted-foreground">Manage the insurance companies and branches your organization works with</p>
                     </div>
                     <Button onClick={() => setShowAddModal(true)}>
                         <Plus className="mr-2 h-4 w-4" />
@@ -207,29 +213,21 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
                                             <tr key={company.id} className="border-b">
                                                 <td className="py-3">
                                                     <div className="font-medium">{company.company_name}</div>
-                                                    {company.branch_name && <div className="text-sm text-muted-foreground">{company.branch_name}</div>}
+                                                    {company.branch_name && (
+                                                        <div className="text-sm text-muted-foreground">{company.branch_name}</div>
+                                                    )}
                                                 </td>
                                                 <td className="py-3 text-sm">
                                                     {company.email && <div>{company.email}</div>}
                                                     {company.phone && <div className="text-muted-foreground">{company.phone}</div>}
                                                     {!company.email && !company.phone && <span className="text-muted-foreground">—</span>}
                                                 </td>
-                                                <td className="py-3 text-sm text-muted-foreground">
-                                                    {company.reference_code || '—'}
-                                                </td>
+                                                <td className="py-3 text-sm text-muted-foreground">{company.reference_code || '—'}</td>
                                                 <td className="py-3 text-center">
-                                                    <Switch
-                                                        checked={company.is_preferred}
-                                                        onCheckedChange={() => handleTogglePreferred(company)}
-                                                    />
+                                                    <Switch checked={company.is_preferred} onCheckedChange={() => handleTogglePreferred(company)} />
                                                 </td>
                                                 <td className="py-3 text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-red-600"
-                                                        onClick={() => handleRemove(company)}
-                                                    >
+                                                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleRemove(company)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </td>
@@ -263,14 +261,10 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
                                 />
                             </div>
 
-                            {searching && (
-                                <div className="py-4 text-center text-sm text-muted-foreground">Searching...</div>
-                            )}
+                            {searching && <div className="py-4 text-center text-sm text-muted-foreground">Searching...</div>}
 
                             {!searching && registryQuery.length >= 2 && registryResults.length === 0 && (
-                                <div className="py-4 text-center text-sm text-muted-foreground">
-                                    No matching companies or branches found
-                                </div>
+                                <div className="py-4 text-center text-sm text-muted-foreground">No matching companies or branches found</div>
                             )}
 
                             {registryResults.length > 0 && !selectedCompany && (
@@ -300,15 +294,9 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium">{selectedCompany.company_name}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Branch: {selectedCompany.branch?.name || 'Default'}
-                                            </p>
+                                            <p className="text-xs text-muted-foreground">Branch: {selectedCompany.branch?.name || 'Default'}</p>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setSelectedCompany(null)}
-                                        >
+                                        <Button variant="ghost" size="sm" onClick={() => setSelectedCompany(null)}>
                                             Change
                                         </Button>
                                     </div>
@@ -328,14 +316,9 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
                             <div className="flex items-center justify-between rounded-lg border p-3">
                                 <div>
                                     <p className="text-sm font-medium">Preferred Company</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Preferred companies appear first in search results
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">Preferred companies appear first in search results</p>
                                 </div>
-                                <Switch
-                                    checked={isPreferred}
-                                    onCheckedChange={setIsPreferred}
-                                />
+                                <Switch checked={isPreferred} onCheckedChange={setIsPreferred} />
                             </div>
 
                             <div className="flex justify-end gap-2 pt-2">

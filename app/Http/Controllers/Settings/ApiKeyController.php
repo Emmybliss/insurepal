@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\StoreApiKeyRequest;
+use App\Http\Requests\Settings\UpdateApiKeyRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
@@ -39,13 +41,9 @@ class ApiKeyController extends Controller
         ]);
     }
 
-    public function generate(Request $request)
+    public function generate(StoreApiKeyRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'scopes' => 'nullable|array',
-            'allowed_domains' => 'nullable|string', // Comma separated list from UI
-        ]);
+        $request->validated();
 
         $tenant = auth()->user()->tenant;
 
@@ -87,13 +85,9 @@ class ApiKeyController extends Controller
         ]);
     }
 
-    public function updatePaystack(Request $request)
+    public function updatePaystack(UpdateApiKeyRequest $request)
     {
-        $validated = $request->validate([
-            'paystack_public_key' => 'nullable|string|max:255',
-            'paystack_secret_key' => 'nullable|string|max:255',
-            'paystack_webhook_secret' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         auth()->user()->tenant->update($validated);
 

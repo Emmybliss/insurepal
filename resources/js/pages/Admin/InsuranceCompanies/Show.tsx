@@ -90,8 +90,8 @@ export default function InsuranceCompaniesShow({ company }: Props) {
                                             company.company_type === 'underwriter'
                                                 ? 'bg-blue-100 text-blue-800'
                                                 : company.company_type === 'broker'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-purple-100 text-purple-800'
+                                                  ? 'bg-green-100 text-green-800'
+                                                  : 'bg-purple-100 text-purple-800'
                                         }`}
                                     >
                                         <Shield className="mr-1 h-3 w-3" />

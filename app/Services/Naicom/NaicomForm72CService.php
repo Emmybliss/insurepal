@@ -2,6 +2,7 @@
 
 namespace App\Services\Naicom;
 
+use App\DTOs\Naicom\Form72CDTO;
 use App\Enums\AllocationType;
 use App\Models\Claim;
 use App\Models\CreditNote;
@@ -35,13 +36,6 @@ class NaicomForm72CService
         $serialNumber = 0;
 
         foreach ($policies as $policy) {
-            $policy->loadMissing([
-                'customer',
-                'placement.markets' => fn ($q) => $q->where('is_lead', true),
-                'receiptAllocations.receipt',
-                'creditNotes' => fn ($q) => $q->whereIn('status', ['issued', 'paid']),
-            ]);
-
             $serialNumber++;
 
             $month = $this->determineMonth($policy, $periodStart, $periodEnd);
@@ -70,13 +64,18 @@ class NaicomForm72CService
             $outstandingVat = (float) max(0, $vatDue - $policyRemittanceData['vat_remitted']);
             $outstandingCommission = (float) max(0, $totalCommissionDue - $policyRemittanceData['commission_remitted']);
 
+            $insurerName = $policy->insurer?->name
+                ?? $policy->insurer_name
+                ?? $policy->placement?->markets?->first(fn ($m) => $m->is_lead)?->insurer?->name
+                ?? 'N/A';
+
             $rows[] = [
                 'month' => $month,
                 'serial_number' => $serialNumber,
                 'customer_name' => $policy->customer?->display_name ?? 'N/A',
                 'customer_id' => $policy->customer_id,
                 'policy_number' => $policy->policy_number,
-                'insurer_name' => $policy->insurer_name ?? 'N/A',
+                'insurer_name' => $insurerName,
                 'insurer_id' => $policy->insurer_id,
                 'cover_start' => $policy->effective_date?->toDateString(),
                 'cover_end' => $policy->expiry_date?->toDateString(),
@@ -106,23 +105,32 @@ class NaicomForm72CService
 
         $monthlySummaries = $this->buildMonthlySummaries($rows, $periodStart, $periodEnd);
 
-        return [
-            'rows' => $rows,
-            'monthly_summaries' => $monthlySummaries,
-            'period' => [
+        $dto = new Form72CDTO(
+            rows: $rows,
+            monthlySummaries: $monthlySummaries,
+            period: [
                 'start' => $periodStart->toDateString(),
                 'end' => $periodEnd->toDateString(),
                 'half' => $reportingHalf,
                 'year' => $reportingYear,
             ],
-        ];
+        );
+
+        return $dto->toArray();
     }
 
     protected function loadPolicies(int $tenantId, Carbon $periodStart, Carbon $periodEnd): Collection
     {
         return Policy::query()
             ->where('tenant_id', $tenantId)
-            ->whereIn('status', ['active', 'expired', 'cancelled', 'approved'])
+            ->whereIn('status', ['active', 'expired', 'cancelled', 'approved', 'recorded', 'issued', 'suspended'])
+            ->with([
+                'customer',
+                'insurer',
+                'placement.markets' => fn ($q) => $q->where('is_lead', true)->with('insuranceCompany'),
+                'receiptAllocations.receipt',
+                'creditNotes' => fn ($q) => $q->whereIn('status', ['issued', 'paid']),
+            ])
             ->where(function ($q) use ($periodStart, $periodEnd) {
                 $q->whereBetween('effective_date', [$periodStart, $periodEnd])
                     ->orWhereBetween('expiry_date', [$periodStart, $periodEnd])

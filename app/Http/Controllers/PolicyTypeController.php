@@ -39,7 +39,7 @@ class PolicyTypeController extends Controller
     {
         PolicyType::create($request->validated());
 
-        return redirect()->route('policy-types.index')
+        return redirect()->route('admin.policy-types.index')
             ->with('success', 'Policy type created successfully.');
     }
 

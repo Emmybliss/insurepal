@@ -434,14 +434,12 @@ export default function UsersIndex({ users, stats, filters, tenants }: UsersInde
                                                         ) : user.last_active_at ? (
                                                             <>
                                                                 <Clock className="mr-1 h-3 w-3" />
-                                                                Last seen{' '}
-                                                                {formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true })}
+                                                                Last seen {formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true })}
                                                             </>
                                                         ) : user.last_login_at ? (
                                                             <>
                                                                 <Clock className="mr-1 h-3 w-3" />
-                                                                Last seen{' '}
-                                                                {formatDistanceToNow(new Date(user.last_login_at), { addSuffix: true })}
+                                                                Last seen {formatDistanceToNow(new Date(user.last_login_at), { addSuffix: true })}
                                                             </>
                                                         ) : null}
                                                     </div>

@@ -19,12 +19,7 @@ interface UseRealtimeNotificationsOptions {
     onError?: (error: unknown) => void;
 }
 
-export function useRealtimeNotifications({
-    userId,
-    tenantId,
-    onNotification,
-    onError,
-}: UseRealtimeNotificationsOptions) {
+export function useRealtimeNotifications({ userId, tenantId, onNotification, onError }: UseRealtimeNotificationsOptions) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isConnected, setIsConnected] = useState(false);
@@ -32,10 +27,7 @@ export function useRealtimeNotifications({
 
     const fetchInitialData = async () => {
         try {
-            const [recentRes, countRes] = await Promise.all([
-                fetch('/api/notifications/recent'),
-                fetch('/api/notifications/unread-count'),
-            ]);
+            const [recentRes, countRes] = await Promise.all([fetch('/api/notifications/recent'), fetch('/api/notifications/unread-count')]);
 
             if (!recentRes.ok || !countRes.ok) {
                 throw new Error('Failed to fetch notifications');
@@ -118,9 +110,7 @@ export function useRealtimeNotifications({
                 preserveScroll: true,
                 onSuccess: () => {
                     setNotifications((prev) =>
-                        prev.map((n) =>
-                            String(n.id) === String(notificationId) ? { ...n, read_at: new Date().toISOString() } : n,
-                        ),
+                        prev.map((n) => (String(n.id) === String(notificationId) ? { ...n, read_at: new Date().toISOString() } : n)),
                     );
                     setUnreadCount((prev) => Math.max(0, prev - 1));
                 },
@@ -136,9 +126,7 @@ export function useRealtimeNotifications({
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
-                    setNotifications((prev) =>
-                        prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })),
-                    );
+                    setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
                     setUnreadCount(0);
                 },
             },

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMarketRequest;
+use App\Http\Requests\UpdateMarketRequest;
 use App\Models\InsuranceCompany;
 use App\Models\Placement;
 use App\Models\PlacementMarket;
@@ -10,16 +12,9 @@ use Illuminate\Http\Request;
 
 class MarketController extends Controller
 {
-    public function store(Request $request, Placement $placement): RedirectResponse
+    public function store(StoreMarketRequest $request, Placement $placement): RedirectResponse
     {
-        $validated = $request->validate([
-            'insurance_company_id' => ['required', 'exists:insurance_companies,id'],
-            'insurer_branch' => ['nullable', 'string', 'max:100'],
-            'contact_person' => ['nullable', 'string', 'max:100'],
-            'contact_email' => ['nullable', 'email', 'max:100'],
-            'is_lead' => ['nullable', 'boolean'],
-            'participation_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $market = $placement->markets()->create([
             'tenant_id' => $placement->tenant_id,
@@ -35,22 +30,9 @@ class MarketController extends Controller
         return to_route('placements.show', $placement);
     }
 
-    public function update(Request $request, Placement $placement, PlacementMarket $market): RedirectResponse
+    public function update(UpdateMarketRequest $request, Placement $placement, PlacementMarket $market): RedirectResponse
     {
-        $validated = $request->validate([
-            'insurance_company_id' => ['sometimes', 'exists:insurance_companies,id'],
-            'insurer_branch' => ['nullable', 'string', 'max:100'],
-            'contact_person' => ['nullable', 'string', 'max:100'],
-            'contact_email' => ['nullable', 'email', 'max:100'],
-            'is_lead' => ['nullable', 'boolean'],
-            'participation_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'offered_rate' => ['nullable', 'numeric', 'min:0'],
-            'rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
-            'gross_premium' => ['nullable', 'numeric', 'min:0'],
-            'commission_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'status' => ['nullable', 'string', 'in:pending,accepted,countered,declined,withdrawn'],
-            'response_notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $market->update($validated);
 

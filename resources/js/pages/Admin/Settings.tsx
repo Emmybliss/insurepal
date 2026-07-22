@@ -14,7 +14,6 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 import {
     Activity,
-    AlertCircle,
     AlertTriangle,
     Bell,
     Briefcase,
@@ -68,15 +67,15 @@ interface PlatformSettings {
         failed_login_lockout_duration: number;
     };
     email?: {
-        driver: string;
-        host: string;
-        port: number;
-        username: string;
-        password: string;
-        encryption: string;
-        from_address: string;
-        from_name: string;
-        test_mode: boolean;
+        mail_driver: string;
+        mail_host: string;
+        mail_port: number;
+        mail_username: string;
+        mail_password: string;
+        mail_encryption: string;
+        mail_from_address: string;
+        mail_from_name: string;
+        mail_test_mode: boolean;
     };
     notifications?: {
         welcome_emails: boolean;
@@ -93,8 +92,8 @@ interface PlatformSettings {
     billing?: {
         paystack_public_key: string;
         paystack_secret_key: string;
-        webhook_secret: string;
-        test_mode: boolean;
+        paystack_webhook_secret: string;
+        paystack_test_mode: boolean;
         trial_period_days: number;
         grace_period_days: number;
         auto_suspend_overdue: boolean;
@@ -109,8 +108,26 @@ interface PlatformSettings {
         storage_driver: string;
         max_upload_size: number;
         enable_debug_mode: boolean;
+        maintenance_message: string;
         auto_updates: boolean;
         performance_monitoring: boolean;
+    };
+    ai?: {
+        ai_provider: string;
+        openai_api_key: string;
+        openai_base_url: string;
+        openai_model: string;
+        anthropic_api_key: string;
+        anthropic_base_url: string;
+        anthropic_model: string;
+    };
+    email_oauth?: {
+        gmail_client_id: string;
+        gmail_client_secret: string;
+        gmail_redirect_uri: string;
+        microsoft_client_id: string;
+        microsoft_client_secret: string;
+        microsoft_redirect_uri: string;
     };
 }
 
@@ -197,17 +214,15 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
             failed_login_lockout_duration: 15,
         },
         email: settings?.email || {
-            driver: 'smtp',
-            host: 'smtp.gmail.com',
-            port: 587,
-            username: '',
-            password: '',
-            encryption: 'tls',
-            from_address: 'noreply@insurepal.ai',
-            from_name: 'InsurePal AI',
-            test_mode: false,
-            daily_send_limit: 1000,
-            bounce_handling: false,
+            mail_driver: 'smtp',
+            mail_host: 'smtp.gmail.com',
+            mail_port: 587,
+            mail_username: '',
+            mail_password: '',
+            mail_encryption: 'tls',
+            mail_from_address: 'noreply@insurepal.ai',
+            mail_from_name: 'InsurePal AI',
+            mail_test_mode: false,
         },
         notifications: settings?.notifications || {
             welcome_emails: true,
@@ -224,8 +239,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
         billing: settings?.billing || {
             paystack_public_key: '',
             paystack_secret_key: '',
-            webhook_secret: '',
-            test_mode: true,
+            paystack_webhook_secret: '',
+            paystack_test_mode: true,
             trial_period_days: 14,
             grace_period_days: 7,
             auto_suspend_overdue: false,
@@ -243,6 +258,23 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
             maintenance_message: '',
             auto_updates: false,
             performance_monitoring: true,
+        },
+        ai: settings?.ai || {
+            ai_provider: 'openai',
+            openai_api_key: '',
+            openai_base_url: 'https://api.openai.com/v1',
+            openai_model: 'gpt-4o',
+            anthropic_api_key: '',
+            anthropic_base_url: 'https://api.anthropic.com/v1',
+            anthropic_model: 'claude-3-5-sonnet-20241022',
+        },
+        email_oauth: settings?.email_oauth || {
+            gmail_client_id: '',
+            gmail_client_secret: '',
+            gmail_redirect_uri: '/api/v1/email/oauth/gmail/callback',
+            microsoft_client_id: '',
+            microsoft_client_secret: '',
+            microsoft_redirect_uri: '/api/v1/email/oauth/microsoft/callback',
         },
     });
 
@@ -274,7 +306,7 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
         // Simulate testing - replace with actual API calls
         setTimeout(() => {
             setTestingServices((prev) => ({ ...prev, [service]: false }));
-}, 2000);
+        }, 2000);
     };
 
     const getPerformanceColor = (usage: number) => {
@@ -288,7 +320,11 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
             case 'healthy':
                 return <Badge className="border-green-200 bg-green-100 text-green-700">Healthy</Badge>;
             case 'warning':
-                return <Badge variant="secondary" className="border-yellow-200 bg-yellow-100 text-yellow-700">Warning</Badge>;
+                return (
+                    <Badge variant="secondary" className="border-yellow-200 bg-yellow-100 text-yellow-700">
+                        Warning
+                    </Badge>
+                );
             case 'error':
                 return <Badge variant="destructive">Error</Badge>;
             default:
@@ -428,7 +464,7 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
 
                 {/* Settings Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-6">
+                    <TabsList className="grid w-full grid-cols-7">
                         <TabsTrigger value="general" className="flex items-center">
                             <Globe className="mr-1 h-4 w-4" />
                             General
@@ -448,6 +484,10 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                         <TabsTrigger value="billing" className="flex items-center">
                             <CreditCard className="mr-1 h-4 w-4" />
                             Billing
+                        </TabsTrigger>
+                        <TabsTrigger value="ai" className="flex items-center">
+                            <Zap className="mr-1 h-4 w-4" />
+                            AI
                         </TabsTrigger>
                         <TabsTrigger value="system" className="flex items-center">
                             <Server className="mr-1 h-4 w-4" />
@@ -710,30 +750,31 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                     <TabsContent value="email">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Email Configuration</CardTitle>
-                                <CardDescription>Configure email service and SMTP settings</CardDescription>
+                                <CardTitle>SMTP Configuration</CardTitle>
+                                <CardDescription>Configure platform email service and SMTP settings</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_driver">Email Driver</Label>
-                                        <Select defaultValue={settings?.email?.driver ?? 'smtp'}>
+                                        <Label htmlFor="mail_driver">Mail Driver</Label>
+                                        <Select value={data.email.mail_driver} onValueChange={(val) => setData('email.mail_driver', val)}>
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="smtp">SMTP</SelectItem>
-                                                <SelectItem value="sendgrid">SendGrid</SelectItem>
-                                                <SelectItem value="mailgun">Mailgun</SelectItem>
+                                                <SelectItem value="sendmail">Sendmail</SelectItem>
                                                 <SelectItem value="ses">AWS SES</SelectItem>
+                                                <SelectItem value="postmark">Postmark</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_host">SMTP Host</Label>
+                                        <Label htmlFor="mail_host">SMTP Host</Label>
                                         <Input
-                                            id="email_host"
-                                            defaultValue={settings?.email?.host ?? 'smtp.gmail.com'}
+                                            id="mail_host"
+                                            value={data.email.mail_host}
+                                            onChange={(e) => setData('email.mail_host', e.target.value)}
                                             placeholder="smtp.gmail.com"
                                         />
                                     </div>
@@ -741,12 +782,18 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
 
                                 <div className="grid gap-4 md:grid-cols-3">
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_port">Port</Label>
-                                        <Input id="email_port" type="number" defaultValue={settings?.email?.port ?? 587} placeholder="587" />
+                                        <Label htmlFor="mail_port">Port</Label>
+                                        <Input
+                                            id="mail_port"
+                                            type="number"
+                                            value={data.email.mail_port}
+                                            onChange={(e) => setData('email.mail_port', Number(e.target.value))}
+                                            placeholder="587"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_encryption">Encryption</Label>
-                                        <Select defaultValue={settings?.email?.encryption ?? 'tls'}>
+                                        <Label htmlFor="mail_encryption">Encryption</Label>
+                                        <Select value={data.email.mail_encryption} onValueChange={(val) => setData('email.mail_encryption', val)}>
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -761,27 +808,32 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                         <div className="space-y-0.5">
                                             <Label>Test Mode</Label>
                                         </div>
-                                        <Switch checked={data.email.test_mode} onCheckedChange={(checked) => setData('email.test_mode', !!checked)} />
+                                        <Switch
+                                            checked={data.email.mail_test_mode}
+                                            onCheckedChange={(checked) => setData('email.mail_test_mode', !!checked)}
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_username">Username</Label>
+                                        <Label htmlFor="mail_username">Username</Label>
                                         <Input
-                                            id="email_username"
-                                            defaultValue={settings?.email?.username ?? ''}
+                                            id="mail_username"
+                                            value={data.email.mail_username}
+                                            onChange={(e) => setData('email.mail_username', e.target.value)}
                                             placeholder="your-email@gmail.com"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="email_password">Password</Label>
+                                        <Label htmlFor="mail_password">Password</Label>
                                         <div className="relative">
                                             <Input
-                                                id="email_password"
+                                                id="mail_password"
                                                 type={showPasswords ? 'text' : 'password'}
-                                                defaultValue={settings?.email?.password ?? ''}
-                                                placeholder="Your email password"
+                                                value={data.email.mail_password}
+                                                onChange={(e) => setData('email.mail_password', e.target.value)}
+                                                placeholder="SMTP password"
                                             />
                                             <Button
                                                 type="button"
@@ -802,19 +854,21 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                     <h3 className="text-lg font-medium">From Address</h3>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="from_name">From Name</Label>
+                                            <Label htmlFor="mail_from_name">From Name</Label>
                                             <Input
-                                                id="from_name"
-                                                defaultValue={settings?.email?.from_name ?? 'InsurePal AI'}
+                                                id="mail_from_name"
+                                                value={data.email.mail_from_name}
+                                                onChange={(e) => setData('email.mail_from_name', e.target.value)}
                                                 placeholder="InsurePal AI"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="from_address">From Email</Label>
+                                            <Label htmlFor="mail_from_address">From Email</Label>
                                             <Input
-                                                id="from_address"
+                                                id="mail_from_address"
                                                 type="email"
-                                                defaultValue={settings?.email?.from_address ?? 'noreply@insurepal.ai'}
+                                                value={data.email.mail_from_address}
+                                                onChange={(e) => setData('email.mail_from_address', e.target.value)}
                                                 placeholder="noreply@insurepal.ai"
                                             />
                                         </div>
@@ -828,7 +882,122 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                     </Button>
                                     <Button disabled={processing} onClick={() => handleSave('email')}>
                                         <Save className="mr-2 h-4 w-4" />
-                                        Save Email Settings
+                                        Save SMTP Settings
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Email OAuth App Credentials (Super Admin manages these for all tenants) */}
+                        <Card className="mt-6">
+                            <CardHeader>
+                                <CardTitle>Email OAuth App Credentials</CardTitle>
+                                <CardDescription>
+                                    Configure OAuth application credentials for Gmail and Microsoft 365. These are used by tenants to connect their
+                                    mailboxes.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div>
+                                    <h3 className="mb-4 text-lg font-medium">Gmail (Google Workspace)</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="gmail_client_id">Client ID</Label>
+                                            <Input
+                                                id="gmail_client_id"
+                                                value={data.email_oauth.gmail_client_id}
+                                                onChange={(e) => setData('email_oauth.gmail_client_id', e.target.value)}
+                                                placeholder="xxxxxxxx.apps.googleusercontent.com"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="gmail_client_secret">Client Secret</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="gmail_client_secret"
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={data.email_oauth.gmail_client_secret}
+                                                    onChange={(e) => setData('email_oauth.gmail_client_secret', e.target.value)}
+                                                    placeholder="Gmail OAuth client secret"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowPasswords(!showPasswords)}
+                                                >
+                                                    {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <Label htmlFor="gmail_redirect_uri">Redirect URI</Label>
+                                        <Input
+                                            id="gmail_redirect_uri"
+                                            value={data.email_oauth.gmail_redirect_uri}
+                                            onChange={(e) => setData('email_oauth.gmail_redirect_uri', e.target.value)}
+                                            placeholder="/api/v1/email/oauth/gmail/callback"
+                                        />
+                                        <p className="text-sm text-muted-foreground">
+                                            Add this exact URL to your Google Cloud Console authorized redirect URIs
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                <div>
+                                    <h3 className="mb-4 text-lg font-medium">Microsoft 365 (Outlook / Exchange)</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="microsoft_client_id">Client ID</Label>
+                                            <Input
+                                                id="microsoft_client_id"
+                                                value={data.email_oauth.microsoft_client_id}
+                                                onChange={(e) => setData('email_oauth.microsoft_client_id', e.target.value)}
+                                                placeholder="Azure App Client ID"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="microsoft_client_secret">Client Secret</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="microsoft_client_secret"
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={data.email_oauth.microsoft_client_secret}
+                                                    onChange={(e) => setData('email_oauth.microsoft_client_secret', e.target.value)}
+                                                    placeholder="Microsoft 365 client secret"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowPasswords(!showPasswords)}
+                                                >
+                                                    {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <Label htmlFor="microsoft_redirect_uri">Redirect URI</Label>
+                                        <Input
+                                            id="microsoft_redirect_uri"
+                                            value={data.email_oauth.microsoft_redirect_uri}
+                                            onChange={(e) => setData('email_oauth.microsoft_redirect_uri', e.target.value)}
+                                            placeholder="/api/v1/email/oauth/microsoft/callback"
+                                        />
+                                        <p className="text-sm text-muted-foreground">Add this URL to your Azure App registration redirect URIs</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <Button disabled={processing} onClick={() => handleSave('email_oauth')}>
+                                        <Save className="mr-2 h-4 w-4" />
+                                        Save OAuth Credentials
                                     </Button>
                                 </div>
                             </CardContent>
@@ -955,7 +1124,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                         <Label htmlFor="paystack_public_key">Paystack Public Key</Label>
                                         <Input
                                             id="paystack_public_key"
-                                            defaultValue={settings?.billing?.paystack_public_key ?? ''}
+                                            value={data.billing.paystack_public_key}
+                                            onChange={(e) => setData('billing.paystack_public_key', e.target.value)}
                                             placeholder="pk_test_..."
                                         />
                                     </div>
@@ -965,7 +1135,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                             <Input
                                                 id="paystack_secret_key"
                                                 type={showPasswords ? 'text' : 'password'}
-                                                defaultValue={settings?.billing?.paystack_secret_key ?? ''}
+                                                value={data.billing.paystack_secret_key}
+                                                onChange={(e) => setData('billing.paystack_secret_key', e.target.value)}
                                                 placeholder="sk_test_..."
                                             />
                                             <Button
@@ -981,13 +1152,25 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                     </div>
                                 </div>
 
+                                <div className="space-y-2">
+                                    <Label htmlFor="paystack_webhook_secret">Paystack Webhook Secret</Label>
+                                    <Input
+                                        id="paystack_webhook_secret"
+                                        type="password"
+                                        value={data.billing.paystack_webhook_secret}
+                                        onChange={(e) => setData('billing.paystack_webhook_secret', e.target.value)}
+                                        placeholder="Webhook signature key"
+                                    />
+                                </div>
+
                                 <div className="grid gap-4 md:grid-cols-3">
                                     <div className="space-y-2">
                                         <Label htmlFor="trial_period">Trial Period (Days)</Label>
                                         <Input
                                             id="trial_period"
                                             type="number"
-                                            defaultValue={settings?.billing?.trial_period_days ?? 14}
+                                            value={data.billing.trial_period_days}
+                                            onChange={(e) => setData('billing.trial_period_days', Number(e.target.value))}
                                             min="0"
                                             max="90"
                                         />
@@ -997,7 +1180,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                         <Input
                                             id="grace_period"
                                             type="number"
-                                            defaultValue={settings?.billing?.grace_period_days ?? 7}
+                                            value={data.billing.grace_period_days}
+                                            onChange={(e) => setData('billing.grace_period_days', Number(e.target.value))}
                                             min="0"
                                             max="30"
                                         />
@@ -1008,7 +1192,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                             id="tax_rate"
                                             type="number"
                                             step="0.01"
-                                            defaultValue={settings?.billing?.tax_rate ?? 7.5}
+                                            value={data.billing.tax_rate}
+                                            onChange={(e) => setData('billing.tax_rate', Number(e.target.value))}
                                             min="0"
                                             max="50"
                                         />
@@ -1022,8 +1207,8 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                             <p className="text-sm text-muted-foreground">Use test API keys for development</p>
                                         </div>
                                         <Switch
-                                            checked={data.billing.test_mode}
-                                            onCheckedChange={(checked) => setData('billing.test_mode', !!checked)}
+                                            checked={data.billing.paystack_test_mode}
+                                            onCheckedChange={(checked) => setData('billing.paystack_test_mode', !!checked)}
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
@@ -1046,6 +1231,140 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                     <Button disabled={processing} onClick={() => handleSave('billing')}>
                                         <Save className="mr-2 h-4 w-4" />
                                         Save Billing Settings
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* AI & LLM Settings */}
+                    <TabsContent value="ai">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>AI Provider Configuration</CardTitle>
+                                <CardDescription>Configure AI/LLM providers for the InsurePal AI Copilot</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="ai_provider">Default AI Provider</Label>
+                                    <Select value={data.ai.ai_provider} onValueChange={(val) => setData('ai.ai_provider', val)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="openai">OpenAI</SelectItem>
+                                            <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <Separator />
+
+                                <div>
+                                    <h3 className="mb-4 text-lg font-medium">OpenAI</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="openai_api_key">API Key</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="openai_api_key"
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={data.ai.openai_api_key}
+                                                    onChange={(e) => setData('ai.openai_api_key', e.target.value)}
+                                                    placeholder="sk-..."
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowPasswords(!showPasswords)}
+                                                >
+                                                    {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="openai_model">Model</Label>
+                                            <Select value={data.ai.openai_model} onValueChange={(val) => setData('ai.openai_model', val)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <Label htmlFor="openai_base_url">Base URL (optional)</Label>
+                                        <Input
+                                            id="openai_base_url"
+                                            value={data.ai.openai_base_url}
+                                            onChange={(e) => setData('ai.openai_base_url', e.target.value)}
+                                            placeholder="https://api.openai.com/v1"
+                                        />
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                <div>
+                                    <h3 className="mb-4 text-lg font-medium">Anthropic (Claude)</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="anthropic_api_key">API Key</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="anthropic_api_key"
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={data.ai.anthropic_api_key}
+                                                    onChange={(e) => setData('ai.anthropic_api_key', e.target.value)}
+                                                    placeholder="sk-ant-..."
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowPasswords(!showPasswords)}
+                                                >
+                                                    {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="anthropic_model">Model</Label>
+                                            <Select value={data.ai.anthropic_model} onValueChange={(val) => setData('ai.anthropic_model', val)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                                                    <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                                                    <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <Label htmlFor="anthropic_base_url">Base URL (optional)</Label>
+                                        <Input
+                                            id="anthropic_base_url"
+                                            value={data.ai.anthropic_base_url}
+                                            onChange={(e) => setData('ai.anthropic_base_url', e.target.value)}
+                                            placeholder="https://api.anthropic.com/v1"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <Button disabled={processing} onClick={() => handleSave('ai')}>
+                                        <Save className="mr-2 h-4 w-4" />
+                                        Save AI Settings
                                     </Button>
                                 </div>
                             </CardContent>
@@ -1246,7 +1565,7 @@ export default function SuperAdminSettings({ settings, systemHealth, recentBacku
                                                         <Rocket className="h-4 w-4 text-muted-foreground" />
                                                         <div>
                                                             <p className="font-medium">
-                                                                <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono">
+                                                                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
                                                                     {deployment.commit_hash.substring(0, 7)}
                                                                 </code>
                                                             </p>

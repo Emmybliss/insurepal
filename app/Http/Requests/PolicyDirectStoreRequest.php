@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class PolicyDirectStoreRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'customer_id' => ['required', 'exists:customers,id'],
+            'insurance_product_id' => ['required', 'exists:policy_products,id'],
+            'policy_class_id' => ['nullable', 'exists:policy_classes,id'],
+            'policy_type_id' => ['nullable', 'exists:policy_types,id'],
+            'effective_date' => ['required', 'date', 'after_or_equal:today'],
+            'expiry_date' => ['required', 'date', 'after:effective_date'],
+            'premium_amount' => ['required', 'numeric', 'min:0'],
+            'commission_amount' => ['nullable', 'numeric', 'min:0'],
+            'coverage_details' => ['required', 'array'],
+            'payment_frequency' => ['required', Rule::in(['monthly', 'quarterly', 'semi_annual', 'annual'])],
+            'form_data' => ['nullable', 'array'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'risks' => ['nullable', 'array'],
+            'risks.*.description' => ['nullable', 'string', 'max:1000'],
+            'risks.*.coverage_amount' => ['required_with:risks', 'numeric', 'min:0'],
+            'risks.*.rate' => ['nullable', 'numeric', 'min:0'],
+            'risks.*.rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
+            'risks.*.premium' => ['required_with:risks', 'numeric', 'min:0'],
+            'risks.*.dynamic_fields' => ['nullable', 'array'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'customer_id.required' => 'Customer is required.',
+            'customer_id.exists' => 'Selected customer is invalid.',
+            'insurance_product_id.required' => 'Insurance product is required.',
+            'insurance_product_id.exists' => 'Selected insurance product is invalid.',
+            'effective_date.required' => 'Effective date is required.',
+            'effective_date.after_or_equal' => 'Effective date must be today or later.',
+            'expiry_date.required' => 'Expiry date is required.',
+            'expiry_date.after' => 'Expiry date must be after the effective date.',
+            'premium_amount.required' => 'Premium amount is required.',
+            'premium_amount.numeric' => 'Premium must be a valid number.',
+            'coverage_details.required' => 'Coverage details are required.',
+            'payment_frequency.required' => 'Payment frequency is required.',
+        ];
+    }
+}

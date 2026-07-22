@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\API\V1\InitiatePaymentRequest;
 use App\Models\Tenant;
 use App\Models\WebhookLog;
 use App\Services\PaystackService;
@@ -11,15 +12,8 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
-    public function initiate(Request $request, PaystackService $paystack)
+    public function initiate(InitiatePaymentRequest $request, PaystackService $paystack)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'policy_product_id' => 'required|exists:policy_products,id',
-            'metadata' => 'nullable|array',
-            'callback_url' => 'nullable|url',
-            // 'amount' is deliberately excluded from validation to prevent client-side setting reliance
-        ]);
 
         $tenant = $request->tenant;
 

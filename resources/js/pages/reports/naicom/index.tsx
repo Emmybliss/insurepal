@@ -32,19 +32,19 @@ interface Props {
 
 export default function Index({ runs }: Props) {
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Reports', href: route('reports.index') },
-            { title: 'NAICOM Returns', href: route('reports.naicom.index') },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Reports', href: route('reports.index') },
+                { title: 'NAICOM Returns', href: route('reports.naicom.index') },
+            ]}
+        >
             <Head title="NAICOM Returns" />
 
             <div className="flex flex-col gap-6 p-6">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">NAICOM Returns</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Forms 7.2A, 7.2B, and 7.2C regulatory reports
-                        </p>
+                        <p className="text-sm text-muted-foreground">Forms 7.2A, 7.2B, and 7.2C regulatory reports</p>
                     </div>
                     <Link href={route('reports.naicom.create')}>
                         <Button>
@@ -57,18 +57,14 @@ export default function Index({ runs }: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Report Runs</CardTitle>
-                        <CardDescription>
-                            All generated NAICOM report runs ({runs.total} total)
-                        </CardDescription>
+                        <CardDescription>All generated NAICOM report runs ({runs.total} total)</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {runs.data.length === 0 ? (
                             <div className="py-12 text-center">
                                 <FileBarChart className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                                 <p className="mb-2 font-medium">No reports yet</p>
-                                <p className="mb-6 text-sm text-muted-foreground">
-                                    Generate your first NAICOM compliance report.
-                                </p>
+                                <p className="mb-6 text-sm text-muted-foreground">Generate your first NAICOM compliance report.</p>
                                 <Link href={route('reports.naicom.create')}>
                                     <Button>
                                         <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -107,15 +103,13 @@ export default function Index({ runs }: Props) {
                                                 <td className="px-4 py-3">
                                                     <NaicomReportStatusBadge status={run.status} />
                                                 </td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    {run.generated_by?.name ?? '—'}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    {run.approved_by?.name ?? '—'}
-                                                </td>
+                                                <td className="px-4 py-3 text-sm">{run.generated_by?.name ?? '—'}</td>
+                                                <td className="px-4 py-3 text-sm">{run.approved_by?.name ?? '—'}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <Link href={route('reports.naicom.show', run.id)}>
-                                                        <Button variant="outline" size="sm">View</Button>
+                                                        <Button variant="outline" size="sm">
+                                                            View
+                                                        </Button>
                                                     </Link>
                                                 </td>
                                             </tr>

@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePermissionManagementRequest;
+use App\Http\Requests\UpdatePermissionManagementRequest;
 use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PermissionManagementController extends Controller
@@ -101,7 +102,7 @@ class PermissionManagementController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePermissionManagementRequest $request)
     {
         $tenant = Auth::user()->tenant;
 
@@ -109,24 +110,13 @@ class PermissionManagementController extends Controller
             abort(403, 'Access denied: No tenant associated');
         }
 
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('permissions')->where('tenant_id', $tenant->id),
-            ],
-            'display_name' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'category' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         Permission::create([
-            'name' => $request->name,
-            'display_name' => $request->display_name,
-            'description' => $request->description,
-            'category' => $request->category,
+            'name' => $validated['name'],
+            'display_name' => $validated['display_name'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'category' => $validated['category'] ?? null,
             'guard_name' => 'web',
             'tenant_id' => $tenant->id,
             'is_system_permission' => false,
@@ -171,7 +161,7 @@ class PermissionManagementController extends Controller
         ]);
     }
 
-    public function update(Request $request, Permission $permission)
+    public function update(UpdatePermissionManagementRequest $request, Permission $permission)
     {
         $this->authorizePermissionAccess($permission);
 
@@ -179,26 +169,13 @@ class PermissionManagementController extends Controller
             abort(403, 'Cannot edit system permissions');
         }
 
-        $tenant = Auth::user()->tenant;
-
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('permissions')->where('tenant_id', $tenant->id)->ignore($permission->id),
-            ],
-            'display_name' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'category' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $permission->update([
-            'name' => $request->name,
-            'display_name' => $request->display_name,
-            'description' => $request->description,
-            'category' => $request->category,
+            'name' => $validated['name'],
+            'display_name' => $validated['display_name'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'category' => $validated['category'] ?? null,
             'is_active' => $request->boolean('is_active', true),
         ]);
 

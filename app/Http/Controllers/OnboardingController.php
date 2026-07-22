@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\OnboardingRequest;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -80,23 +80,9 @@ class OnboardingController extends Controller
     /**
      * Save company details
      */
-    public function saveCompanyDetails(Request $request)
+    public function saveCompanyDetails(OnboardingRequest $request)
     {
-        $validated = $request->validate([
-            'company_name' => 'required|string|max:255',
-            'type' => 'required|in:underwriter,broker',
-            'address' => 'required|string|max:500',
-            'city' => 'required|string|max:100',
-            'state' => 'required|string|max:100',
-            'country' => 'required|string|max:100',
-            'phone' => 'required|string|max:20',
-            'email' => 'required|email|max:255',
-            'naicom_reg_number' => 'nullable|string|max:100',
-            'rc_number' => 'nullable|string|max:100',
-            'website' => 'nullable|url|max:255',
-            'known_company_id' => 'nullable|integer',
-            'known_company_source' => 'nullable|string|max:50',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $tenant = $user->tenant;

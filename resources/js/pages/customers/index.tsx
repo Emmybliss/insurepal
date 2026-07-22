@@ -50,7 +50,6 @@ interface Props {
 }
 
 export default function CustomersIndex({ customers, filters }: Props) {
-    console.log(customers);
     const [search, setSearch] = useState(filters.search || '');
     const [type, setType] = useState(filters.type || '');
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -126,12 +125,16 @@ export default function CustomersIndex({ customers, filters }: Props) {
                                 </RestrictedAction>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => window.location.href = route('customers.export.excel').toString()}>
+                                <DropdownMenuItem onClick={() => (window.location.href = route('customers.export.excel').toString())}>
                                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                                     {t('Export All')}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => window.location.href = route('customers.export.excel', { search, type: type || undefined }).toString()}>
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        (window.location.href = route('customers.export.excel', { search, type: type || undefined }).toString())
+                                    }
+                                >
                                     <FileSpreadsheet className="mr-2 h-4 w-4" />
                                     {t('Export Filtered')}
                                 </DropdownMenuItem>

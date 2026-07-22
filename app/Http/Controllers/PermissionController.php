@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkCreatePermissionsRequest;
+use App\Http\Requests\StorePermissionRequest;
+use App\Http\Requests\UpdatePermissionRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,30 +68,24 @@ class PermissionController extends Controller
     /**
      * Store a newly created permission.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StorePermissionRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:permissions,name',
-            'description' => 'nullable|string|max:1000',
-            'category' => 'nullable|string|max:100',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         // Format permission name
-        $permissionName = strtolower(str_replace(' ', '-', $request->name));
-        if ($request->category) {
-            $permissionName = strtolower($request->category).'-'.$permissionName;
+        $permissionName = strtolower(str_replace(' ', '-', $validated['name']));
+        if (isset($validated['category'])) {
+            $permissionName = strtolower($validated['category']).'-'.$permissionName;
         }
 
         $permission = Permission::create([
             'name' => $permissionName,
-            'description' => $request->description ?? '',
+            'description' => $validated['description'] ?? '',
         ]);
 
         // Assign to roles if provided
         if ($request->has('roles')) {
-            $roles = Role::whereIn('id', $request->roles)->get();
+            $roles = Role::whereIn('id', $validated['roles'])->get();
             $permission->assignRole($roles);
         }
 
@@ -112,28 +108,18 @@ class PermissionController extends Controller
     /**
      * Update the specified permission.
      */
-    public function update(Request $request, Permission $permission): RedirectResponse
+    public function update(UpdatePermissionRequest $request, Permission $permission): RedirectResponse
     {
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('permissions')->ignore($permission->id),
-            ],
-            'description' => 'nullable|string|max:1000',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         $permission->update([
-            'name' => strtolower(str_replace(' ', '-', $request->name)),
-            'description' => $request->description ?? $permission->description,
+            'name' => strtolower(str_replace(' ', '-', $validated['name'])),
+            'description' => $validated['description'] ?? $permission->description,
         ]);
 
         // Update role assignments if provided
         if ($request->has('roles')) {
-            $roles = Role::whereIn('id', $request->roles)->get();
+            $roles = Role::whereIn('id', $validated['roles'])->get();
             $permission->syncRoles($roles);
         }
 
@@ -187,7 +173,7 @@ class PermissionController extends Controller
         $request->validate([
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
-        ]);
+        ]); // single field — leave inline
 
         $user = Auth::user();
         $roles = Role::whereIn('id', $request->roles)->get();
@@ -264,14 +250,8 @@ class PermissionController extends Controller
     /**
      * Bulk create permissions.
      */
-    public function bulkCreate(Request $request): RedirectResponse
+    public function bulkCreate(BulkCreatePermissionsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'permissions' => 'required|array|min:1',
-            'permissions.*.name' => 'required|string|max:255|unique:permissions,name',
-            'permissions.*.description' => 'nullable|string|max:1000',
-            'permissions.*.category' => 'nullable|string|max:100',
-        ]);
 
         $createdCount = 0;
 

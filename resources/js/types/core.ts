@@ -11,6 +11,12 @@ declare global {
 
 export interface Auth {
     user: User;
+    tenant?: {
+        name: string;
+        logo?: string | null;
+        logo_url?: string | null;
+        slogan?: string | null;
+    } | null;
     tenant_plan?: {
         slug: string;
         name: string;

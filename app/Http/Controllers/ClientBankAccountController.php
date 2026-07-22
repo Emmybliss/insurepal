@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreClientBankAccountRequest;
+use App\Http\Requests\UpdateClientBankAccountRequest;
 use App\Models\ClientBankAccount;
 use App\Services\Naicom\BankAccountService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ClientBankAccountController extends Controller
@@ -35,21 +36,11 @@ class ClientBankAccountController extends Controller
         return Inertia::render('accounts/client-bank-accounts/create');
     }
 
-    public function store(Request $request)
+    public function store(StoreClientBankAccountRequest $request)
     {
         $this->authorize('naicom-reports.generate');
 
-        $validated = $request->validate([
-            'bank_name' => 'required|string|max:255',
-            'account_name' => 'required|string|max:255',
-            'account_number' => 'required|string|max:50',
-            'account_type' => 'required|in:savings,current',
-            'currency' => 'required|string|size:3',
-            'is_active' => 'boolean',
-            'opening_balance' => 'required|numeric|min:0',
-            'opening_balance_date' => 'nullable|date',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $validated['tenant_id'] = auth()->user()->tenant_id;
 
@@ -80,21 +71,11 @@ class ClientBankAccountController extends Controller
         ]);
     }
 
-    public function update(Request $request, ClientBankAccount $clientBankAccount)
+    public function update(UpdateClientBankAccountRequest $request, ClientBankAccount $clientBankAccount)
     {
         $this->authorize('naicom-reports.generate');
 
-        $validated = $request->validate([
-            'bank_name' => 'required|string|max:255',
-            'account_name' => 'required|string|max:255',
-            'account_number' => 'required|string|max:50',
-            'account_type' => 'required|in:savings,current',
-            'currency' => 'required|string|size:3',
-            'is_active' => 'boolean',
-            'opening_balance' => 'required|numeric|min:0',
-            'opening_balance_date' => 'nullable|date',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $this->bankAccountService->update($clientBankAccount, $validated);
 

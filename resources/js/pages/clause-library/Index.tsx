@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, Plus, Search, Trash2, X } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface PolicyClass {
@@ -129,7 +129,10 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-lg font-semibold">New Clause</h2>
                             <button
-                                onClick={() => { setShowAddForm(false); addForm.reset(); }}
+                                onClick={() => {
+                                    setShowAddForm(false);
+                                    addForm.reset();
+                                }}
                                 className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
                             >
                                 <X className="h-4 w-4" />
@@ -138,36 +141,32 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-1">
                                 <Label>Clause Type</Label>
-                                <Select
-                                    value={addForm.data.clause_type}
-                                    onValueChange={(v) => addForm.setData('clause_type', v)}
-                                >
+                                <Select value={addForm.data.clause_type} onValueChange={(v) => addForm.setData('clause_type', v)}>
                                     <SelectTrigger>
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {clauseTypes.map((t) => (
-                                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                            <SelectItem key={t.value} value={t.value}>
+                                                {t.label}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {addForm.errors.clause_type && (
-                                    <p className="text-sm text-red-500">{addForm.errors.clause_type}</p>
-                                )}
+                                {addForm.errors.clause_type && <p className="text-sm text-red-500">{addForm.errors.clause_type}</p>}
                             </div>
                             <div className="space-y-1">
                                 <Label>Class Restriction (optional)</Label>
-                                <Select
-                                    value={addForm.data.policy_class_id}
-                                    onValueChange={(v) => addForm.setData('policy_class_id', v)}
-                                >
+                                <Select value={addForm.data.policy_class_id} onValueChange={(v) => addForm.setData('policy_class_id', v)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="All classes" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">All Classes</SelectItem>
                                         {policyClasses.map((pc) => (
-                                            <SelectItem key={pc.id} value={String(pc.id)}>{pc.name}</SelectItem>
+                                            <SelectItem key={pc.id} value={String(pc.id)}>
+                                                {pc.name}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -179,9 +178,7 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                                     onChange={(e) => addForm.setData('title', e.target.value)}
                                     placeholder="Clause title"
                                 />
-                                {addForm.errors.title && (
-                                    <p className="text-sm text-red-500">{addForm.errors.title}</p>
-                                )}
+                                {addForm.errors.title && <p className="text-sm text-red-500">{addForm.errors.title}</p>}
                             </div>
                             <div className="space-y-1 md:col-span-2">
                                 <Label>Content</Label>
@@ -191,9 +188,7 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                                     placeholder="Clause text content..."
                                     rows={4}
                                 />
-                                {addForm.errors.content && (
-                                    <p className="text-sm text-red-500">{addForm.errors.content}</p>
-                                )}
+                                {addForm.errors.content && <p className="text-sm text-red-500">{addForm.errors.content}</p>}
                             </div>
                             <div className="space-y-1">
                                 <Label>Sort Order</Label>
@@ -206,7 +201,13 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                             </div>
                         </div>
                         <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setShowAddForm(false); addForm.reset(); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowAddForm(false);
+                                    addForm.reset();
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button onClick={handleAddSubmit} disabled={addForm.processing}>
@@ -221,14 +222,14 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                         <div>
                             <Label className="mb-1 block text-sm font-medium">Search</Label>
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
                                     placeholder="Search by title..."
-                                    className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-3 focus:border-primary focus:outline-none dark:border-gray-600 dark:bg-gray-800"
+                                    className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-10 focus:border-primary focus:outline-none dark:border-gray-600 dark:bg-gray-800"
                                 />
                             </div>
                         </div>
@@ -241,7 +242,9 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                             >
                                 <option value="">All Types</option>
                                 {clauseTypes.map((t) => (
-                                    <option key={t.value} value={t.value}>{t.label}</option>
+                                    <option key={t.value} value={t.value}>
+                                        {t.label}
+                                    </option>
                                 ))}
                             </select>
                         </div>
@@ -254,13 +257,17 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                             >
                                 <option value="">All Classes</option>
                                 {policyClasses.map((pc) => (
-                                    <option key={pc.id} value={pc.id}>{pc.name}</option>
+                                    <option key={pc.id} value={pc.id}>
+                                        {pc.name}
+                                    </option>
                                 ))}
                             </select>
                         </div>
                         <div className="flex items-end gap-2">
                             <Button onClick={handleFilter}>Apply</Button>
-                            <Button variant="outline" onClick={handleClear}>Clear</Button>
+                            <Button variant="outline" onClick={handleClear}>
+                                Clear
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -275,7 +282,7 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                                 <th className="px-4 py-3 font-medium">System</th>
                                 <th className="px-4 py-3 font-medium">Active</th>
                                 <th className="px-4 py-3 font-medium">Sort</th>
-                                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                                <th className="px-4 py-3 text-right font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
@@ -316,7 +323,7 @@ export default function Index({ clauses, policyClasses }: IndexProps) {
                                     className={`rounded-md px-3 py-1 text-sm ${
                                         link.active
                                             ? 'bg-primary text-white'
-                                            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 disabled:cursor-not-allowed disabled:opacity-50'
+                                            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
                                     }`}
                                     dangerouslySetInnerHTML={{ __html: link.label }}
                                 />
@@ -363,11 +370,7 @@ function ClauseRow({
     };
 
     const handleToggleActive = () => {
-        router.put(
-            route('clause-library.update', clause.id),
-            { is_active: !clause.is_active },
-            { onSuccess: () => toast.success('Status updated') },
-        );
+        router.put(route('clause-library.update', clause.id), { is_active: !clause.is_active }, { onSuccess: () => toast.success('Status updated') });
     };
 
     const typeLabel = clauseTypes.find((t) => t.value === clause.clause_type)?.label || clause.clause_type;
@@ -376,11 +379,7 @@ function ClauseRow({
         return (
             <tr className="bg-muted/30">
                 <td className="px-4 py-2">
-                    <Input
-                        value={form.data.title}
-                        onChange={(e) => form.setData('title', e.target.value)}
-                        className="h-8 text-sm"
-                    />
+                    <Input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} className="h-8 text-sm" />
                     {form.errors.title && <p className="text-xs text-red-500">{form.errors.title}</p>}
                 </td>
                 <td className="px-4 py-2">
@@ -390,7 +389,9 @@ function ClauseRow({
                         className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
                     >
                         {clauseTypes.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                            <option key={t.value} value={t.value}>
+                                {t.label}
+                            </option>
                         ))}
                     </select>
                 </td>
@@ -402,7 +403,9 @@ function ClauseRow({
                     >
                         <option value="">All</option>
                         {policyClasses.map((pc) => (
-                            <option key={pc.id} value={pc.id}>{pc.name}</option>
+                            <option key={pc.id} value={pc.id}>
+                                {pc.name}
+                            </option>
                         ))}
                     </select>
                 </td>
@@ -444,10 +447,7 @@ function ClauseRow({
                         >
                             <Check className="h-4 w-4" />
                         </button>
-                        <button
-                            onClick={onCancelEdit}
-                            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
+                        <button onClick={onCancelEdit} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <X className="h-4 w-4" />
                         </button>
                     </div>
@@ -460,13 +460,13 @@ function ClauseRow({
         <tr className="hover:bg-muted/30">
             <td className="max-w-xs truncate px-4 py-3 font-medium">{clause.title}</td>
             <td className="px-4 py-3">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${typeStyles[clause.clause_type] || 'bg-gray-100 text-gray-800'}`}>
+                <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${typeStyles[clause.clause_type] || 'bg-gray-100 text-gray-800'}`}
+                >
                     {typeLabel}
                 </span>
             </td>
-            <td className="px-4 py-3 text-muted-foreground">
-                {clause.policy_class?.name || <span className="text-xs italic">All classes</span>}
-            </td>
+            <td className="px-4 py-3 text-muted-foreground">{clause.policy_class?.name || <span className="text-xs italic">All classes</span>}</td>
             <td className="px-4 py-3">
                 {clause.is_system ? (
                     <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
@@ -496,20 +496,16 @@ function ClauseRow({
             <td className="px-4 py-3 text-muted-foreground">{clause.sort_order}</td>
             <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-end gap-1">
-                    <button
-                        onClick={onStartEdit}
-                        className="rounded p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        title="Edit"
-                    >
+                    <button onClick={onStartEdit} className="rounded p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Edit">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
                         </svg>
                     </button>
-                    <button
-                        onClick={onDelete}
-                        className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title="Delete"
-                    >
+                    <button onClick={onDelete} className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
                         <Trash2 className="h-4 w-4" />
                     </button>
                 </div>

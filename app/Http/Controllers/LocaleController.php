@@ -20,7 +20,7 @@ class LocaleController extends Controller
             'locale' => Rule::in($supportedLocales),
         ], [], [
             'locale' => $locale,
-        ]);
+        ]); // single field — leave inline
 
         // If user is authenticated, save to database
         if (Auth::check()) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\TwoFactorChallengeRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,12 +36,9 @@ class TwoFactorChallengeController extends Controller
     /**
      * Validate the 2FA code and complete login.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(TwoFactorChallengeRequest $request): RedirectResponse
     {
-        $request->validate([
-            'code' => 'nullable|string',
-            'recovery_code' => 'nullable|string',
-        ]);
+        $request->validated();
 
         $userId = $request->session()->get('auth.2fa_user_id');
 

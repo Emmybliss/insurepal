@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { formatAmount } from '@/lib/utils';
 import { Customer, Policy } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertCircle, Calendar, CheckCircle, Clock, Download, Edit, Eye, FileText, Plus, RotateCcw, Send, User, X, XCircle } from 'lucide-react';
@@ -24,6 +25,7 @@ export interface NoteDetailsProps {
         formatted_total_amount: string;
         description: string;
         internal_notes?: string;
+        transaction_type: string;
         status: string;
         payment_status: 'unpaid' | 'partially_paid' | 'paid';
         issue_date: string;
@@ -51,6 +53,8 @@ export interface NoteDetailsProps {
         }>;
         customer: Customer;
         policy?: Policy;
+        policy_type?: string;
+        class_of_business?: string;
         created_by: {
             name: string;
         };
@@ -212,6 +216,14 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                                 Preview
                             </Button>
                         )}
+                        {(note.status === 'issued' || note.status === 'paid' || note.status === 'generated') && (
+                            <Button asChild variant="secondary">
+                                <Link href={route('credit-notes.create', { customer_id: note.customer.id, debit_note_id: note.id })}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create Credit Note
+                                </Link>
+                            </Button>
+                        )}
                         {note.file_path && (
                             <Button variant="outline" onClick={() => (window.location.href = route('debit-notes.download', note.id))}>
                                 <Download className="mr-2 h-4 w-4" />
@@ -255,7 +267,7 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="mb-1 text-sm font-medium text-gray-500">DebitNote Number</h4>
-                                    <p className="font-mono text-lg">DN-{note.note_number}</p>
+                                    <p className="font-mono text-lg">{note.note_number?.startsWith('DN-') ? note.note_number : `DN-${note.note_number}`}</p>
                                 </div>
                                 {note.reference_number && (
                                     <div>
@@ -268,15 +280,15 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="mb-1 text-sm font-medium text-gray-500">Base Amount</h4>
-                                    <p className={`text-lg font-semibold text-red-600`}>{note.formatted_amount}</p>
+                                    <p className={`text-lg font-semibold text-red-600`}>{formatAmount(note.amount)}</p>
                                 </div>
                                 <div>
                                     <h4 className="mb-1 text-sm font-medium text-gray-500">Tax Amount</h4>
-                                    <p className="text-lg">{note.formatted_tax_amount}</p>
+                                    <p className="text-lg">{formatAmount(note.tax_amount)}</p>
                                 </div>
                                 <div>
                                     <h4 className="mb-1 text-sm font-medium text-gray-500">Total Amount</h4>
-                                    <p className={`text-lg font-bold text-red-600`}>{note.formatted_total_amount}</p>
+                                    <p className={`text-lg font-bold text-red-600`}>{formatAmount(note.total_amount)}</p>
                                 </div>
                                 {note.currency_code !== 'NGN' && (
                                     <div>
@@ -305,7 +317,7 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                                     {note.amount_paid && note.balance_due && (
                                         <div className="mt-1">
                                             <p className="text-sm text-gray-500">
-                                                Paid: {note.amount_paid} / Balance: {note.balance_due}
+                                                Paid: {formatAmount(note.amount_paid)} / Balance: {formatAmount(note.balance_due)}
                                             </p>
                                         </div>
                                     )}
@@ -332,9 +344,9 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                                             <div key={index} className="rounded-md border p-2">
                                                 <p className="font-medium">{item.description}</p>
                                                 <div className="mt-1 grid grid-cols-3 gap-2 text-sm text-gray-600">
-                                                    <p>Amount: {item.amount}</p>
-                                                    {item.tax_amount && <p>Tax: {item.tax_amount}</p>}
-                                                    <p>Total: {item.total_amount}</p>
+                                                    <p>Amount: {formatAmount(item.amount)}</p>
+                                                    {item.tax_amount && <p>Tax: {formatAmount(item.tax_amount)}</p>}
+                                                    <p>Total: {formatAmount(item.total_amount)}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -358,18 +370,30 @@ export default function ShowDebitNote({ note: noteFromProps, templates = [] }: N
                             </div>
                             <div>
                                 <h4 className="mb-1 text-sm font-medium text-gray-500">Policy / Risk Reference</h4>
-                                <p className="text-lg">{note.policy?.policy_number ?? 'To Be Advised'}</p>
+                                <p className="text-lg">{note.policy?.policy_number ?? 'TBA'}</p>
                             </div>
                             <div>
-                                <h4 className="mb-1 text-sm font-medium text-gray-500">Due Date</h4>
-                                {note.due_date ? (
+                                <h4 className="mb-1 text-sm font-medium text-gray-500">Coverage Period</h4>
+                                {note.issue_date && note.due_date ? (
                                     <div className="flex items-center space-x-1">
                                         <Calendar className="h-4 w-4" />
-                                        <span className="text-lg">{new Date(note.due_date).toLocaleDateString()}</span>
+                                        <span className="text-lg">{new Date(note.issue_date).toLocaleDateString()} To {new Date(note.due_date).toLocaleDateString()}</span>
                                     </div>
                                 ) : (
-                                    <span className="text-gray-400">No due date set</span>
+                                    <span className="text-gray-400">TBA</span>
                                 )}
+                                <div>
+                                    <h4 className="mb-1 text-sm font-medium text-gray-500">Policy Type</h4>
+                                    <p className="text-lg">{note.policy_type}</p>
+                                </div>
+                                <div>
+                                    <h4 className="mb-1 text-sm font-medium text-gray-500">Policy Class</h4>
+                                    <p className="text-lg">{note.class_of_business}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="mb-1 text-sm font-medium text-gray-500">Transaction type</h4>
+                                <p className="text-lg capitalize">{note.transaction_type} Business</p>
                             </div>
                         </CardContent>
                     </Card>

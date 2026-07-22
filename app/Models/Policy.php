@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Services\CommissionQueryService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +32,7 @@ class Policy extends Model
         'coverage_details',
         'premium_amount',
         'commission_amount',
+        'commission_rate',
         'total_amount',
         'payment_frequency',
         'form_data',
@@ -57,12 +60,17 @@ class Policy extends Model
         'is_policy_issued',
         'schedule_file_path',
         'broker_slip_file_path',
+        'currency',
+        'payment_method',
+        'payment_date',
+        'is_direct_to_insurer',
     ];
 
     protected $casts = [
         'effective_date' => 'date',
         'expiry_date' => 'date',
         'placement_date' => 'date',
+        'payment_date' => 'date',
         'coverage_details' => 'array',
         'premium_amount' => 'decimal:2',
         'commission_amount' => 'decimal:2',
@@ -75,6 +83,7 @@ class Policy extends Model
         'renewed_at' => 'datetime',
         'auto_renewal_notification' => 'boolean',
         'is_policy_issued' => 'boolean',
+        'is_direct_to_insurer' => 'boolean',
     ];
 
     protected $appends = [
@@ -217,9 +226,30 @@ class Policy extends Model
         return $this->hasMany(PolicyAmendment::class);
     }
 
+    public function commissionEntries(): HasMany
+    {
+        return $this->hasMany(CommissionEntry::class);
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(PolicyDocument::class);
+    }
+
+    public function risks(): HasMany
+    {
+        return $this->hasMany(PolicyRisk::class);
+    }
+
+    public function syncRiskTotals(): void
+    {
+        $this->load('risks');
+
+        $this->updateQuietly([
+            'sum_insured' => $this->risks->sum('coverage_amount'),
+            'premium_amount' => $this->risks->sum('premium'),
+            'total_amount' => $this->risks->sum('premium') + ($this->commission_amount ?? 0),
+        ]);
     }
 
     public function getFinancialNotesAttribute()
@@ -238,7 +268,7 @@ class Policy extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', self::STATUS_ACTIVE)
+        return $query->whereIn('status', [self::STATUS_ACTIVE, self::STATUS_RECORDED])
             ->where(function ($q) {
                 $q->whereNull('expiry_date')
                     ->orWhere('expiry_date', '>=', now()->toDateString());
@@ -250,7 +280,7 @@ class Policy extends Model
         return $query->where(function ($q) {
             $q->where('status', self::STATUS_EXPIRED)
                 ->orWhere(function ($q2) {
-                    $q2->where('status', self::STATUS_ACTIVE)
+                    $q2->whereIn('status', [self::STATUS_ACTIVE, self::STATUS_RECORDED])
                         ->whereNotNull('expiry_date')
                         ->where('expiry_date', '<', now()->toDateString());
                 });
@@ -294,7 +324,7 @@ class Policy extends Model
 
     public function scopeExpiring($query, $days = 30)
     {
-        return $query->where('status', self::STATUS_ACTIVE)
+        return $query->whereIn('status', [self::STATUS_ACTIVE, self::STATUS_RECORDED])
             ->whereNotNull('expiry_date')
             ->where('expiry_date', '>=', now()->toDateString())
             ->where('expiry_date', '<=', now()->addDays($days)->toDateString());
@@ -548,6 +578,31 @@ class Policy extends Model
         };
     }
 
+    public function grossCommission(): float
+    {
+        return app(CommissionQueryService::class)->getGrossCommission($this);
+    }
+
+    public function netCommission(): float
+    {
+        return app(CommissionQueryService::class)->getNetCommission($this);
+    }
+
+    public function earnedCommission(?Carbon $asOf = null): float
+    {
+        return app(CommissionQueryService::class)->getEarnedCommission($this, $asOf);
+    }
+
+    public function reversedCommission(): float
+    {
+        return app(CommissionQueryService::class)->getReversedCommission($this);
+    }
+
+    public function commissionBalance(): float
+    {
+        return app(CommissionQueryService::class)->getCommissionBalance($this);
+    }
+
     /**
      * Generate policy number
      */
@@ -575,5 +630,12 @@ class Policy extends Model
     public function getRecycleBinDisplayName(): string
     {
         return $this->policy_number ?? "Policy #{$this->id}";
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Policy $policy) {
+            $policy->net_premium = ($policy->premium_amount ?? 0) - ($policy->commission_amount ?? 0);
+        });
     }
 }

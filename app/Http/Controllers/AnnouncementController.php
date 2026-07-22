@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Events\AnnouncementCreated;
+use App\Http\Requests\StoreAnnouncementRequest;
+use App\Http\Requests\UpdateAnnouncementRequest;
 use App\Models\Announcement;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -95,18 +97,11 @@ class AnnouncementController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreAnnouncementRequest $request)
     {
         $this->authorize('create', Announcement::class);
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string|min:10',
-            'type' => 'required|in:general,maintenance,update,security,feature',
-            'priority' => 'required|in:low,medium,high',
-            'expires_at' => 'nullable|date|after:now',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $announcement = Announcement::create([
             ...$validated,
@@ -150,18 +145,11 @@ class AnnouncementController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Announcement $announcement)
+    public function update(UpdateAnnouncementRequest $request, Announcement $announcement)
     {
         $this->authorize('update', $announcement);
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string|min:10',
-            'type' => 'required|in:general,maintenance,update,security,feature',
-            'priority' => 'required|in:low,medium,high',
-            'expires_at' => 'nullable|date|after:now',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $announcement->update($validated);
 

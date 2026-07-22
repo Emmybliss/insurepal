@@ -155,7 +155,7 @@ class SupportTicketController extends Controller
 
         $request->validate([
             'assignee_id' => 'required|exists:users,id',
-        ]);
+        ]); // single field — leave inline
 
         $assignee = User::findOrFail($request->assignee_id);
         $this->ticketService->assignTicket($ticket, $assignee, $user);
@@ -173,7 +173,7 @@ class SupportTicketController extends Controller
 
         $request->validate([
             'status' => 'required|in:new,open,in_progress,waiting_customer,resolved,closed',
-        ]);
+        ]); // single field — leave inline
 
         $this->ticketService->changeStatus($ticket, $request->status, $user);
 
@@ -229,7 +229,7 @@ class SupportTicketController extends Controller
 
         $request->validate([
             'reason' => 'required|string|max:500',
-        ]);
+        ]); // single field — leave inline
 
         $this->ticketService->escalateTicket($ticket, $request->reason, $user);
 

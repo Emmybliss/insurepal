@@ -28,6 +28,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('document_templates')) {
+            return;
+        }
+
         Schema::table('document_templates', function (Blueprint $table) {
             $table->dropColumn(['mode', 'html_template_key', 'css_overrides']);
             if (Schema::hasColumn('document_templates', 'slug')) {

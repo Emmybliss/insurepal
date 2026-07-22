@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BrokerRequest;
 use App\Models\Tenant;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,8 +19,11 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class BrokerController extends Controller
 {
-    public function __construct()
+    protected PdfService $pdfService;
+
+    public function __construct(PdfService $pdfService)
     {
+        $this->pdfService = $pdfService;
         $this->middleware('tenant.type:underwriter');
         $this->middleware('permission:view_brokers')->only(['index', 'show']);
         $this->middleware('permission:create_brokers')->only(['create', 'store']);
@@ -375,7 +378,7 @@ class BrokerController extends Controller
 
         $broker->load(['users', 'policies.policyProduct', 'quotes.insuranceProduct', 'customers']);
 
-        $pdf = Pdf::loadView('pdfs.broker', [
+        $pdfContent = $this->pdfService->renderView('pdfs.broker', [
             'broker' => $broker,
             'company' => $currentTenant,
         ]);
@@ -383,7 +386,10 @@ class BrokerController extends Controller
         $slug = \Illuminate\Support\Str::slug($broker->company_name);
         $fileName = ($slug ?: 'broker-'.$broker->id).'.pdf';
 
-        return $pdf->download($fileName);
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ]);
     }
 
     /**
@@ -492,6 +498,6 @@ class BrokerController extends Controller
         $tempFile = tempnam(sys_get_temp_dir(), 'excel');
         $writer->save($tempFile);
 
-        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+        return $this->safeDownloadAndDelete($tempFile, $fileName);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\NotificationSettingsRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,19 +38,8 @@ class NotificationSettingsController extends Controller
     /**
      * Update the user's notification preferences.
      */
-    public function update(Request $request)
+    public function update(NotificationSettingsRequest $request)
     {
-        $request->validate([
-            'email_notifications' => 'boolean',
-            'sms_notifications' => 'boolean',
-            'push_notifications' => 'boolean',
-            'marketing_notifications' => 'boolean',
-            'policy_expiry_notifications' => 'boolean',
-            'payment_due_notifications' => 'boolean',
-            'claim_status_notifications' => 'boolean',
-            'system_maintenance_notifications' => 'boolean',
-        ]);
-
         $user = $request->user();
         $settings = $user->settings ?? [];
 

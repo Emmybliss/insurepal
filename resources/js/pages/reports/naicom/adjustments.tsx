@@ -11,7 +11,6 @@ import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Plus, Shield } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { toast } from 'sonner';
 
 interface User {
     id: number;
@@ -67,34 +66,40 @@ export default function Adjustments({ run, adjustments }: Props) {
         if (!adjustedValue || !reason || reason.length < 10) return;
 
         setSubmitting(true);
-        router.post(route('reports.naicom.adjustments.store', run.id), {
-            form_type: formType,
-            field,
-            adjusted_value: adjustedValue,
-            reason,
-        } as Record<string, string>, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setOpen(false);
-                setFormType('7.2B');
-                setField('');
-                setAdjustedValue('');
-                setReason('');
-                setSubmitting(false);
+        router.post(
+            route('reports.naicom.adjustments.store', run.id),
+            {
+                form_type: formType,
+                field,
+                adjusted_value: adjustedValue,
+                reason,
+            } as Record<string, string>,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setOpen(false);
+                    setFormType('7.2B');
+                    setField('');
+                    setAdjustedValue('');
+                    setReason('');
+                    setSubmitting(false);
+                },
+                onError: () => {
+                    setSubmitting(false);
+                },
             },
-            onError: () => {
-                setSubmitting(false);
-            },
-        });
+        );
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Reports', href: route('reports.index') },
-            { title: 'NAICOM Returns', href: route('reports.naicom.index') },
-            { title: `${run.reporting_year} ${run.reporting_half}`, href: route('reports.naicom.show', run.id) },
-            { title: 'Adjustments', href: '#' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Reports', href: route('reports.index') },
+                { title: 'NAICOM Returns', href: route('reports.naicom.index') },
+                { title: `${run.reporting_year} ${run.reporting_half}`, href: route('reports.naicom.show', run.id) },
+                { title: 'Adjustments', href: '#' },
+            ]}
+        >
             <Head title="Adjustments" />
 
             <div className="flex flex-col gap-6 p-6">
@@ -126,9 +131,7 @@ export default function Adjustments({ run, adjustments }: Props) {
                             <form onSubmit={handleSubmit}>
                                 <DialogHeader>
                                     <DialogTitle>Create Adjustment</DialogTitle>
-                                    <DialogDescription>
-                                        Adjust a calculated value on this report. Provide a reason for the change.
-                                    </DialogDescription>
+                                    <DialogDescription>Adjust a calculated value on this report. Provide a reason for the change.</DialogDescription>
                                 </DialogHeader>
 
                                 <div className="grid gap-4 py-4">
@@ -206,9 +209,7 @@ export default function Adjustments({ run, adjustments }: Props) {
                             <div className="py-12 text-center">
                                 <Shield className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                                 <p className="mb-2 font-medium">No adjustments yet</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Click "New Adjustment" to manually adjust a value on this report.
-                                </p>
+                                <p className="text-sm text-muted-foreground">Click "New Adjustment" to manually adjust a value on this report.</p>
                             </div>
                         ) : (
                             <div className="rounded-md border">
@@ -231,11 +232,19 @@ export default function Adjustments({ run, adjustments }: Props) {
                                             return (
                                                 <tr key={adj.id} className="border-b last:border-0 hover:bg-muted/50">
                                                     <td className="px-4 py-3 text-sm">{adj.form_type}</td>
-                                                    <td className="px-4 py-3 text-sm font-mono">{adj.field ?? '—'}</td>
-                                                    <td className="px-4 py-3 text-right text-sm">{adj.calculated_value ? Number(adj.calculated_value).toLocaleString() : '—'}</td>
-                                                    <td className="px-4 py-3 text-right text-sm font-medium">{Number(adj.adjusted_value).toLocaleString()}</td>
-                                                    <td className="max-w-xs truncate px-4 py-3 text-sm" title={adj.reason}>{adj.reason}</td>
-                                                    <td className="px-4 py-3"><Badge variant={config.variant}>{config.label}</Badge></td>
+                                                    <td className="px-4 py-3 font-mono text-sm">{adj.field ?? '—'}</td>
+                                                    <td className="px-4 py-3 text-right text-sm">
+                                                        {adj.calculated_value ? Number(adj.calculated_value).toLocaleString() : '—'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-sm font-medium">
+                                                        {Number(adj.adjusted_value).toLocaleString()}
+                                                    </td>
+                                                    <td className="max-w-xs truncate px-4 py-3 text-sm" title={adj.reason}>
+                                                        {adj.reason}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <Badge variant={config.variant}>{config.label}</Badge>
+                                                    </td>
                                                     <td className="px-4 py-3 text-sm">{adj.created_by?.name ?? '—'}</td>
                                                 </tr>
                                             );

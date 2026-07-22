@@ -21,8 +21,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasColumn('policy_certificates', 'document_template_id')) {
+            return;
+        }
+
         Schema::table('policy_certificates', function (Blueprint $table) {
-            $table->dropForeign(['document_template_id']);
             $table->dropColumn('document_template_id');
         });
     }

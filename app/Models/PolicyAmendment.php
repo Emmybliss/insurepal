@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\PolicyAmended;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -285,6 +286,12 @@ class PolicyAmendment extends Model
             'status' => self::STATUS_ACTIVE,
             'activated_at' => now(),
         ]);
+
+        PolicyAmended::dispatch(
+            $this->policy,
+            $this,
+            (float) ($this->premium_adjustment ?? 0),
+        );
     }
 
     public function cancel(): void

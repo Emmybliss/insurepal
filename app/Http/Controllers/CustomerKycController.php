@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCustomerKycRequest;
+use App\Http\Requests\UpdateCustomerKycRequest;
 use App\Models\Customer;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -28,20 +29,11 @@ class CustomerKycController extends Controller
     /**
      * Update KYC for a customer (Tenant Admin).
      */
-    public function update(Request $request, Customer $customer)
+    public function update(UpdateCustomerKycRequest $request, Customer $customer)
     {
         $this->authorize('update', $customer);
 
-        $validated = $request->validate([
-            'status' => 'required|in:pending,verified,rejected',
-            'identity_type' => 'nullable|string|max:100',
-            'identity_number' => 'nullable|string|max:100',
-            'nin' => 'nullable|string|max:20',
-            'bvn' => 'nullable|string|max:20',
-            'notes' => 'nullable|string|max:2000',
-            'identity_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'address_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $kyc = $customer->kyc ?? $customer->kyc()->newModelInstance(['customer_id' => $customer->id]);
 
@@ -102,7 +94,7 @@ class CustomerKycController extends Controller
     /**
      * Customer submits/updates their own KYC from the portal.
      */
-    public function customerUpdate(Request $request)
+    public function customerUpdate(StoreCustomerKycRequest $request)
     {
         $user = Auth::user();
         $customer = $user->customers()->first();
@@ -111,14 +103,7 @@ class CustomerKycController extends Controller
             abort(404, 'Customer profile not found');
         }
 
-        $validated = $request->validate([
-            'identity_type' => 'nullable|string|max:100',
-            'identity_number' => 'nullable|string|max:100',
-            'nin' => 'nullable|string|max:20',
-            'bvn' => 'nullable|string|max:20',
-            'identity_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'address_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ]);
+        $validated = $request->validated();
 
         $kyc = $customer->kyc ?? $customer->kyc()->newModelInstance(['customer_id' => $customer->id]);
 

@@ -8,7 +8,6 @@ use App\Models\InsuranceProduct;
 use App\Models\Quote;
 use App\Services\QuoteService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class QuoteController extends Controller
@@ -29,10 +28,11 @@ class QuoteController extends Controller
             'date_from', 'date_to', 'valid_until', 'created_by',
         ]);
 
-        $quotes = $this->quoteService->getQuotesForTenant($filters, $request->get('per_page', 15));
+        $user = $request->user();
 
-        // Get filter options
-        $customers = Customer::forTenant(Auth::user()->tenant_id)
+        $quotes = $this->quoteService->getQuotesForTenant($user, $filters, $request->get('per_page', 15));
+
+        $customers = Customer::forTenant($user->tenant_id)
             ->select('id', 'type', 'first_name', 'last_name', 'company_name')
             ->orderBy('first_name')
             ->orderBy('company_name')
@@ -43,7 +43,7 @@ class QuoteController extends Controller
             ->orderBy('name')
             ->get();
 
-        $statistics = $this->quoteService->getQuoteStatistics(Auth::user()->tenant_id);
+        $statistics = $this->quoteService->getQuoteStatistics($user->tenant_id);
 
         return Inertia::render('quotes/index', [
             'quotes' => $quotes,
@@ -60,7 +60,9 @@ class QuoteController extends Controller
      */
     public function create(Request $request)
     {
-        $customers = Customer::forTenant(Auth::user()->tenant_id)
+        $user = $request->user();
+
+        $customers = Customer::forTenant($user->tenant_id)
             ->active()
             ->select('id', 'type', 'first_name', 'last_name', 'company_name', 'email', 'type')
             ->selectRaw("COALESCE(company_name, CONCAT(first_name, ' ', last_name)) as display_name")
@@ -74,7 +76,7 @@ class QuoteController extends Controller
 
         $selectedCustomer = null;
         if ($request->filled('customer_id')) {
-            $selectedCustomer = Customer::forTenant(Auth::user()->tenant_id)
+            $selectedCustomer = Customer::forTenant($user->tenant_id)
                 ->find($request->customer_id);
         }
 
@@ -92,7 +94,7 @@ class QuoteController extends Controller
     public function store(QuoteRequest $request)
     {
         try {
-            $quote = $this->quoteService->createQuote($request->validatedData());
+            $quote = $this->quoteService->createQuote($request->validatedData(), $request->user());
 
             return redirect()->route('quotes.show', $quote)
                 ->with('success', 'Quote created successfully.');
@@ -137,7 +139,7 @@ class QuoteController extends Controller
 
         $quote->load(['customer', 'insuranceProduct']);
 
-        $customers = Customer::forTenant(Auth::user()->tenant_id)
+        $customers = Customer::forTenant(request()->user()->tenant_id)
             ->active()
             ->select('id', 'type', 'first_name', 'last_name', 'company_name', 'email')
             ->orderBy('first_name')
@@ -213,7 +215,7 @@ class QuoteController extends Controller
 
         $request->validate([
             'reason' => 'nullable|string|max:500',
-        ]);
+        ]); // single field — leave inline
 
         try {
             $this->quoteService->acceptQuote($quote, $request->reason);
@@ -233,7 +235,7 @@ class QuoteController extends Controller
 
         $request->validate([
             'reason' => 'required|string|max:500',
-        ]);
+        ]); // single field — leave inline
 
         try {
             $this->quoteService->rejectQuote($quote, $request->reason);
@@ -252,9 +254,9 @@ class QuoteController extends Controller
         $this->authorize('update', $quote);
 
         try {
-            $policy = $this->quoteService->convertToPolicy($quote);
+            $policy = $this->quoteService->convertToPolicy($quote, request()->user());
 
-            return redirect()->route('policies.show', $policy)
+            return redirect()->route('policy-management.show', $policy)
                 ->with('success', 'Quote converted to policy successfully.');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to convert quote to policy: '.$e->getMessage());
@@ -287,7 +289,7 @@ class QuoteController extends Controller
 
         $request->validate([
             'days' => 'required|integer|min:1|max:365',
-        ]);
+        ]); // single field — leave inline
 
         try {
             $this->quoteService->extendQuoteValidity($quote, $request->days);
@@ -313,7 +315,7 @@ class QuoteController extends Controller
      */
     public function expiringSoon()
     {
-        $expiringQuotes = $this->quoteService->getExpiringQuotes(7);
+        $expiringQuotes = $this->quoteService->getExpiringQuotes(request()->user(), 7);
 
         return response()->json([
             'quotes' => $expiringQuotes,

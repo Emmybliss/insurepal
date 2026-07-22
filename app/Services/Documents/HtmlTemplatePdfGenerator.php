@@ -4,7 +4,7 @@ namespace App\Services\Documents;
 
 use App\Models\Tenant;
 use App\Models\TenantTemplateOverride;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 use Illuminate\Support\Facades\Storage;
 
 class HtmlTemplatePdfGenerator
@@ -13,12 +13,16 @@ class HtmlTemplatePdfGenerator
 
     protected DocumentVerificationService $verificationService;
 
+    protected PdfService $pdfService;
+
     public function __construct(
         TenantBrandingService $brandingService,
-        DocumentVerificationService $verificationService
+        DocumentVerificationService $verificationService,
+        PdfService $pdfService
     ) {
         $this->brandingService = $brandingService;
         $this->verificationService = $verificationService;
+        $this->pdfService = $pdfService;
     }
 
     /**
@@ -31,18 +35,9 @@ class HtmlTemplatePdfGenerator
     {
         $html = $this->renderHtml($tenant, $templateKey, $payload);
 
-        $pdf = Pdf::loadHTML($html)
-            ->setPaper('A4', 'portrait')
-            ->setOptions([
-                'defaultFont' => 'sans-serif',
-                'isRemoteEnabled' => false,
-                'isHtml5ParserEnabled' => true,
-                'isFontSubsettingEnabled' => true,
-                'isJavascriptEnabled' => false,
-            ]);
+        $pdfContent = $this->pdfService->renderHtml($html);
 
         $fileName = $customFileName ?? uniqid("{$documentType}-").'.pdf';
-        $pdfContent = $pdf->output();
 
         $path = "{$documentType}/{$tenant->id}/pdfs/{$fileName}";
 
@@ -62,17 +57,7 @@ class HtmlTemplatePdfGenerator
     {
         $html = $this->renderHtml($tenant, $templateKey, $payload);
 
-        $pdf = Pdf::loadHTML($html)
-            ->setPaper('A4', 'portrait')
-            ->setOptions([
-                'defaultFont' => 'sans-serif',
-                'isRemoteEnabled' => false,
-                'isHtml5ParserEnabled' => true,
-                'isFontSubsettingEnabled' => true,
-                'isJavascriptEnabled' => false,
-            ]);
-
-        return $pdf->output();
+        return $this->pdfService->renderHtml($html);
     }
 
     protected function buildVerifyUrl(string $documentType, string $token): string
@@ -135,6 +120,15 @@ class HtmlTemplatePdfGenerator
 
         $branding = $this->brandingService->getBrandingData($tenant, $templateOverride?->only(['header_image', 'footer_image', 'signature', 'stamp']));
 
+        if ($isPreview) {
+            // Overwrite local file:/// paths with public browser-accessible URLs for live previews
+            $branding['logo_path'] = $branding['logo_url'] ?? $branding['logo_path'];
+            $branding['header_image_path'] = $branding['header_image_url'] ?? $branding['header_image_path'];
+            $branding['footer_image_path'] = $branding['footer_image_url'] ?? $branding['footer_image_path'];
+            $branding['signature_path'] = $branding['signature_url'] ?? $branding['signature_path'];
+            $branding['stamp_path'] = $branding['stamp_url'] ?? $branding['stamp_path'];
+        }
+
         $elementToggles = $elementToggles ?? $templateOverride?->element_toggles ?? [];
 
         // Resolve labels: registry defaults or override settings
@@ -162,10 +156,22 @@ class HtmlTemplatePdfGenerator
             $branding['footer_image_base64'] = null;
         }
 
-        // Convert preparer signature URL to base64 for PDF stability
+        // Convert preparer signature URL to local path and base64 fallback.
+        // Reuse the branding signature if the path matches, avoiding a redundant encode.
         $signaturePath = $payload['preparer_signature'] ?? $payload['preparer_signature_url'] ?? null;
         if (! empty($signaturePath)) {
-            $payload['preparer_signature_base64'] = $this->brandingService->imageToBase64($signaturePath);
+            $tenantSignature = $templateOverride?->signature ?? $tenant->signature;
+            if ($signaturePath === $tenantSignature && ! empty($branding['signature_path'])) {
+                $payload['preparer_signature_path'] = $branding['signature_path'];
+                $payload['preparer_signature_base64'] = $branding['signature_base64'];
+            } else {
+                if ($isPreview) {
+                    $payload['preparer_signature_path'] = $this->brandingService->imageToPublicUrl($signaturePath);
+                } else {
+                    $payload['preparer_signature_path'] = $this->brandingService->getOptimizedImageLocalPath($signaturePath, 'signature');
+                }
+                $payload['preparer_signature_base64'] = $this->brandingService->localPathToBase64($payload['preparer_signature_path']);
+            }
         }
 
         // Inject verification data (barcode, QR code, verification URL)

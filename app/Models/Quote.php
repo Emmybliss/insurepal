@@ -67,6 +67,8 @@ class Quote extends Model
 
     const STATUS_EXPIRED = 'expired';
 
+    const STATUS_CONVERTED = 'converted';
+
     public static function getStatuses(): array
     {
         return [

@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-permissions';
 import useFlashToast from '@/hooks/useFlashToast';
 import { useLang } from '@/hooks/useLang';
-import { getTimeBasedGreeting } from '@/lib/greeting';
 import AppLayout from '@/layouts/app-layout';
+import { getTimeBasedGreeting } from '@/lib/greeting';
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Calendar, Clock, Eye, FileText, PlusCircle, Shield, TrendingUp, Users, XCircle } from 'lucide-react';
 
@@ -86,7 +86,10 @@ export default function UnderwriterDashboard({ tenant, stats, premium_trends, re
     };
 
     const getPolicyStatus = (policy: Policy) => {
-        if (policy.status && policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+        const dateStatuses = ['active', 'expired', 'recorded'];
+        if (!dateStatuses.includes(policy.status)) return policy.status;
+
+        if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -99,7 +102,6 @@ export default function UnderwriterDashboard({ tenant, stats, premium_trends, re
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays <= 60) return 'expiring_soon';
-        if (diffDays <= 90) return 'active';
 
         return 'active';
     };

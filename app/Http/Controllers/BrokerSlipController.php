@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BrokerSlipPremiumCalculationRequest;
+use App\Http\Requests\Shared\NotesActionRequest;
+use App\Http\Requests\StoreBrokerSlipRequest;
+use App\Http\Requests\StoreDirectBrokerSlipRequest;
+use App\Http\Requests\UpdateBrokerSlipRequest;
 use App\Models\BrokerSlip;
 use App\Models\ClauseLibrary;
 use App\Models\Customer;
 use App\Models\InsuranceCompany;
 use App\Models\Placement;
 use App\Models\PolicyProduct;
+use App\Models\PolicyType;
 use App\Services\BrokerSlipCalculationService;
 use App\Services\BrokerSlipPdfService;
 use App\Services\BrokerSlipService;
@@ -36,7 +42,7 @@ class BrokerSlipController extends Controller
         $filters = $request->only(['search', 'status']);
 
         return Inertia::render('broker-slips/Index', [
-            'brokerSlips' => $this->brokerSlipService->getSlipsForTenant($filters, $request->integer('per_page', 15)),
+            'brokerSlips' => $this->brokerSlipService->getSlipsForTenant($request->user(), $filters, $request->integer('per_page', 15)),
             'filters' => $filters,
         ]);
     }
@@ -63,10 +69,16 @@ class BrokerSlipController extends Controller
                     'customer:id,type,first_name,last_name,company_name',
                     'markets.insuranceCompany:id,name',
                     'markets.brokerSlips' => fn ($q) => $q->whereNotIn('status', ['superseded', 'withdrawn']),
-                    'policyProduct.policyClass:id,name',
+                    'policyProduct.policyClass:id,name,risk_mode',
                 ])
                 ->whereIn('status', ['draft', 'in_market'])
                 ->get(['id', 'placement_number', 'customer_id', 'policy_product_id', 'currency', 'proposed_start_date', 'proposed_end_date', 'total_sum_insured']),
+            'policyTypes' => PolicyType::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'policyClasses' => \App\Models\PolicyClass::select('id', 'name', 'risk_mode', 'policy_type_id')->get(),
+            'policyProducts' => \App\Models\PolicyProduct::forTenant($request->user()->tenant_id)
+                ->where('is_active', true)
+                ->with('policyClass:id,name')
+                ->get(),
             'clauseLibrary' => ClauseLibrary::active()
                 ->where(function ($q) use ($request) {
                     $q->whereNull('tenant_id')
@@ -82,49 +94,11 @@ class BrokerSlipController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreBrokerSlipRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'placement_id' => ['required', 'exists:placements,id'],
-            'placement_market_id' => [
-                'nullable',
-                'exists:placement_markets,id',
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    if ($value && BrokerSlip::where('placement_market_id', $value)
-                        ->whereNotIn('status', ['superseded', 'withdrawn'])
-                        ->exists()
-                    ) {
-                        $fail('A broker slip already exists for this insurer. Create a revision instead.');
-                    }
-                },
-            ],
-            'currency' => ['nullable', 'string', 'size:3'],
-            'sum_insured' => ['required', 'numeric', 'min:0'],
-            'rate' => ['nullable', 'numeric', 'min:0'],
-            'rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
-            'gross_premium' => ['required', 'numeric', 'min:0'],
-            'commission_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'commission_amount' => ['nullable', 'numeric', 'min:0'],
-            'co_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'reporting_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'fees' => ['nullable', 'numeric', 'min:0'],
-            'taxes' => ['nullable', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'net_premium' => ['required', 'numeric', 'min:0'],
-            'period_start' => ['required', 'date'],
-            'period_end' => ['required', 'date', 'after:period_start'],
-            'claim_payment_condition' => ['nullable', 'string'],
-            'items' => ['nullable', 'array'],
-            'items.*.item_type' => ['nullable', 'string'],
-            'items.*.description' => ['nullable', 'string'],
-            'items.*.sum_insured' => ['required_with:items', 'numeric', 'min:0'],
-            'clauses' => ['nullable', 'array'],
-            'clauses.*.clause_type' => ['required_with:clauses', 'string'],
-            'clauses.*.title' => ['required_with:clauses', 'string', 'max:200'],
-            'clauses.*.content' => ['required_with:clauses', 'string'],
-        ]);
+        $validated = $request->validated();
 
-        $slip = $this->brokerSlipService->createSlip($validated);
+        $slip = $this->brokerSlipService->createSlip($request->user(), $validated);
 
         return to_route('broker-slips.show', $slip);
     }
@@ -135,6 +109,8 @@ class BrokerSlipController extends Controller
             'customers' => Customer::forTenant($request->user()->tenant_id)
                 ->select('id', 'type', 'first_name', 'last_name', 'company_name', 'email')
                 ->get(),
+            'policyTypes' => PolicyType::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'policyClasses' => \App\Models\PolicyClass::select('id', 'name', 'risk_mode', 'policy_type_id')->get(),
             'insuranceCompanies' => InsuranceCompany::active()->get(['id', 'name']),
             'policyProducts' => PolicyProduct::forTenant($request->user()->tenant_id)
                 ->where('is_active', true)
@@ -155,56 +131,11 @@ class BrokerSlipController extends Controller
         ]);
     }
 
-    public function storeDirect(Request $request): RedirectResponse
+    public function storeDirect(StoreDirectBrokerSlipRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'customer_id' => ['required', 'exists:customers,id'],
-            'insured_id' => ['nullable', 'exists:customers,id'],
-            'policy_product_id' => ['required', 'exists:policy_products,id'],
-            'insurance_company_id' => [
-                'required',
-                'exists:insurance_companies,id',
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    $duplicate = BrokerSlip::whereHas('placementMarket', function ($q) use ($value) {
-                        $q->where('insurance_company_id', $value);
-                    })
-                        ->whereNotIn('status', ['superseded', 'withdrawn'])
-                        ->exists();
+        $validated = $request->validated();
 
-                    if ($duplicate) {
-                        $fail('A broker slip already exists for this insurer. Create a revision instead.');
-                    }
-                },
-            ],
-            'currency' => ['nullable', 'string', 'size:3'],
-            'sum_insured' => ['required', 'numeric', 'min:0'],
-            'rate' => ['nullable', 'numeric', 'min:0'],
-            'rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
-            'gross_premium' => ['required', 'numeric', 'min:0'],
-            'commission_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'commission_amount' => ['nullable', 'numeric', 'min:0'],
-            'co_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'reporting_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'fees' => ['nullable', 'numeric', 'min:0'],
-            'taxes' => ['nullable', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'net_premium' => ['required', 'numeric', 'min:0'],
-            'period_start' => ['required', 'date'],
-            'period_end' => ['required', 'date', 'after:period_start'],
-            'claim_payment_condition' => ['nullable', 'string'],
-            'risk_details' => ['nullable', 'string'],
-            'items' => ['nullable', 'array'],
-            'items.*.item_type' => ['nullable', 'string'],
-            'items.*.description' => ['nullable', 'string'],
-            'items.*.sum_insured' => ['required_with:items', 'numeric', 'min:0'],
-            'clauses' => ['nullable', 'array'],
-            'clauses.*.clause_type' => ['required_with:clauses', 'string'],
-            'clauses.*.title' => ['required_with:clauses', 'string', 'max:200'],
-            'clauses.*.content' => ['required_with:clauses', 'string'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        $slip = $this->brokerSlipService->createDirectSlip($validated);
+        $slip = $this->brokerSlipService->createDirectSlip($request->user(), $validated);
 
         return to_route('broker-slips.show', $slip);
     }
@@ -214,6 +145,7 @@ class BrokerSlipController extends Controller
         $brokerSlip->load([
             'placement.customer',
             'placement.insured',
+            'placement.policyClass',
             'placement.policyProduct.policyClass',
             'placementMarket.insuranceCompany',
             'items' => fn ($q) => $q->orderBy('sort_order'),
@@ -237,6 +169,9 @@ class BrokerSlipController extends Controller
     {
         $brokerSlip->load([
             'placement.customer',
+            'placement.policyClass',
+            'placement.policyProduct.policyClass',
+            'placement.policyProduct.policyType',
             'placementMarket.insuranceCompany',
             'items' => fn ($q) => $q->orderBy('sort_order'),
             'clauses' => fn ($q) => $q->orderBy('sort_order'),
@@ -244,11 +179,20 @@ class BrokerSlipController extends Controller
 
         return Inertia::render('broker-slips/Edit', [
             'brokerSlip' => $brokerSlip,
+            'customers' => \App\Models\Customer::forTenant(request()->user()->tenant_id)
+                ->select('id', 'type', 'first_name', 'last_name', 'company_name', 'email')
+                ->get(),
             'placements' => Placement::forTenant(request()->user()->tenant_id)
                 ->with('customer:id,type,first_name,last_name,company_name')
                 ->whereIn('status', ['draft', 'in_market', 'placed'])
                 ->get(),
             'insuranceCompanies' => InsuranceCompany::active()->get(['id', 'name']),
+            'policyTypes' => PolicyType::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'policyClasses' => \App\Models\PolicyClass::select('id', 'name', 'risk_mode', 'policy_type_id')->get(),
+            'policyProducts' => \App\Models\PolicyProduct::forTenant(request()->user()->tenant_id)
+                ->where('is_active', true)
+                ->with('policyClass:id,name')
+                ->get(),
             'clauseLibrary' => ClauseLibrary::active()
                 ->where(function ($q) {
                     $q->whereNull('tenant_id')
@@ -259,27 +203,9 @@ class BrokerSlipController extends Controller
         ]);
     }
 
-    public function update(Request $request, BrokerSlip $brokerSlip): RedirectResponse
+    public function update(UpdateBrokerSlipRequest $request, BrokerSlip $brokerSlip): RedirectResponse
     {
-        $validated = $request->validate([
-            'sum_insured' => ['sometimes', 'numeric', 'min:0'],
-            'rate' => ['nullable', 'numeric', 'min:0'],
-            'rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
-            'gross_premium' => ['sometimes', 'numeric', 'min:0'],
-            'commission_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'commission_amount' => ['nullable', 'numeric', 'min:0'],
-            'co_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'reporting_broker_commission' => ['nullable', 'numeric', 'min:0'],
-            'fees' => ['nullable', 'numeric', 'min:0'],
-            'taxes' => ['nullable', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'net_premium' => ['sometimes', 'numeric', 'min:0'],
-            'period_start' => ['sometimes', 'date'],
-            'period_end' => ['sometimes', 'date', 'after:period_start'],
-            'claim_payment_condition' => ['nullable', 'string'],
-            'items' => ['nullable', 'array'],
-            'clauses' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $this->brokerSlipService->updateSlip($brokerSlip, $validated);
 
@@ -295,26 +221,24 @@ class BrokerSlipController extends Controller
 
     public function submitForReview(Request $request, BrokerSlip $brokerSlip): RedirectResponse
     {
-        $validated = $request->validate(['notes' => ['nullable', 'string']]);
+        $validated = $request->validate(['notes' => ['nullable', 'string']]); // single field — leave inline
 
-        $this->brokerSlipService->submitForReview($brokerSlip, $validated['notes'] ?? null);
+        $this->brokerSlipService->submitForReview($brokerSlip, $request->user(), $validated['notes'] ?? null);
 
         return to_route('broker-slips.show', $brokerSlip);
     }
 
-    public function approve(Request $request, BrokerSlip $brokerSlip): RedirectResponse
+    public function approve(NotesActionRequest $request, BrokerSlip $brokerSlip): RedirectResponse
     {
-        $validated = $request->validate(['notes' => ['nullable', 'string']]);
-
         $approval = $brokerSlip->approvals()->latest()->firstOrFail();
-        $approval->approve($validated['notes'] ?? null);
+        $approval->approve($request->validated('notes'));
 
         return to_route('broker-slips.show', $brokerSlip);
     }
 
     public function requestChanges(Request $request, BrokerSlip $brokerSlip): RedirectResponse
     {
-        $validated = $request->validate(['changes' => ['required', 'string']]);
+        $validated = $request->validate(['changes' => ['required', 'string']]); // single field — leave inline
 
         $approval = $brokerSlip->approvals()->latest()->firstOrFail();
         $approval->requestChanges($validated['changes']);
@@ -322,9 +246,9 @@ class BrokerSlipController extends Controller
         return to_route('broker-slips.show', $brokerSlip);
     }
 
-    public function issue(BrokerSlip $brokerSlip): RedirectResponse
+    public function issue(Request $request, BrokerSlip $brokerSlip): RedirectResponse
     {
-        $slip = $this->brokerSlipService->issueSlip($brokerSlip);
+        $slip = $this->brokerSlipService->issueSlip($brokerSlip, $request->user());
         $this->pdfService->savePdf($slip);
 
         return to_route('broker-slips.show', $brokerSlip);
@@ -344,15 +268,26 @@ class BrokerSlipController extends Controller
         return to_route('broker-slips.edit', $newSlip);
     }
 
-    public function download(BrokerSlip $brokerSlip): \Illuminate\Http\Response
+    public function download(BrokerSlip $brokerSlip): \Symfony\Component\HttpFoundation\Response
     {
-        if (! $brokerSlip->pdf_path || ! Storage::disk('public')->exists($brokerSlip->pdf_path)) {
-            $path = $this->pdfService->savePdf($brokerSlip);
-        } else {
-            $path = $brokerSlip->pdf_path;
+        $path = $this->pdfService->savePdf($brokerSlip);
+
+        $fullPath = Storage::disk('public')->path($path);
+        if (! file_exists($fullPath)) {
+            abort(404);
         }
 
-        return Storage::disk('public')->download($path, "broker-slip-{$brokerSlip->slip_number}-v{$brokerSlip->version}.pdf");
+        $content = file_get_contents($fullPath);
+        $fileName = "broker-slip-{$brokerSlip->slip_number}-v{$brokerSlip->version}.pdf";
+
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+            'Content-Length' => strlen($content),
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
     }
 
     public function preview(BrokerSlip $brokerSlip): \Illuminate\Http\Response
@@ -365,19 +300,9 @@ class BrokerSlipController extends Controller
         ]);
     }
 
-    public function calculatePremiums(Request $request): \Illuminate\Http\JsonResponse
+    public function calculatePremiums(BrokerSlipPremiumCalculationRequest $request): \Illuminate\Http\JsonResponse
     {
-        $validated = $request->validate([
-            'sum_insured' => ['required', 'numeric', 'min:0'],
-            'rate' => ['nullable', 'numeric', 'min:0'],
-            'rate_basis' => ['nullable', 'string', 'in:percentage,per_mille,fixed'],
-            'commission_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'co_broker_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'reporting_broker_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'fees' => ['nullable', 'numeric', 'min:0'],
-            'taxes' => ['nullable', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $grossPremium = $this->calculationService->calculateGrossPremium(
             $validated['sum_insured'],
@@ -419,19 +344,11 @@ class BrokerSlipController extends Controller
 
     public function htmlPreview(Request $request, BrokerSlip $brokerSlip): \Illuminate\Http\Response
     {
-        $templateKey = $request->get('template_key', 'broker_slip.standard');
+        $pdfContent = $this->pdfService->generatePdf($brokerSlip, preview: true);
 
-        $payload = $this->payloadMapper->mapBrokerSlip($brokerSlip);
-
-        $html = $this->pdfGenerator->renderHtml(
-            tenant: $brokerSlip->tenant,
-            templateKey: $templateKey,
-            payload: $payload,
-            isPreview: true,
-        );
-
-        return response($html, 200, [
-            'Content-Type' => 'text/html; charset=utf-8',
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="preview.pdf"',
         ]);
     }
 

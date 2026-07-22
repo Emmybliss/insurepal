@@ -237,8 +237,12 @@ class TenantRolesAndPermissionsSeeder extends Seeder
 
         foreach ($rolesData as $roleData) {
             $role = Role::firstOrCreate(
-                ['name' => $roleData['name']],
-                ['guard_name' => 'web']
+                ['name' => $roleData['name'], 'tenant_id' => $tenant->id],
+                [
+                    'guard_name' => 'web',
+                    'display_name' => $roleData['display_name'] ?? ucwords(str_replace('_', ' ', $roleData['name'])),
+                    'description' => $roleData['description'] ?? '',
+                ]
             );
 
             // Assign permissions to role

@@ -19,7 +19,7 @@ class PushController extends Controller
     {
         $request->validate([
             'subscription' => ['required', 'string'],
-        ]);
+        ]); // single field — leave inline
 
         $data = json_decode($request->input('subscription'), true);
 

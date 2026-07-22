@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import AppLayout from '@/layouts/app-layout';
 import { Form, Head, Link } from '@inertiajs/react';
 import { Building2, Calendar, Mail, MapPin, Percent, Phone, User } from 'lucide-react';
 import { toast } from 'sonner';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 export default function BrokerCreate() {
     const breadcrumbs = [

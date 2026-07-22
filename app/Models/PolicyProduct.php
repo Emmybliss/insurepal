@@ -34,9 +34,17 @@ class PolicyProduct extends Model
         'max_sum_assured',
         'requires_underwriting',
         'requires_medical_exam',
+        'requires_inspection',
+        'requires_valuation',
         'required_documents',
         'currency',
+        'coverage_label',
         'sort_order',
+        'supports_installment_premium',
+        'allows_coinsurance',
+        'allows_reinsurance',
+        'requires_sum_insured',
+        'default_rate_basis',
     ];
 
     protected $casts = [
@@ -53,7 +61,13 @@ class PolicyProduct extends Model
         'max_sum_assured' => 'decimal:2',
         'requires_underwriting' => 'boolean',
         'requires_medical_exam' => 'boolean',
+        'requires_inspection' => 'boolean',
+        'requires_valuation' => 'boolean',
         'required_documents' => 'array',
+        'supports_installment_premium' => 'boolean',
+        'allows_coinsurance' => 'boolean',
+        'allows_reinsurance' => 'boolean',
+        'requires_sum_insured' => 'boolean',
     ];
 
     public function tenant(): BelongsTo

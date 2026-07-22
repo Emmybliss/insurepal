@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle, Eye, ImageUp, Save, Star } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { CheckCircle, Eye, ImageUp, Save, Star } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -58,6 +58,7 @@ interface ElementToggles {
     prepared_by: boolean;
     authorized_signature: boolean;
     stamp: boolean;
+    watermark_logo: boolean;
 }
 
 interface TemplateConfig {
@@ -151,11 +152,10 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
         prepared_by: true,
         authorized_signature: true,
         stamp: true,
+        watermark_logo: true,
     };
 
-    const [elementToggles, setElementToggles] = useState<ElementToggles>(
-        override?.element_toggles ?? defaultToggles,
-    );
+    const [elementToggles, setElementToggles] = useState<ElementToggles>(override?.element_toggles ?? defaultToggles);
 
     const [saveCount, setSaveCount] = useState(0);
 
@@ -238,7 +238,8 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                 setImageFiles({ header_image: null, footer_image: null, signature: null, stamp: null });
                 setSaveCount((c) => c + 1);
             },
-            onError: () => {
+            onError: (errors) => {
+                console.log(errors);
                 toast.error('Failed to save template overrides', { id: 'save-overrides' });
                 setSaving(false);
             },
@@ -258,9 +259,8 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
 
             <div className="flex h-screen flex-col bg-gray-50">
                 <div className="border-b border-gray-200 bg-white">
-                    <div className=" flex  items-center justify-between px-6 py-4">
+                    <div className="flex items-center justify-between px-6 py-4">
                         <div className="flex items-center gap-4">
-
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900">Customize: {template.label}</h1>
                                 <p className="text-sm text-gray-500">
@@ -269,7 +269,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                             </div>
                         </div>
 
-                        <div className='flex gap-4 items-center justify-center'>
+                        <div className="flex items-center justify-center gap-4">
                             <Button onClick={() => router.get(route('templates.index'))} variant="outline">
                                 Cancel
                             </Button>
@@ -278,8 +278,6 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                 {saving ? 'Saving...' : 'Save Overrides'}
                             </Button>
                         </div>
-
-
                     </div>
                 </div>
 
@@ -313,11 +311,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                                             />
                                                         </div>
                                                     )}
-                                                    <Input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={(e) => handleImageChange(field, e)}
-                                                    />
+                                                    <Input type="file" accept="image/*" onChange={(e) => handleImageChange(field, e)} />
                                                 </div>
                                             );
                                         })}
@@ -334,23 +328,19 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <p className="text-sm text-muted-foreground">
-                                        Toggle individual sections on or off in the PDF document.
-                                    </p>
+                                    <p className="text-sm text-muted-foreground">Toggle individual sections on or off in the PDF document.</p>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        {([
+                                        {[
                                             { key: 'header' as const, label: 'Header' },
                                             { key: 'footer' as const, label: 'Footer' },
                                             { key: 'prepared_by' as const, label: 'Prepared By' },
                                             { key: 'authorized_signature' as const, label: 'Authorized Signature' },
                                             { key: 'stamp' as const, label: 'Stamp' },
-                                        ]).map(({ key, label }) => (
+                                            { key: 'watermark_logo' as const, label: 'Washout Watermark Logo' },
+                                        ].map(({ key, label }) => (
                                             <div key={key} className="flex items-center justify-between rounded-lg border p-3">
                                                 <Label className="cursor-pointer">{label}</Label>
-                                                <Switch
-                                                    checked={elementToggles[key]}
-                                                    onCheckedChange={() => handleToggle(key)}
-                                                />
+                                                <Switch checked={elementToggles[key]} onCheckedChange={() => handleToggle(key)} />
                                             </div>
                                         ))}
                                     </div>
@@ -366,9 +356,9 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm text-muted-foreground mb-4">
-                                        Set this template as the default for all {typeLabels[template.type] || template.type} documents.
-                                        The default template will be used automatically when generating documents.
+                                    <p className="mb-4 text-sm text-muted-foreground">
+                                        Set this template as the default for all {typeLabels[template.type] || template.type} documents. The default
+                                        template will be used automatically when generating documents.
                                     </p>
                                     {isDefault ? (
                                         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-4">
@@ -381,12 +371,18 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => router.post(route('templates.remove-default', template.key), {}, {
-                                                    preserveScroll: true,
-                                                    onSuccess: () => toast.success('Default template removed'),
-                                                    onError: () => toast.error('Failed to remove default'),
-                                                })}
-                                                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                                onClick={() =>
+                                                    router.post(
+                                                        route('templates.remove-default', template.key),
+                                                        {},
+                                                        {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => toast.success('Default template removed'),
+                                                            onError: () => toast.error('Failed to remove default'),
+                                                        },
+                                                    )
+                                                }
+                                                className="border-red-200 text-red-600 hover:border-red-300 hover:text-red-700"
                                             >
                                                 Remove Default
                                             </Button>
@@ -396,19 +392,23 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                             <span className="text-sm text-gray-600">
                                                 Not the default for {typeLabels[template.type] || template.type}
                                                 {defaultTemplateKey && (
-                                                    <span className="ml-1 text-xs text-gray-400">
-                                                        (currently: {defaultTemplateKey})
-                                                    </span>
+                                                    <span className="ml-1 text-xs text-gray-400">(currently: {defaultTemplateKey})</span>
                                                 )}
                                             </span>
                                             <Button
                                                 variant="default"
                                                 size="sm"
-                                                onClick={() => router.post(route('templates.set-default', template.key), {}, {
-                                                    preserveScroll: true,
-                                                    onSuccess: () => toast.success('Set as default template'),
-                                                    onError: () => toast.error('Failed to set default'),
-                                                })}
+                                                onClick={() =>
+                                                    router.post(
+                                                        route('templates.set-default', template.key),
+                                                        {},
+                                                        {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => toast.success('Set as default template'),
+                                                            onError: () => toast.error('Failed to set default'),
+                                                        },
+                                                    )
+                                                }
                                             >
                                                 <CheckCircle className="mr-1.5 h-4 w-4" />
                                                 Set as Default
@@ -425,9 +425,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                         <CardTitle className="text-lg">Colors</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Customize the color palette for this template.
-                                        </p>
+                                        <p className="text-sm text-muted-foreground">Customize the color palette for this template.</p>
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             {Object.entries(colors).map(([key, config]) => (
                                                 <div key={key} className="space-y-2">
@@ -465,10 +463,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                             <div key={key} className="space-y-2">
                                                 <Label>{config.label}</Label>
                                                 {config.type === 'select' && config.options ? (
-                                                    <Select
-                                                        value={fontValues[key] || ''}
-                                                        onValueChange={(val) => handleFontChange(key, val)}
-                                                    >
+                                                    <Select value={fontValues[key] || ''} onValueChange={(val) => handleFontChange(key, val)}>
                                                         <SelectTrigger>
                                                             <SelectValue placeholder="Select a font..." />
                                                         </SelectTrigger>
@@ -491,9 +486,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                                             placeholder="Default"
                                                             className="max-w-24"
                                                         />
-                                                        {config.unit && (
-                                                            <span className="text-sm text-muted-foreground">{config.unit}</span>
-                                                        )}
+                                                        {config.unit && <span className="text-sm text-muted-foreground">{config.unit}</span>}
                                                     </div>
                                                 )}
                                             </div>
@@ -509,9 +502,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                         <CardTitle className="text-lg">Editable Labels</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Override the text labels shown on this template.
-                                        </p>
+                                        <p className="text-sm text-muted-foreground">Override the text labels shown on this template.</p>
                                         {Object.entries(editableLabels).map(([key, config]) => (
                                             <div key={key} className="space-y-2">
                                                 <Label>{config.label}</Label>
@@ -520,9 +511,7 @@ export default function Edit({ template, override, tenantBranding, isDefault, de
                                                     value={labelValues[key] ?? config.default}
                                                     onChange={(e) => handleLabelChange(key, e.target.value)}
                                                 />
-                                                <p className="text-xs text-muted-foreground">
-                                                    Default: {config.default}
-                                                </p>
+                                                <p className="text-xs text-muted-foreground">Default: {config.default}</p>
                                             </div>
                                         ))}
                                     </CardContent>

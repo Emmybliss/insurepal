@@ -1,143 +1,345 @@
 <?php
 
-namespace App\Http\Controllers\API\V1;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StorePolicyRequest;
+use App\Http\Requests\Api\V1\UpdatePolicyRequest;
+use App\Http\Requests\Shared\ConvertQuoteRequest;
+use App\Http\Resources\Api\V1\PolicyCollection;
+use App\Http\Resources\Api\V1\PolicyResource;
+use App\Http\Responses\ApiResponse;
 use App\Models\Policy;
 use App\Models\Quote;
+use App\Services\Policies\CancelPolicyService;
+use App\Services\PolicyIssuanceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PolicyController extends Controller
 {
-    /**
-     * Generate a quote for a policy product.
-     */
-    public function quote(Request $request)
+    use ApiResponse;
+
+    public function __construct(
+        private PolicyIssuanceService $policyIssuanceService,
+        private CancelPolicyService $cancelPolicyService,
+    ) {}
+
+    public function index(Request $request): JsonResponse
     {
-        \Illuminate\Support\Facades\Log::info('Quote Request: '.json_encode($request->all()));
+        $user = $request->user();
+        $tenantId = $user->tenant_id;
 
-        $request->validate([
-            'policy_product_id' => 'required|exists:policy_products,id',
-            'sum_assured' => 'nullable|numeric|min:0',
-            'start_date' => 'required|date|after_or_equal:today',
-            'end_date' => 'required|date|after:start_date',
-            // Add dynamic field validation here if needed based on product
-        ]);
+        $query = Policy::forTenant($tenantId)
+            ->with(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy']);
 
-        $product = $request->tenant->products()->findOrFail($request->policy_product_id);
-
-        if (! $product->is_active) {
-            return response()->json(['message' => 'Product is not active'], 400);
+        if ($search = $request->search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('policy_number', 'like', "%{$search}%")
+                    ->orWhere('insurer_name', 'like', "%{$search}%");
+            });
         }
 
-        $sumAssured = $request->sum_assured ?? $product->min_sum_assured;
-
-        \Illuminate\Support\Facades\Log::info("Quote Calc: Product {$product->id}, Base: {$product->base_premium}, SumAssured: {$sumAssured}");
-
-        if (! $product->isValidSumAssured($sumAssured)) {
-            \Illuminate\Support\Facades\Log::info("Quote Calc: Invalid Sum Assured. Min: {$product->min_sum_assured}, Max: {$product->max_sum_assured}");
-
-            return response()->json(['message' => 'Invalid sum assured'], 422);
+        if ($status = $request->status) {
+            $query->where('status', $status);
         }
 
-        $premium = $product->calculatePremium($sumAssured, $request->input('factors', []));
+        if ($approvalStatus = $request->approval_status) {
+            $query->where('approval_status', $approvalStatus);
+        }
 
-        \Illuminate\Support\Facades\Log::info("Quote Calc: Resulting Premium: {$premium}");
+        if ($sourceType = $request->source_type) {
+            $query->where('source_type', $sourceType);
+        }
 
-        // Create a temporary quote record if needed, or just return calculations
-        // For MVP, returning calculation
+        if ($customerId = $request->customer_id) {
+            $query->where('customer_id', $customerId);
+        }
 
-        $quoteData = [
-            'product_name' => $product->name,
-            'base_premium' => $premium,
-            'fees' => 0, // Calculate fees if any
-            'tax' => 0, // Calculate tax if any
-            'total_amount' => $premium,
-            'currency' => $product->currency ?? 'NGN',
-            'sum_assured' => $sumAssured,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-        ];
+        if ($productId = $request->policy_product_id) {
+            $query->where('policy_product_id', $productId);
+        }
 
-        return response()->json($quoteData);
+        if ($dateFrom = $request->date_from) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo = $request->date_to) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($request->boolean('active')) {
+            $query->active();
+        }
+
+        if ($request->boolean('expiring')) {
+            $days = (int) $request->input('expiring_days', 30);
+            $query->expiring($days);
+        }
+
+        $query->when(
+            $request->sort ?? '-created_at',
+            fn ($q, $sort) => match (ltrim($sort, '-')) {
+                'policy_number', 'effective_date', 'expiry_date',
+                'premium_amount', 'total_amount', 'status', 'created_at' => $q->orderBy(
+                    ltrim($sort, '-'),
+                    str_starts_with($sort, '-') ? 'desc' : 'asc'
+                ),
+                default => $q->orderBy('created_at', 'desc'),
+            }
+        );
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $policies = $query->paginate($perPage);
+
+        return PolicyCollection::make($policies)->response();
     }
 
-    /**
-     * Issue a policy.
-     * Usually called after payment success.
-     */
-    /**
-     * Issue a policy.
-     * Called after payment success.
-     */
-    public function issue(Request $request, \App\Services\PaystackService $paystackService)
+    public function store(StorePolicyRequest $request): JsonResponse
     {
-        $request->validate([
-            'payment_reference' => 'required|string',
-            'policy_product_id' => 'required|exists:policy_products,id',
-            'customer' => 'required|array',
-            'customer.email' => 'required|email',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date',
-            'sum_assured' => 'nullable|numeric',
-        ]);
-
         try {
-            // 1. Verify Payment
-            $verification = $paystackService->verifyPayment($request->payment_reference);
-
-            if (($verification['status'] ?? false) !== true || ($verification['data']['status'] ?? '') !== 'success') {
-                return response()->json(['message' => 'Payment verification failed'], 400);
-            }
-
-            // 2. Re-validate Product and Pricing (Optional but recommended to check amount)
-            $product = $request->tenant->products()->findOrFail($request->policy_product_id);
-            $paidAmount = $verification['data']['amount'] / 100; // Convert kobo to currency units
-
-            // Ideally re-calculate premium here to ensure paidAmount >= calculatedPremium
-            // For MVP, we trust the successful payment for now or add a small tolerance check
-
-            // 3. Find or Create Customer
-            $customer = $request->tenant->customers()->firstOrCreate(
-                ['email' => $request->customer['email']],
-                [
-                    'first_name' => $request->customer['first_name'] ?? 'Unknown',
-                    'last_name' => $request->customer['last_name'] ?? 'User',
-                    'phone' => $request->customer['phone'] ?? null,
-                ]
+            $policy = $this->policyIssuanceService->createDirectPolicy(
+                $request->validated(),
+                $request->user()
             );
 
-            // 4. Create Policy
-            $policy = Policy::create([
-                'tenant_id' => $request->tenant->id,
-                'customer_id' => $customer->id,
-                'policy_product_id' => $product->id,
-                'policy_number' => 'POL-'.strtoupper(\Illuminate\Support\Str::random(8)).'-'.date('Y'), // Simple generator
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'sum_assured' => $request->sum_assured ?? $product->min_sum_assured,
-                'premium_amount' => $paidAmount,
-                'currency' => $product->currency ?? 'NGN',
-                'status' => 'active',
-                'meta_data' => [
-                    'payment_reference' => $request->payment_reference,
-                    // Store other details
-                ],
-            ]);
+            $policy->load(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy']);
 
-            // 5. Fire Event (Optional: Send Email, Generate PDF)
-            // event(new PolicyIssued($policy));
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Policy issued successfully',
-                'data' => $policy,
-            ]);
-
+            return $this->respondCreated(
+                new PolicyResource($policy),
+                'Policy created successfully.'
+            );
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Policy Issuance Error: '.$e->getMessage());
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
 
-            return response()->json(['message' => 'Failed to issue policy: '.$e->getMessage()], 500);
+    public function show(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $policy->load([
+            'customer',
+            'policyProduct',
+            'policyType',
+            'policyClass',
+            'createdBy',
+            'approvedBy',
+            'issuedBy',
+            'quote',
+            'insurer',
+            'debitNotes',
+            'creditNotes',
+        ]);
+
+        return $this->respond(new PolicyResource($policy));
+    }
+
+    public function update(UpdatePolicyRequest $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        if (! $policy->isDraft() && ! $policy->isPendingApproval()) {
+            return $this->respondError('Only draft or pending approval policies can be updated.', 422);
+        }
+
+        $policy->update($request->validated());
+
+        $policy->load(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy']);
+
+        return $this->respond(
+            new PolicyResource($policy),
+            'Policy updated successfully.'
+        );
+    }
+
+    public function destroy(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        if (! $policy->isDraft()) {
+            return $this->respondError('Only draft policies can be deleted.', 422);
+        }
+
+        $policy->delete();
+
+        return $this->respondNoContent('Policy deleted successfully.');
+    }
+
+    public function submitForApproval(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $request->validate(['notes' => 'nullable|string|max:2000']); // single field — leave inline
+
+        try {
+            $approval = $this->policyIssuanceService->submitPolicyForApproval(
+                $policy,
+                $request->user(),
+                $request->notes
+            );
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy'])),
+                'Policy submitted for approval successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function approve(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $request->validate(['notes' => 'nullable|string|max:2000']); // single field — leave inline
+
+        try {
+            $this->policyIssuanceService->approvePolicy(
+                $policy,
+                $request->user(),
+                $request->notes
+            );
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy', 'approvedBy'])),
+                'Policy approved successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function reject(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $request->validate(['reason' => 'required|string|max:2000']); // single field — leave inline
+
+        try {
+            $this->policyIssuanceService->rejectPolicy(
+                $policy,
+                $request->user(),
+                $request->reason
+            );
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy'])),
+                'Policy rejected successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function issue(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        try {
+            $this->policyIssuanceService->issuePolicy($policy);
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy', 'issuedBy'])),
+                'Policy issued successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function cancel(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $request->validate(['reason' => 'nullable|string|max:2000']); // single field — leave inline
+
+        try {
+            $this->cancelPolicyService->cancel($policy, $request->reason);
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy'])),
+                'Policy cancelled successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function suspend(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        $request->validate(['reason' => 'nullable|string|max:2000']); // single field — leave inline
+
+        try {
+            $this->cancelPolicyService->suspend($policy, $request->reason);
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy'])),
+                'Policy suspended successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function reinstate(Request $request, Policy $policy): JsonResponse
+    {
+        if ($policy->tenant_id !== $request->user()->tenant_id) {
+            return $this->respondForbidden();
+        }
+
+        try {
+            $this->cancelPolicyService->reinstate($policy);
+
+            return $this->respond(
+                new PolicyResource($policy->fresh()->load(['customer', 'policyProduct', 'createdBy'])),
+                'Policy reinstated successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
+        }
+    }
+
+    public function convertQuote(ConvertQuoteRequest $request): JsonResponse
+    {
+        $quote = Quote::forTenant($request->user()->tenant_id)
+            ->findOrFail($request->quote_id);
+
+        try {
+            $policy = $this->policyIssuanceService->convertQuoteToPolicy(
+                $quote,
+                $request->user(),
+                $request->input('additional_data', [])
+            );
+
+            $policy->load(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy', 'quote']);
+
+            return $this->respondCreated(
+                new PolicyResource($policy),
+                'Quote converted to policy successfully.'
+            );
+        } catch (\Exception $e) {
+            return $this->respondError($e->getMessage(), 422);
         }
     }
 }

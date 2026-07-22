@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,7 +14,6 @@ import dayjs from 'dayjs';
 import { Save } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 interface FormData {
     type: 'individual' | 'corporate' | '';
@@ -233,9 +233,9 @@ export default function CustomerCreate() {
                                             />
                                             <InputError message={errors.date_of_birth} />
                                             <div className="space-y-2">
-                                                    <Label htmlFor="gender">
-                                                        Gender <span className="text-xs text-muted-foreground">(optional)</span>
-                                                    </Label>
+                                                <Label htmlFor="gender">
+                                                    Gender <span className="text-xs text-muted-foreground">(optional)</span>
+                                                </Label>
                                                 <Select value={data.gender} onValueChange={(value) => setData('gender', value)}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select gender" />
@@ -261,9 +261,9 @@ export default function CustomerCreate() {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                                <Label htmlFor="annual_income">
-                                                    Annual Income (₦) <span className="text-xs text-muted-foreground">(optional)</span>
-                                                </Label>
+                                            <Label htmlFor="annual_income">
+                                                Annual Income (₦) <span className="text-xs text-muted-foreground">(optional)</span>
+                                            </Label>
                                             <Input
                                                 id="annual_income"
                                                 type="number"

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBrokerKycRequest;
+use App\Http\Requests\UpdateBrokerKycRequest;
 use App\Models\Tenant;
 use App\Models\TenantKyc;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -34,7 +35,7 @@ class BrokerKycController extends Controller
     /**
      * Update KYC status (Underwriter view).
      */
-    public function update(Request $request, Tenant $broker)
+    public function update(UpdateBrokerKycRequest $request, Tenant $broker)
     {
         $user = Auth::user();
 
@@ -42,16 +43,7 @@ class BrokerKycController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        $validated = $request->validate([
-            'status' => 'required|in:pending,verified,rejected',
-            'notes' => 'nullable|string|max:2000',
-            'rc_number' => 'nullable|string|max:50',
-            'naicom_reg_number' => 'nullable|string|max:50',
-            'tin' => 'nullable|string|max:50',
-            'incorporation_cert' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'naicom_license' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'prof_indemnity' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-        ]);
+        $validated = $request->validated();
 
         $kyc = $broker->kyc ?? new TenantKyc(['tenant_id' => $broker->id]);
 
@@ -115,18 +107,11 @@ class BrokerKycController extends Controller
     /**
      * Broker submits/updates their own KYC documents.
      */
-    public function brokerUpdate(Request $request)
+    public function brokerUpdate(StoreBrokerKycRequest $request)
     {
         $tenant = Auth::user()->tenant;
 
-        $validated = $request->validate([
-            'rc_number' => 'nullable|string|max:50',
-            'naicom_reg_number' => 'nullable|string|max:50',
-            'tin' => 'nullable|string|max:50',
-            'incorporation_cert' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'naicom_license' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'prof_indemnity' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-        ]);
+        $validated = $request->validated();
 
         $kyc = $tenant->kyc ?? new TenantKyc(['tenant_id' => $tenant->id]);
 

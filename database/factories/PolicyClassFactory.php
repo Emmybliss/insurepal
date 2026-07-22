@@ -11,8 +11,9 @@ class PolicyClassFactory extends Factory
         return [
             'policy_type_id' => \App\Models\PolicyType::factory(),
             'name' => fake()->word().' Class',
-            'code' => strtoupper(fake()->lexify('???')),
+            'code' => strtoupper(fake()->unique()->lexify('???')),
             'is_active' => true,
+            'risk_mode' => 'single',
         ];
     }
 }

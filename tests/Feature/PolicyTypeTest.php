@@ -6,6 +6,7 @@ use App\Models\PolicyType;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class PolicyTypeTest extends TestCase

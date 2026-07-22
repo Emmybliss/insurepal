@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreRoleRequest;
+use App\Http\Requests\UpdateRoleRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,32 +71,27 @@ class RoleController extends Controller
     /**
      * Store a newly created role.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreRoleRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name',
-            'description' => 'nullable|string|max:1000',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
 
         // Prevent non-super-admin from creating super_admin role
-        if (! $user->hasRole('super_admin') && $request->name === 'super_admin') {
+        if (! $user->hasRole('super_admin') && $validated['name'] === 'super_admin') {
             return back()->withErrors([
                 'name' => 'Unauthorized to create super admin role',
             ]);
         }
 
         $role = Role::create([
-            'name' => $request->name,
-            'description' => $request->description ?? '',
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
         ]);
 
         // Assign permissions if provided
         if ($request->has('permissions')) {
-            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $permissions = Permission::whereIn('id', $validated['permissions'])->get();
             $role->syncPermissions($permissions);
         }
 
@@ -125,8 +121,10 @@ class RoleController extends Controller
     /**
      * Update the specified role.
      */
-    public function update(Request $request, Role $role): RedirectResponse
+    public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
+        $validated = $request->validated();
+
         $user = Auth::user();
 
         // Prevent non-super-admin from updating super_admin role
@@ -136,33 +134,21 @@ class RoleController extends Controller
             ]);
         }
 
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('roles')->ignore($role->id),
-            ],
-            'description' => 'nullable|string|max:1000',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
-
         // Prevent renaming super_admin role
-        if ($role->name === 'super_admin' && $request->name !== 'super_admin') {
+        if ($role->name === 'super_admin' && $validated['name'] !== 'super_admin') {
             return back()->withErrors([
                 'name' => 'Cannot rename super admin role',
             ]);
         }
 
         $role->update([
-            'name' => $request->name,
-            'description' => $request->description ?? $role->description,
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? $role->description,
         ]);
 
         // Update permissions if provided
         if ($request->has('permissions')) {
-            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $permissions = Permission::whereIn('id', $validated['permissions'])->get();
             $role->syncPermissions($permissions);
         }
 

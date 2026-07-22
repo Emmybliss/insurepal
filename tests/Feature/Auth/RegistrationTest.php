@@ -7,11 +7,15 @@ test('registration screen can be rendered', function () {
 });
 
 test('new users can register', function () {
+    // Seed required roles
+    \Artisan::call('db:seed', ['--class' => 'Database\Seeders\RolesAndPermissionsSeeder', '--force' => true]);
+
     $response = $this->post(route('register.store'), [
         'name' => 'Test User',
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'cf-turnstile-response' => 'test',
     ]);
 
     $this->assertAuthenticated();

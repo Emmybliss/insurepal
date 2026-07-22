@@ -23,6 +23,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasTable('document_templates')) {
+            return;
+        }
+
         Schema::table('document_templates', function (Blueprint $table) {
             $table->dropColumn([
                 'document_type',

@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { Head, Link } from '@inertiajs/react';
 import { BookOpen, User } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 interface User {
     id: number;
@@ -74,40 +74,45 @@ export default function KnowledgeBaseIndex({
     const [sortByValue, setSortByValue] = useState(sortBy);
     const [sortOrderValue, setSortOrderValue] = useState(sortOrder);
     const [viewMode, setViewMode] = useState<'default' | 'compact'>('default');
-    const [searchResults, setSearchResults] = useState<Array<{
-        id: number;
-        title: string;
-        excerpt: string;
-        category: { name: string; slug: string };
-        type: 'article' | 'category';
-    }>>([]);
+    const [searchResults, setSearchResults] = useState<
+        Array<{
+            id: number;
+            title: string;
+            excerpt: string;
+            category: { name: string; slug: string };
+            type: 'article' | 'category';
+        }>
+    >([]);
     const [isSearching, setIsSearching] = useState(false);
 
-    const handleSearch = useCallback((query: string, filters?: { category?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }) => {
-        if (!query.trim()) {
-            setSearchResults([]);
-            return;
-        }
-        setIsSearching(true);
-        const results = articles
-            .filter((article) => {
-                const matchesSearch =
-                    article.title.toLowerCase().includes(query.toLowerCase()) ||
-                    article.excerpt.toLowerCase().includes(query.toLowerCase()) ||
-                    article.content.toLowerCase().includes(query.toLowerCase());
-                const matchesCategory = !filters?.category || article.category.slug === filters.category;
-                return matchesSearch && matchesCategory;
-            })
-            .map((article) => ({
-                id: article.id,
-                title: article.title,
-                excerpt: article.excerpt,
-                category: { name: article.category.name, slug: article.category.slug },
-                type: 'article' as const,
-            }));
-        setSearchResults(results);
-        setIsSearching(false);
-    }, [articles]);
+    const handleSearch = useCallback(
+        (query: string, filters?: { category?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }) => {
+            if (!query.trim()) {
+                setSearchResults([]);
+                return;
+            }
+            setIsSearching(true);
+            const results = articles
+                .filter((article) => {
+                    const matchesSearch =
+                        article.title.toLowerCase().includes(query.toLowerCase()) ||
+                        article.excerpt.toLowerCase().includes(query.toLowerCase()) ||
+                        article.content.toLowerCase().includes(query.toLowerCase());
+                    const matchesCategory = !filters?.category || article.category.slug === filters.category;
+                    return matchesSearch && matchesCategory;
+                })
+                .map((article) => ({
+                    id: article.id,
+                    title: article.title,
+                    excerpt: article.excerpt,
+                    category: { name: article.category.name, slug: article.category.slug },
+                    type: 'article' as const,
+                }));
+            setSearchResults(results);
+            setIsSearching(false);
+        },
+        [articles],
+    );
 
     const handleClear = useCallback(() => {
         setSearchTerm('');
@@ -198,7 +203,7 @@ export default function KnowledgeBaseIndex({
                     {/* Featured Articles */}
                     {featuredArticles.length > 0 && !searchTerm && !selectedCategory && (
                         <div className="mb-8">
-                            <h2 className="mb-4 text-xl font-semibold ">Featured Articles</h2>
+                            <h2 className="mb-4 text-xl font-semibold">Featured Articles</h2>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                 {featuredArticles.map((article) => (
                                     <ArticleCard
@@ -218,7 +223,12 @@ export default function KnowledgeBaseIndex({
                     {!searchTerm && !selectedCategory && (
                         <div className="mb-8">
                             <h2 className="mb-4 text-xl font-semibold text-gray-900">Browse by Category</h2>
-                            <CategoryGrid categories={categories} variant="grid" showArticleCount={true} onCategoryClick={(cat) => setSelectedCategory(cat.slug)} />
+                            <CategoryGrid
+                                categories={categories}
+                                variant="grid"
+                                showArticleCount={true}
+                                onCategoryClick={(cat) => setSelectedCategory(cat.slug)}
+                            />
                         </div>
                     )}
 

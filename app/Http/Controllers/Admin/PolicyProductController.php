@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CalculatePremiumRequest;
 use App\Http\Requests\PolicyProductRequest;
 use App\Models\PolicyClass;
 use App\Models\PolicyProduct;
@@ -133,16 +134,12 @@ class PolicyProductController extends Controller
             ->with('success', "Policy product {$status} successfully.");
     }
 
-    public function calculatePremium(Request $request)
+    public function calculatePremium(CalculatePremiumRequest $request)
     {
-        $request->validate([
-            'policy_product_id' => 'required|exists:policy_products,id',
-            'sum_assured' => 'required|numeric|min:0',
-            'factors' => 'nullable|array',
-        ]);
+        $validated = $request->validated();
 
-        $policyProduct = PolicyProduct::findOrFail($request->policy_product_id);
-        $premium = $policyProduct->calculatePremium($request->sum_assured, $request->factors ?? []);
+        $policyProduct = PolicyProduct::findOrFail($validated['policy_product_id']);
+        $premium = $policyProduct->calculatePremium($validated['sum_assured'], $validated['factors'] ?? []);
 
         return response()->json([
             'premium' => $premium,

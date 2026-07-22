@@ -55,18 +55,25 @@ it('can create a broker slip directly', function () {
     $payload = [
         'customer_id' => $this->customer->id,
         'policy_product_id' => $this->policyProduct->id,
+        'policy_class_id' => $this->policyProduct->policy_class_id,
         'insurance_company_id' => $this->insuranceCompany->id,
         'currency' => 'NGN',
-        'sum_insured' => 1000000,
-        'rate' => 5.5,
-        'rate_basis' => 'percentage',
-        'gross_premium' => 55000,
-        'commission_rate' => 10,
-        'commission_amount' => 5500,
-        'net_premium' => 49500,
         'period_start' => '2026-07-01',
         'period_end' => '2027-06-30',
         'risk_details' => 'Comprehensive motor insurance for a 2020 Toyota Camry',
+        'commission_rate' => 10,
+        'fees' => 0,
+        'tax_rate' => 0,
+        'risks' => [
+            [
+                'item_type' => 'motor',
+                'description' => '2020 Toyota Camry',
+                'coverage_amount' => 1000000,
+                'rate' => 5.5,
+                'rate_basis' => 'percentage',
+                'premium' => 55000,
+            ],
+        ],
     ];
 
     $response = $this->actingAs($this->user)
@@ -76,7 +83,7 @@ it('can create a broker slip directly', function () {
 
     $brokerSlip = BrokerSlip::first();
     expect($brokerSlip)->not->toBeNull();
-    expect($brokerSlip->sum_insured)->toEqual(1000000.0);
+    expect($brokerSlip->load('risks')->sum_insured)->toEqual(1000000.0);
     expect($brokerSlip->net_premium)->toEqual(49500.0);
     expect($brokerSlip->status)->toEqual('draft');
 
@@ -84,6 +91,7 @@ it('can create a broker slip directly', function () {
     expect($placement)->not->toBeNull();
     expect($placement->customer_id)->toEqual($this->customer->id);
     expect($placement->policy_product_id)->toEqual($this->policyProduct->id);
+    expect($placement->policy_class_id)->toEqual($this->policyProduct->policy_class_id);
     expect($placement->placement_source)->toEqual(PlacementSource::BrokerSlipDirect->value);
     expect($placement->is_system_generated)->toBeTrue();
 
@@ -100,9 +108,6 @@ it('validates required fields for direct creation', function () {
         'customer_id',
         'policy_product_id',
         'insurance_company_id',
-        'sum_insured',
-        'gross_premium',
-        'net_premium',
         'period_start',
         'period_end',
     ]);
@@ -114,13 +119,19 @@ it('creates a system-generated placement with correct source', function () {
         'policy_product_id' => $this->policyProduct->id,
         'insurance_company_id' => $this->insuranceCompany->id,
         'currency' => 'NGN',
-        'sum_insured' => 500000,
-        'rate' => 3.0,
-        'rate_basis' => 'percentage',
-        'gross_premium' => 15000,
-        'net_premium' => 13500,
         'period_start' => '2026-07-01',
         'period_end' => '2027-06-30',
+        'risks' => [
+            [
+                'item_type' => 'property',
+                'description' => 'Coverage',
+                'coverage_amount' => 500000,
+                'rate' => 3.0,
+                'rate_basis' => 'percentage',
+                'premium' => 15000,
+                'net_premium' => 13500,
+            ],
+        ],
     ];
 
     $this->actingAs($this->user)
@@ -138,11 +149,17 @@ it('creates a placement market for the selected insurer', function () {
         'policy_product_id' => $this->policyProduct->id,
         'insurance_company_id' => $this->insuranceCompany->id,
         'currency' => 'NGN',
-        'sum_insured' => 500000,
-        'gross_premium' => 15000,
-        'net_premium' => 13500,
         'period_start' => '2026-07-01',
         'period_end' => '2027-06-30',
+        'risks' => [
+            [
+                'item_type' => 'property',
+                'description' => 'Coverage',
+                'coverage_amount' => 500000,
+                'premium' => 15000,
+                'net_premium' => 13500,
+            ],
+        ],
     ];
 
     $this->actingAs($this->user)
@@ -160,21 +177,22 @@ it('can create direct slip with items and clauses', function () {
         'policy_product_id' => $this->policyProduct->id,
         'insurance_company_id' => $this->insuranceCompany->id,
         'currency' => 'NGN',
-        'sum_insured' => 2000000,
-        'gross_premium' => 60000,
-        'net_premium' => 54000,
         'period_start' => '2026-07-01',
         'period_end' => '2027-06-30',
-        'items' => [
+        'risks' => [
             [
                 'item_type' => 'property',
                 'description' => 'Building coverage',
-                'sum_insured' => 1500000,
+                'coverage_amount' => 1500000,
+                'premium' => 45000,
+                'net_premium' => 40500,
             ],
             [
                 'item_type' => 'liability',
                 'description' => 'Third party liability',
-                'sum_insured' => 500000,
+                'coverage_amount' => 500000,
+                'premium' => 15000,
+                'net_premium' => 13500,
             ],
         ],
         'clauses' => [
@@ -192,7 +210,7 @@ it('can create direct slip with items and clauses', function () {
     $response->assertRedirect();
 
     $brokerSlip = BrokerSlip::first();
-    expect($brokerSlip->items)->toHaveCount(2);
+    expect($brokerSlip->risks)->toHaveCount(2);
     expect($brokerSlip->clauses)->toHaveCount(1);
 });
 
@@ -202,11 +220,17 @@ it('prevents duplicate active slips for the same insurer via direct creation', f
         'policy_product_id' => $this->policyProduct->id,
         'insurance_company_id' => $this->insuranceCompany->id,
         'currency' => 'NGN',
-        'sum_insured' => 500000,
-        'gross_premium' => 15000,
-        'net_premium' => 13500,
         'period_start' => '2026-07-01',
         'period_end' => '2027-06-30',
+        'risks' => [
+            [
+                'item_type' => 'property',
+                'description' => 'Coverage',
+                'coverage_amount' => 500000,
+                'premium' => 15000,
+                'net_premium' => 13500,
+            ],
+        ],
     ];
 
     $this->actingAs($this->user)
@@ -216,4 +240,38 @@ it('prevents duplicate active slips for the same insurer via direct creation', f
         ->post(route('broker-slips.store-direct'), $payload);
 
     $response->assertSessionHasErrors(['insurance_company_id']);
+});
+
+it('allows creating multiple direct slips for the same insurer for different customers or products', function () {
+    $payload1 = [
+        'customer_id' => $this->customer->id,
+        'policy_product_id' => $this->policyProduct->id,
+        'insurance_company_id' => $this->insuranceCompany->id,
+        'currency' => 'NGN',
+        'period_start' => '2026-07-01',
+        'period_end' => '2027-06-30',
+        'risks' => [
+            [
+                'item_type' => 'property',
+                'description' => 'Coverage',
+                'coverage_amount' => 500000,
+                'premium' => 15000,
+            ],
+        ],
+    ];
+
+    $this->actingAs($this->user)
+        ->post(route('broker-slips.store-direct'), $payload1)
+        ->assertRedirect();
+
+    $anotherCustomer = \App\Models\Customer::factory()->create([
+        'tenant_id' => $this->user->tenant_id,
+    ]);
+
+    $payload2 = $payload1;
+    $payload2['customer_id'] = $anotherCustomer->id;
+
+    $this->actingAs($this->user)
+        ->post(route('broker-slips.store-direct'), $payload2)
+        ->assertRedirect();
 });

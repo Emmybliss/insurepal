@@ -246,6 +246,9 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
 
     // Tenant-protected routes
     Route::middleware(['tenant.access'])->group(function () {
+        // Email Inbox
+        Route::get('email/inbox', \App\Http\Controllers\EmailInboxController::class)->name('email.inbox');
+
         // Customer Management
         Route::resource('customers', CustomerController::class);
         Route::post('customers/{customer}/provision-access', [CustomerController::class, 'provisionAccess'])
@@ -292,12 +295,12 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
             ->name('api.quotes.expiring-soon');
 
         // Policy Products Management (Templates)
-        Route::resource('policies', PolicyController::class);
-        Route::post('policies/{policy}/renew', [PolicyController::class, 'renew'])
+        Route::resource('policies/products', PolicyController::class)->names('policies')->parameters(['products' => 'policy'])->except(['show']);
+        Route::post('policies/products/{policy}/renew', [PolicyController::class, 'renew'])
             ->name('policies.renew');
-        Route::post('policies/{policy}/cancel', [PolicyController::class, 'cancel'])
+        Route::post('policies/products/{policy}/cancel', [PolicyController::class, 'cancel'])
             ->name('policies.cancel');
-        Route::get('policies/{policy}/download', [PolicyController::class, 'downloadPdf'])
+        Route::get('policies/products/{policy}/download', [PolicyController::class, 'downloadPdf'])
             ->name('policies.download');
 
         // Policy Management (Actual Issued Policies)
@@ -828,6 +831,7 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
         Route::post('/runs/{reportRun}/approve', [\App\Http\Controllers\NaicomReportController::class, 'approve'])->name('approve');
         Route::post('/runs/{reportRun}/lock', [\App\Http\Controllers\NaicomReportController::class, 'lock'])->name('lock');
         Route::post('/runs/{reportRun}/export/{format}', [\App\Http\Controllers\NaicomReportController::class, 'export'])->name('export');
+        Route::post('/runs/{reportRun}/export-pdf/{form}', [\App\Http\Controllers\NaicomReportController::class, 'exportPdf'])->name('export-pdf');
         Route::post('/runs/{reportRun}/adjustments', [\App\Http\Controllers\NaicomReportController::class, 'storeAdjustment'])->name('adjustments.store');
         Route::get('/runs/{reportRun}/adjustments', [\App\Http\Controllers\NaicomReportController::class, 'adjustments'])->name('adjustments');
         Route::post('/runs/{reportRun}/restate', [\App\Http\Controllers\NaicomReportController::class, 'restate'])->name('restate');
@@ -861,6 +865,8 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
         ->name('reports.customer-analytics');
     Route::get('reports/product-performance', [\App\Http\Controllers\ReportsController::class, 'productPerformance'])
         ->name('reports.product-performance');
+    Route::get('reports/commissions', [\App\Http\Controllers\ReportsController::class, 'commissions'])
+        ->name('reports.commissions');
     Route::get('reports/claims-analytics', [\App\Http\Controllers\ReportsController::class, 'claimsAnalytics'])
         ->name('reports.claims-analytics');
     Route::get('reports/financial-analytics', [\App\Http\Controllers\ReportsController::class, 'financialAnalytics'])
@@ -934,8 +940,8 @@ Route::get('verify/receipt/{token}', [\App\Http\Controllers\VerifyDocumentContro
 // Help & Support Center (public routes)
 Route::get('help', [\App\Http\Controllers\HelpController::class, 'index'])->name('help.index');
 Route::get('help/articles', [\App\Http\Controllers\KnowledgeBaseController::class, 'index'])->name('kb.index');
-Route::get('help/articles/{article}', [\App\Http\Controllers\KnowledgeBaseController::class, 'show'])->name('kb.show');
-Route::post('help/articles/{article}/feedback', [\App\Http\Controllers\KnowledgeBaseController::class, 'recordFeedback'])
+Route::get('help/articles/{article:slug}', [\App\Http\Controllers\KnowledgeBaseController::class, 'show'])->name('kb.show');
+Route::post('help/articles/{article:slug}/feedback', [\App\Http\Controllers\KnowledgeBaseController::class, 'recordFeedback'])
     ->name('kb.feedback');
 
 require __DIR__.'/settings.php';

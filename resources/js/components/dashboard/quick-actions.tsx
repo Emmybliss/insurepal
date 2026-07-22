@@ -2,7 +2,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from '@inertiajs/react';
 import { VariantProps } from 'class-variance-authority';
-import { Download, FilePlus, LucideIcon, Receipt, Send, Shield } from 'lucide-react';
+import { Bot, Download, FilePlus, LucideIcon, Receipt, Send, Shield } from 'lucide-react';
 
 interface QuickAction {
     title: string;
@@ -13,7 +13,6 @@ interface QuickAction {
 }
 
 const quickActions: QuickAction[] = [
-
     {
         title: 'Policies',
         description: 'View All policies',
@@ -29,13 +28,13 @@ const quickActions: QuickAction[] = [
         color: 'premium',
         href: '/document-toolkit',
     },
-    // {
-    //     title: 'AI Assistant',
-    //     description: 'Get AI-powered assistance',
-    //     icon: Bot,
-    //     color: 'premium',
-    //     href: '/ai-assistant',
-    // },
+    {
+        title: 'AI Assistant',
+        description: 'Get AI-powered assistance',
+        icon: Bot,
+        color: 'premium',
+        href: '/ai-assistant',
+    },
     {
         title: 'Debit Notes',
         description: 'Create payment request',
@@ -64,7 +63,6 @@ const quickActions: QuickAction[] = [
         color: 'professional',
         href: '/reports/naicom',
     },
-
 ];
 
 export function QuickActions() {
@@ -75,7 +73,7 @@ export function QuickActions() {
                 <CardDescription>Frequently used actions and shortcuts</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 gap-3 ">
+                <div className="grid grid-cols-2 gap-3">
                     {quickActions.map((action, index) => (
                         <Button key={index} variant={action.color} className="h-auto flex-col items-start justify-start p-4 text-left" asChild>
                             <Link href={action.href}>

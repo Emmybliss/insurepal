@@ -1,3 +1,4 @@
+import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,6 @@ import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertCircle, CheckCircle, FileText, Filter, Plus, Search, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
-import { Pagination } from '@/components/pagination';
 interface Policy {
     id: number;
     policy_number: string;
@@ -36,7 +36,7 @@ interface Policy {
 interface Stats {
     total: number;
     active: number;
-    recorded: number;
+    expiring_soon: number;
     expired: number;
 }
 
@@ -61,6 +61,7 @@ const statusColors: Record<string, string> = {
     approved: 'bg-blue-100 text-blue-800',
     active: 'bg-green-100 text-green-800',
     expired: 'bg-red-100 text-red-800',
+    expiring_soon: 'bg-orange-100 text-orange-800',
     cancelled: 'bg-gray-100 text-gray-800',
     suspended: 'bg-orange-100 text-orange-800',
     rejected: 'bg-red-100 text-red-800',
@@ -73,6 +74,7 @@ const statusIcons: Record<string, React.ReactNode> = {
     approved: <CheckCircle className="h-4 w-4" />,
     active: <CheckCircle className="h-4 w-4" />,
     expired: <XCircle className="h-4 w-4" />,
+    expiring_soon: <AlertCircle className="h-4 w-4" />,
     cancelled: <XCircle className="h-4 w-4" />,
     suspended: <AlertCircle className="h-4 w-4" />,
     rejected: <XCircle className="h-4 w-4" />,
@@ -80,7 +82,10 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 const getPolicyStatus = (policy: Policy) => {
-    if (policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+    const dateStatuses = ['active', 'expired', 'recorded'];
+    if (!dateStatuses.includes(policy.status)) return policy.status;
+
+    if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -92,7 +97,7 @@ const getPolicyStatus = (policy: Policy) => {
     const diffTime = expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays <= 60) return 'active';
+    if (diffDays <= 60) return 'expiring_soon';
 
     return 'active';
 };
@@ -170,22 +175,23 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                         </CardContent>
                     </Card>
                     <Card
-                        className={`cursor-pointer transition-colors hover:bg-purple-50 dark:hover:bg-gray-700 ${statusFilter === 'recorded' ? 'border-purple-500 ring-1 ring-purple-500' : ''}`}
+                        className={`cursor-pointer transition-colors hover:bg-orange-50 dark:hover:bg-gray-700 ${statusFilter === 'expiring_soon' ? 'border-orange-500 ring-1 ring-orange-500' : ''}`}
                         onClick={() => {
-                            setStatusFilter('recorded');
+                            setStatusFilter('expiring_soon');
                             router.get(
                                 route('policy-management.recorded-policies'),
-                                { search: searchTerm, status: 'recorded' },
+                                { search: searchTerm, status: 'expiring_soon' },
                                 { preserveState: true, replace: true },
                             );
                         }}
                     >
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Newly Recorded</CardTitle>
-                            <FileText className="h-4 w-4 text-purple-600" />
+                            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
+                            <AlertCircle className="h-4 w-4 text-orange-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.recorded}</div>
+                            <div className="text-2xl font-bold">{stats.expiring_soon}</div>
+                            <p className="text-xs text-muted-foreground">Next 60 days</p>
                         </CardContent>
                     </Card>
                     <Card
@@ -261,6 +267,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                     <SelectContent>
                                         <SelectItem value="recorded">Recorded</SelectItem>
                                         <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="expiring_soon">Expiring Soon</SelectItem>
                                         <SelectItem value="expired">Expired</SelectItem>
                                         <SelectItem value="cancelled">Cancelled</SelectItem>
                                     </SelectContent>
@@ -317,7 +324,9 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                             {(() => {
                                                 const derivedStatus = getPolicyStatus(policy);
                                                 return (
-                                                    <Badge className={`${statusColors[derivedStatus] || statusColors[policy.status]} flex items-center gap-1`}>
+                                                    <Badge
+                                                        className={`${statusColors[derivedStatus] || statusColors[policy.status]} flex items-center gap-1`}
+                                                    >
                                                         {statusIcons[derivedStatus] || statusIcons[policy.status]}
                                                         {derivedStatus.replace('_', ' ').toUpperCase()}
                                                     </Badge>

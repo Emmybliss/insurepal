@@ -171,7 +171,9 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            @if($logo_data)
+            @if(!empty($logo_path))
+                <img src="{{ $logo_path }}" alt="Company Logo" class="logo">
+            @elseif(!empty($logo_data))
                 <img src="{{ $logo_data }}" alt="Company Logo" class="logo">
             @else
                 <div class="company-name">{{ $company_name }}</div>

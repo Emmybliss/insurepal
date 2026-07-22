@@ -3,12 +3,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
+import { useCanSms } from '@/hooks/use-plan';
 import AppLayout from '@/layouts/app-layout';
 import { PageProps } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, Calendar, Clock, CreditCard, DollarSign, Edit, FileText, Mail, MoreHorizontal, RefreshCw, Send, User } from 'lucide-react';
+import {
+    AlertCircle,
+    ArrowLeft,
+    Calendar,
+    Clock,
+    CreditCard,
+    DollarSign,
+    Edit,
+    FileText,
+    Mail,
+    MoreHorizontal,
+    RefreshCw,
+    Send,
+    User,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useCanSms } from '@/hooks/use-plan';
 
 interface Customer {
     id: number;
@@ -181,19 +195,16 @@ export default function ShowRenewal({ policy, renewalHistory }: Props) {
     };
 
     const clearNotificationLogs = () => {
-        router.delete(
-            route('renewals.clear-logs', { policy: policy.id }),
-            {
-                preserveScroll: true,
-                onSuccess: (page) => {
-                    const flash = page.props.flash as { success?: string; error?: string };
-                    if (flash?.success) toast.success(flash.success);
-                    if (flash?.error) toast.error(flash.error);
-                    router.reload({ only: ['renewalHistory'] });
-                },
-                onError: () => toast.error('Failed to clear logs'),
+        router.delete(route('renewals.clear-logs', { policy: policy.id }), {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const flash = page.props.flash as { success?: string; error?: string };
+                if (flash?.success) toast.success(flash.success);
+                if (flash?.error) toast.error(flash.error);
+                router.reload({ only: ['renewalHistory'] });
             },
-        );
+            onError: () => toast.error('Failed to clear logs'),
+        });
     };
 
     return (
@@ -237,14 +248,14 @@ export default function ShowRenewal({ policy, renewalHistory }: Props) {
                                             Send Reminder
                                         </DropdownMenuItem>
                                     </DropdownMenuTrigger>
-<DropdownMenuContent side="left">
+                                    <DropdownMenuContent side="left">
                                         <DropdownMenuItem onClick={() => sendReminder('email')}>Via Email</DropdownMenuItem>
                                         {canUseSms ? (
                                             <DropdownMenuItem onClick={() => sendReminder('sms')}>Via SMS</DropdownMenuItem>
                                         ) : (
                                             <DropdownMenuItem
                                                 onClick={() => router.visit(upgradeUrl)}
-                                                className="text-muted-foreground cursor-not-allowed"
+                                                className="cursor-not-allowed text-muted-foreground"
                                             >
                                                 <AlertCircle className="mr-2 h-4 w-4" />
                                                 Via SMS (Enterprise)
@@ -315,7 +326,7 @@ export default function ShowRenewal({ policy, renewalHistory }: Props) {
                                 {policy.notes && (
                                     <div>
                                         <label className="text-sm font-medium text-gray-500">Notes</label>
-                                        <p className="mt-1 rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm">{policy.notes}</p>
+                                        <p className="mt-1 rounded-md bg-gray-50 p-3 text-sm dark:bg-gray-800">{policy.notes}</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -509,7 +520,7 @@ export default function ShowRenewal({ policy, renewalHistory }: Props) {
                                         ) : (
                                             <DropdownMenuItem
                                                 onClick={() => router.visit(upgradeUrl)}
-                                                className="text-muted-foreground cursor-not-allowed"
+                                                className="cursor-not-allowed text-muted-foreground"
                                             >
                                                 <AlertCircle className="mr-2 h-4 w-4" />
                                                 Via SMS (Enterprise)

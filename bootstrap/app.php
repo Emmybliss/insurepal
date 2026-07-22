@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        $middleware->statefulApi();
+
         $middleware->web([
             // ✅ Core Laravel session & state middlewares
             // \App\Http\Middleware\EncryptCookies::class,

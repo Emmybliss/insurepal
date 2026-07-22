@@ -1,3 +1,4 @@
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -294,7 +294,7 @@ export default function TenantsCreate({ subscriptionPlans }: Props) {
                                         <div className="space-y-2">
                                             <Label htmlFor="name">Tenant Name *</Label>
                                             <CompanySearchCombobox
-                                                companyType={data.type as any || 'all'}
+                                                companyType={(data.type as any) || 'all'}
                                                 value={data.name}
                                                 scope="registry"
                                                 onSelect={(company) => {
@@ -312,9 +312,10 @@ export default function TenantsCreate({ subscriptionPlans }: Props) {
                                                             ...data.settings,
                                                             company_profile: {
                                                                 ...data.settings.company_profile,
-                                                                naicom_reg_number: company.naicom_reg_number || data.settings.company_profile.naicom_reg_number,
-                                                            }
-                                                        }
+                                                                naicom_reg_number:
+                                                                    company.naicom_reg_number || data.settings.company_profile.naicom_reg_number,
+                                                            },
+                                                        },
                                                     });
                                                 }}
                                                 placeholder="Search for a company..."

@@ -12,6 +12,7 @@ class InsuranceProduct extends Model
     use HasFactory;
 
     protected $fillable = [
+        'tenant_id',
         'name',
         'slug',
         'type',

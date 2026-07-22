@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\PaymentReceived;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Policy;
@@ -155,6 +156,12 @@ class PolicyPaymentService
             }
         } catch (\Exception $e) {
             Log::error("Invoice mark-paid failed for payment #{$payment->id}: ".$e->getMessage());
+        }
+
+        try {
+            PaymentReceived::dispatch($payment, $payment->policy);
+        } catch (\Exception $e) {
+            Log::error("PaymentReceived event dispatch failed for payment #{$payment->id}: ".$e->getMessage());
         }
     }
 

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DocumentVaultRequest;
 use App\Models\Document;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -22,15 +22,10 @@ class DocumentVaultController extends Controller
         ]);
     }
 
-    public function upload(Request $request)
+    public function upload(DocumentVaultRequest $request)
     {
-        $request->validate([
-            'file' => 'required|mimes:pdf|max:20480', // 20MB
-            'name' => 'nullable|string|max:255',
-        ]);
-
         $tenantId = Auth::user()->tenant_id ?? 1;
-        $name = $request->name ?: $request->file('file')->getClientOriginalName();
+        $name = $request->input('name') ?: $request->file('file')->getClientOriginalName();
         $path = $request->file('file')->store("tenants/{$tenantId}/documents/original", 'local');
 
         $document = Document::create([

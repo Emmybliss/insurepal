@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\AdjustmentStatus;
 use App\Enums\ReportStatus;
+use App\Http\Requests\NaicomReportFilterRequest;
+use App\Http\Requests\NaicomReportRequest;
 use App\Models\NaicomAdjustment;
 use App\Models\NaicomReportLine;
 use App\Models\NaicomReportRun;
@@ -12,7 +14,6 @@ use App\Services\Naicom\NaicomExcelExportService;
 use App\Services\Naicom\NaicomForm72BService;
 use App\Services\Naicom\NaicomReportService;
 use App\Services\Naicom\NaicomValidationService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class NaicomReportController extends Controller
@@ -45,15 +46,11 @@ class NaicomReportController extends Controller
         return Inertia::render('reports/naicom/create');
     }
 
-    public function store(Request $request)
+    public function store(NaicomReportRequest $request)
     {
         $this->authorize('naicom-reports.generate');
 
-        $validated = $request->validate([
-            'reporting_year' => 'required|integer|min:2020|max:2099',
-            'reporting_half' => 'required|in:H1,H2',
-            'commission_recognition_date' => 'nullable|date',
-        ]);
+        $validated = $request->validated();
 
         $run = NaicomReportRun::create([
             'tenant_id' => auth()->user()->tenant_id,
@@ -211,21 +208,13 @@ class NaicomReportController extends Controller
         return $service->downloadResponse($filePath);
     }
 
-    public function storeAdjustment(Request $request, NaicomReportRun $reportRun)
+    public function storeAdjustment(NaicomReportFilterRequest $request, NaicomReportRun $reportRun)
     {
         $this->authorize('naicom-reports.adjust');
 
         abort_if(! $reportRun->isMutable(), 422, 'Adjustments cannot be made on a locked or restated report.');
 
-        $validated = $request->validate([
-            'form_type' => 'required|string|in:7.2A,7.2B,7.2C',
-            'report_line_id' => 'nullable|exists:naicom_report_lines,id',
-            'field' => 'nullable|string|max:100',
-            'calculated_value' => 'nullable|numeric',
-            'adjusted_value' => 'required|numeric',
-            'reason' => 'required|string|min:10',
-            'supporting_document' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         $adjustment = NaicomAdjustment::create([
             'report_run_id' => $reportRun->id,
@@ -298,5 +287,104 @@ class NaicomReportController extends Controller
         }
 
         return redirect()->route('reports.naicom.show', $newRun);
+    }
+
+    public function apiShow(NaicomReportRun $reportRun): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('naicom-reports.view');
+
+        abort_if($reportRun->tenant_id !== auth()->user()->tenant_id, 403, 'Unauthorized access to tenant report run.');
+
+        $reportRun->load(['lines']);
+        $linesByForm = $reportRun->lines->groupBy('form_type');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $reportRun->id,
+                'reporting_year' => $reportRun->reporting_year,
+                'reporting_half' => $reportRun->reporting_half->value,
+                'status' => $reportRun->status->value,
+                'metadata' => $reportRun->metadata,
+                'form_72a' => $linesByForm->get('7.2A', collect())->pluck('data'),
+                'form_72b' => $linesByForm->get('7.2B', collect())->pluck('data'),
+                'form_72c' => $linesByForm->get('7.2C', collect())->pluck('data'),
+            ],
+        ]);
+    }
+
+    public function exportPdf(NaicomReportRun $reportRun, string $form)
+    {
+        $this->authorize('naicom-reports.export');
+
+        abort_if(! $reportRun->isLocked() && $reportRun->status->value !== 'generated', 422, 'Report must be generated, approved, or locked before export.');
+
+        $formType = match (strtoupper($form)) {
+            '7.2A', '72A', 'A' => '7.2A',
+            '7.2B', '72B', 'B' => '7.2B',
+            '7.2C', '72C', 'C' => '7.2C',
+            default => '7.2B',
+        };
+
+        $lines = $reportRun->lines()
+            ->where('form_type', $formType)
+            ->orderBy('row_number')
+            ->get();
+
+        $pdfService = app(\App\Services\Pdf\PdfService::class);
+        $html = view('reports.naicom-pdf', [
+            'period' => "{$reportRun->reporting_year} {$reportRun->reporting_half->value}",
+            'startDate' => now()->startOfYear(),
+            'endDate' => now(),
+            'run' => $reportRun,
+            'form' => $formType,
+            'lines' => $lines->pluck('data')->toArray(),
+            'data' => [
+                'company_info' => [
+                    'name' => auth()->user()->tenant?->name ?? 'INSUREPAL BROKER',
+                    'registration_number' => auth()->user()->tenant?->registration_number ?? 'NAICOM/BRK/001',
+                    'license_number' => auth()->user()->tenant?->license_number ?? 'LIC-12345',
+                    'address' => auth()->user()->tenant?->address ?? 'Lagos, Nigeria',
+                    'phone' => auth()->user()->tenant?->phone ?? '08000000000',
+                    'email' => auth()->user()->tenant?->email ?? 'info@broker.com',
+                    'website' => auth()->user()->tenant?->website ?? 'www.broker.com',
+                    'tenant_logo' => null,
+                    'naicom_logo_data' => null,
+                ],
+                'financial_summary' => [
+                    'gross_premium_written' => 0.0,
+                    'net_premium_written' => 0.0,
+                    'outstanding_premiums' => 0.0,
+                    'commission_paid' => 0.0,
+                    'premium_refunded' => 0.0,
+                ],
+                'policy_stats' => [],
+                'customer_demographics' => [
+                    'individual_customers' => 0,
+                    'corporate_customers' => 0,
+                    'total_active_customers' => 0,
+                    'new_customers_period' => 0,
+                ],
+                'claims_data' => [
+                    'total_claims_reported' => 0,
+                    'total_claims_paid' => 0.0,
+                    'total_claims_outstanding' => 0.0,
+                    'claims_ratio' => 0.0,
+                ],
+                'reinsurance_info' => [
+                    'facultative_premium_ceded' => 0.0,
+                    'treaty_premium_ceded' => 0.0,
+                    'commission_received' => 0.0,
+                    'claims_recovered' => 0.0,
+                ],
+            ],
+        ])->render();
+
+        $pdfContent = $pdfService->renderHtml($html);
+
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"naicom-form-{$formType}-{$reportRun->reporting_year}-{$reportRun->reporting_half->value}.pdf\"",
+        ]);
     }
 }

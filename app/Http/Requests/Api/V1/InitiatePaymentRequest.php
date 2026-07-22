@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Http\Requests\API\V1;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class InitiatePaymentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'email' => 'required|email',
+            'policy_product_id' => 'required|exists:policy_products,id',
+            'metadata' => 'nullable|array',
+            'callback_url' => 'nullable|url',
+        ];
+    }
+}

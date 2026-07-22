@@ -6,22 +6,21 @@ use App\Models\Customer;
 use App\Models\InsuranceProduct;
 use App\Models\Policy;
 use App\Models\Quote;
+use App\Models\User;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 class QuoteService
 {
     /**
      * Get paginated quotes with filters for a tenant.
      */
-    public function getQuotesForTenant(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function getQuotesForTenant(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = Quote::query()
-            ->forTenant(Auth::user()->tenant_id)
+            ->forTenant($user->tenant_id)
             ->with([
                 'customer:id,type,first_name,last_name,company_name,email',
                 'insuranceProduct:id,name,type',
@@ -38,9 +37,9 @@ class QuoteService
     /**
      * Create a new quote.
      */
-    public function createQuote(array $data): Quote
+    public function createQuote(array $data, User $user): Quote
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $user) {
             // Get insurance product for premium calculation
             $product = InsuranceProduct::findOrFail($data['insurance_product_id']);
 
@@ -49,7 +48,7 @@ class QuoteService
             $commissionAmount = $this->calculateCommission($premiumAmount);
 
             $quote = Quote::create([
-                'tenant_id' => Auth::user()->tenant_id,
+                'tenant_id' => $user->tenant_id,
                 'customer_id' => $data['customer_id'],
                 'insurance_product_id' => $data['insurance_product_id'],
                 'status' => Quote::STATUS_DRAFT,
@@ -61,7 +60,7 @@ class QuoteService
                 'form_data' => $data['form_data'] ?? [],
                 'notes' => $data['notes'] ?? null,
                 'internal_notes' => $data['internal_notes'] ?? null,
-                'created_by' => Auth::id(),
+                'created_by' => $user->id,
             ]);
 
             // Log activity
@@ -183,13 +182,13 @@ class QuoteService
     /**
      * Convert quote to policy.
      */
-    public function convertToPolicy(Quote $quote): Policy
+    public function convertToPolicy(Quote $quote, User $user): Policy
     {
         if (! $quote->canConvertToPolicy()) {
             throw new Exception('Only accepted quotes can be converted to policies.');
         }
 
-        return DB::transaction(function () use ($quote) {
+        return DB::transaction(function () use ($quote, $user) {
             $policy = Policy::create([
                 'tenant_id' => $quote->tenant_id,
                 'customer_id' => $quote->customer_id,
@@ -204,7 +203,7 @@ class QuoteService
                 'commission_amount' => $quote->commission_amount,
                 'total_amount' => $quote->total_amount,
                 'form_data' => $quote->form_data,
-                'created_by' => Auth::id(),
+                'created_by' => $user->id,
             ]);
 
             // Log activity for quote
@@ -261,9 +260,9 @@ class QuoteService
     /**
      * Get quotes expiring within specified days.
      */
-    public function getExpiringQuotes(int $days = 7): \Illuminate\Database\Eloquent\Collection
+    public function getExpiringQuotes(User $user, int $days = 7): \Illuminate\Database\Eloquent\Collection
     {
-        return Quote::forTenant(Auth::user()->tenant_id)
+        return Quote::forTenant($user->tenant_id)
             ->expiringWithin($days)
             ->with(['customer', 'insuranceProduct'])
             ->get();

@@ -22,6 +22,7 @@ class Placement extends Model
         'customer_id',
         'insured_id',
         'policy_product_id',
+        'policy_class_id',
         'currency',
         'proposed_start_date',
         'proposed_end_date',
@@ -66,6 +67,11 @@ class Placement extends Model
     public function policyProduct(): BelongsTo
     {
         return $this->belongsTo(PolicyProduct::class);
+    }
+
+    public function policyClass(): BelongsTo
+    {
+        return $this->belongsTo(PolicyClass::class);
     }
 
     public function createdBy(): BelongsTo

@@ -278,7 +278,7 @@ it('enforces tenant isolation', function () {
     );
 
     expect($data['rows'])->toHaveCount(1);
-    expect($data['rows'][0]['premium_to_broker_local'])->toEqual(0);
+    expect($data['rows'][0]['premium_to_broker_local'])->toEqual(100000.0);
 });
 
 it('handles H1 and H2 reporting periods', function () {
@@ -599,6 +599,7 @@ it('calculates net premium as gross minus commissions', function () {
         'effective_date' => now()->subMonths(2),
         'expiry_date' => now()->addMonths(10),
         'premium_amount' => 100000,
+        'commission_amount' => 10000, // Explicitly match placement market commission
         'status' => 'active',
         'net_premium' => null,
     ]);

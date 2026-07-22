@@ -118,7 +118,7 @@ export default function RemittancesIndex({ remittances, filters }: Props) {
                         <CardTitle>All Remittances</CardTitle>
                         <div className="flex items-center gap-4">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search remittances..."
                                     className="pl-10"
@@ -139,7 +139,9 @@ export default function RemittancesIndex({ remittances, filters }: Props) {
                                     <SelectItem value="failed">Failed</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button variant="secondary" onClick={handleSearch}>Search</Button>
+                            <Button variant="secondary" onClick={handleSearch}>
+                                Search
+                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -230,7 +232,13 @@ export default function RemittancesIndex({ remittances, filters }: Props) {
                                 <PaginationContent>
                                     {remittances.current_page > 1 && (
                                         <PaginationItem>
-                                            <PaginationPrevious href={route('remittances.index', { page: remittances.current_page - 1, search, status: statusFilter || undefined })} />
+                                            <PaginationPrevious
+                                                href={route('remittances.index', {
+                                                    page: remittances.current_page - 1,
+                                                    search,
+                                                    status: statusFilter || undefined,
+                                                })}
+                                            />
                                         </PaginationItem>
                                     )}
                                     {Array.from({ length: remittances.last_page }, (_, i) => i + 1).map((page) => (
@@ -245,7 +253,13 @@ export default function RemittancesIndex({ remittances, filters }: Props) {
                                     ))}
                                     {remittances.current_page < remittances.last_page && (
                                         <PaginationItem>
-                                            <PaginationNext href={route('remittances.index', { page: remittances.current_page + 1, search, status: statusFilter || undefined })} />
+                                            <PaginationNext
+                                                href={route('remittances.index', {
+                                                    page: remittances.current_page + 1,
+                                                    search,
+                                                    status: statusFilter || undefined,
+                                                })}
+                                            />
                                         </PaginationItem>
                                     )}
                                 </PaginationContent>

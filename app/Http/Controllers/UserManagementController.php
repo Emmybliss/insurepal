@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -9,7 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -99,7 +100,7 @@ class UserManagementController extends Controller
     /**
      * Store a newly created user in storage.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreUserRequest $request): RedirectResponse
     {
         $currentTenant = Auth::user()->tenant;
 
@@ -107,28 +108,19 @@ class UserManagementController extends Controller
             abort(403, 'Unauthorized access');
         }
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', Rules\Password::defaults()],
-            'password_confirmation' => 'required|same:password',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
-            'send_invitation' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
             'tenant_id' => $currentTenant->id,
             'is_active' => $request->boolean('is_active', true),
         ]);
 
         // Assign roles
-        if ($request->roles) {
-            $validRoles = Role::whereIn('id', $request->roles)
+        if (! empty($validated['roles'])) {
+            $validRoles = Role::whereIn('id', $validated['roles'])
                 ->whereIn('name', ['underwriter', 'broker', 'staff'])
                 ->get();
             $user->syncRoles($validRoles);
@@ -176,35 +168,27 @@ class UserManagementController extends Controller
     /**
      * Update the specified user in storage.
      */
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $this->authorizeUserAccess($user);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
-            'password' => ['nullable', Rules\Password::defaults()],
-            'password_confirmation' => 'nullable|same:password',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $updateData = [
-            'name' => $request->name,
-            'email' => $request->email,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
             'is_active' => $request->boolean('is_active', true),
         ];
 
-        if ($request->filled('password')) {
-            $updateData['password'] = Hash::make($request->password);
+        if (! empty($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
         }
 
         $user->update($updateData);
 
         // Update roles
         if ($request->has('roles')) {
-            $validRoles = Role::whereIn('id', $request->roles)
+            $validRoles = Role::whereIn('id', $validated['roles'])
                 ->forTenant($tenant->id)
                 ->active()
                 ->get();

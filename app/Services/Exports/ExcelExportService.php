@@ -101,9 +101,12 @@ class ExcelExportService
         $this->currentRow++;
 
         foreach ($kpis as $kpi) {
-            $this->worksheet->setCellValue('A'.$this->currentRow, $kpi['title']);
-            $this->worksheet->setCellValue('B'.$this->currentRow, $kpi['value']);
-            $this->worksheet->setCellValue('C'.$this->currentRow, $kpi['trend'] ?? '');
+            $title = $kpi['title'] ?? $kpi[0] ?? '';
+            $value = $kpi['value'] ?? $kpi[1] ?? '';
+            $trend = $kpi['trend'] ?? $kpi[2] ?? '';
+            $this->worksheet->setCellValue('A'.$this->currentRow, $title);
+            $this->worksheet->setCellValue('B'.$this->currentRow, $value);
+            $this->worksheet->setCellValue('C'.$this->currentRow, $trend);
             $this->applyTableRowStyle('A'.$this->currentRow.':C'.$this->currentRow);
             $this->currentRow++;
         }
@@ -204,8 +207,8 @@ class ExcelExportService
         // Performance Metrics
         $this->addSectionHeader('Performance Metrics');
         $performanceData = [
-            ['Renewal Rate', number_format(($data['policy_renewals'] / max($data['active_policies'], 1)) * 100, 1).'%'],
-            ['Cancellation Rate', number_format(($data['policy_cancellations'] / max($data['active_policies'], 1)) * 100, 1).'%'],
+            ['Renewal Rate', number_format((($data['policy_renewals'] ?? 0) / max($data['active_policies'], 1)) * 100, 1).'%'],
+            ['Cancellation Rate', number_format((($data['policy_cancellations'] ?? 0) / max($data['active_policies'], 1)) * 100, 1).'%'],
             ['Outstanding Premiums', '₦'.number_format($data['outstanding_premiums'] ?? 0, 2)],
             ['Financial Notes Issued', ($data['debit_notes_issued'] ?? 0) + ($data['credit_notes_issued'] ?? 0)],
         ];

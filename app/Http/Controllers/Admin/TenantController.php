@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\TenantBulkActionRequest;
+use App\Http\Requests\Admin\TenantExtendTrialRequest;
 use App\Http\Requests\Admin\TenantRequest;
+use App\Http\Requests\Admin\TenantResetPasswordRequest;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
@@ -261,12 +264,9 @@ class TenantController extends Controller
         return back()->with('success', "Tenant {$newStatus} successfully.");
     }
 
-    public function resetPassword(Request $request, Tenant $tenant): RedirectResponse
+    public function resetPassword(TenantResetPasswordRequest $request, Tenant $tenant): RedirectResponse
     {
-        $validated = $request->validate([
-            'password' => 'required|string|min:8|confirmed',
-            'user_id' => 'nullable|integer|exists:users,id',
-        ]);
+        $validated = $request->validated();
 
         if (! empty($validated['user_id'])) {
             // Update a specific user belonging to this tenant
@@ -285,11 +285,9 @@ class TenantController extends Controller
         return back()->with('success', "Password for {$user->name} has been updated successfully.");
     }
 
-    public function extendTrial(Request $request, Tenant $tenant): RedirectResponse
+    public function extendTrial(TenantExtendTrialRequest $request, Tenant $tenant): RedirectResponse
     {
-        $validated = $request->validate([
-            'days' => 'required|integer|min:1|max:365',
-        ]);
+        $validated = $request->validated();
 
         $newTrialEnd = $tenant->trial_ends_at
             ? $tenant->trial_ends_at->addDays($validated['days'])
@@ -300,14 +298,9 @@ class TenantController extends Controller
         return back()->with('success', "Trial extended by {$validated['days']} days.");
     }
 
-    public function bulkAction(Request $request): RedirectResponse
+    public function bulkAction(TenantBulkActionRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'action' => 'required|in:activate,deactivate,extend_trial',
-            'tenant_ids' => 'required|array|min:1',
-            'tenant_ids.*' => 'exists:tenants,id',
-            'days' => 'required_if:action,extend_trial|integer|min:1|max:365',
-        ]);
+        $validated = $request->validated();
 
         $tenants = Tenant::whereIn('id', $validated['tenant_ids'])->get();
         $actionCount = 0;

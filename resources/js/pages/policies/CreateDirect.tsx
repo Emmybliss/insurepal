@@ -1,3 +1,5 @@
+import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,8 +15,6 @@ import dayjs from 'dayjs';
 import { CalendarIcon, Loader2, Plus, Save } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 interface Customer {
     id: number;
@@ -247,8 +247,14 @@ export default function CreateDirect({ customers, policyProducts }: Props) {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setCustomerModalOpen(true)} className="shrink-0 self-start mt-0">
-                                            <Plus className="h-4 w-4 mr-1" />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCustomerModalOpen(true)}
+                                            className="mt-0 shrink-0 self-start"
+                                        >
+                                            <Plus className="mr-1 h-4 w-4" />
                                             Add New
                                         </Button>
                                     </div>

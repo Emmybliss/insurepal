@@ -214,7 +214,7 @@ it('dispatches notification sent event when notification is created', function (
 });
 
 it('observer automatically dispatches notification sent event on creation', function () {
-    Event::fake();
+    Event::fake([NotificationSent::class]);
 
     $notification = Notification::createForUser(
         $this->user,
@@ -272,7 +272,7 @@ it('broadcast event uses tenant-scoped channel', function () {
 
     expect($channels)->toHaveCount(1);
     $channelName = $channels[0]->name;
-    expect($channelName)->toBe('tenant.'.$this->tenant->id.'.notifications.'.$this->user->id);
+    expect($channelName)->toBe('private-tenant.'.$this->tenant->id.'.notifications.'.$this->user->id);
 });
 
 it('notification controller getRecent returns filtered data', function () {

@@ -17,6 +17,11 @@ class KnowledgeBaseController extends Controller
             ->public()
             ->with(['category', 'author'])
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->when($category = request('category'), fn ($query) => $query->whereHas('category', fn ($q) => $q->where('slug', $category)))
+            ->when($search = request('q', request('search')), fn ($query) => $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('content', 'like', "%{$search}%");
+            }))
             ->orderBy('published_at', 'desc')
             ->limit(12)
             ->get();
@@ -52,7 +57,7 @@ class KnowledgeBaseController extends Controller
             'recentArticles' => $recentArticles,
             'featuredArticles' => $articles->take(3),
             'categoryFilter' => request('category', ''),
-            'searchQuery' => request('q', ''),
+            'searchQuery' => request('q', request('search', '')),
             'sortBy' => 'published_at',
             'sortOrder' => 'desc',
             'canManageArticles' => false,

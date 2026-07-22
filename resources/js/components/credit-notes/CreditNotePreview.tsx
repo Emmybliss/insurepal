@@ -2,12 +2,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, RefreshCw } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 function mapCreditNoteData(creditNote: any, customer: any, tenant: any) {
     return {
-        customer_name: customer?.first_name && customer?.last_name
-            ? `${customer.first_name} ${customer.last_name}`
-            : customer?.company_name || 'N/A',
+        customer_name: customer?.first_name && customer?.last_name ? `${customer.first_name} ${customer.last_name}` : customer?.company_name || 'N/A',
         customer_address: customer?.address || 'N/A',
         customer_phone: customer?.phone || 'N/A',
         customer_email: customer?.email || 'N/A',
@@ -27,7 +26,6 @@ function mapCreditNoteData(creditNote: any, customer: any, tenant: any) {
         company_logo: tenant?.logo_url || null,
     };
 }
-import { useRef, useState } from 'react';
 
 interface CreditNotePreviewProps {
     template: any;
@@ -123,11 +121,11 @@ export default function CreditNotePreview({
                             </div>
                         </div>
                     ) : (
-                        <div className="flex justify-center rounded-lg border bg-gray-50 p-6 overflow-auto custom-scrollbar">
-                            <div className="shadow-2xl bg-white">
+                        <div className="custom-scrollbar flex justify-center overflow-auto rounded-lg border bg-gray-50 p-6">
+                            <div className="bg-white shadow-2xl">
                                 <iframe
                                     src={route('credit-notes.html-preview', { creditNote: creditNoteData.id, template_id: template?.id })}
-                                    className="w-full h-full border-0"
+                                    className="h-full w-full border-0"
                                     title="Credit Note Preview"
                                 />
                             </div>

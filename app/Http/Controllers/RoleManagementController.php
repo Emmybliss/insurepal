@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreRoleManagementRequest;
+use App\Http\Requests\UpdateRoleManagementRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class RoleManagementController extends Controller
@@ -89,7 +90,7 @@ class RoleManagementController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreRoleManagementRequest $request)
     {
         $tenant = Auth::user()->tenant;
 
@@ -97,33 +98,21 @@ class RoleManagementController extends Controller
             abort(403, 'Access denied: No tenant associated');
         }
 
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('roles')->where('tenant_id', $tenant->id),
-            ],
-            'display_name' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
-        DB::transaction(function () use ($request, $tenant) {
+        DB::transaction(function () use ($request, $tenant, $validated) {
             $role = Role::create([
-                'name' => $request->name,
-                'display_name' => $request->display_name,
-                'description' => $request->description,
+                'name' => $validated['name'],
+                'display_name' => $validated['display_name'] ?? null,
+                'description' => $validated['description'] ?? null,
                 'guard_name' => 'web',
                 'tenant_id' => $tenant->id,
                 'is_system_role' => false,
                 'is_active' => $request->boolean('is_active', true),
             ]);
 
-            if ($request->permissions) {
-                $permissions = Permission::whereIn('id', $request->permissions)
+            if (! empty($validated['permissions'])) {
+                $permissions = Permission::whereIn('id', $validated['permissions'])
                     ->forTenant($tenant->id)
                     ->get();
                 $role->syncPermissions($permissions);
@@ -171,7 +160,7 @@ class RoleManagementController extends Controller
         ]);
     }
 
-    public function update(Request $request, Role $role)
+    public function update(UpdateRoleManagementRequest $request, Role $role)
     {
         $this->authorizeRoleAccess($role);
 
@@ -181,30 +170,18 @@ class RoleManagementController extends Controller
 
         $tenant = Auth::user()->tenant;
 
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('roles')->where('tenant_id', $tenant->id)->ignore($role->id),
-            ],
-            'display_name' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
-        DB::transaction(function () use ($request, $role, $tenant) {
+        DB::transaction(function () use ($request, $role, $tenant, $validated) {
             $role->update([
-                'name' => $request->name,
-                'display_name' => $request->display_name,
-                'description' => $request->description,
+                'name' => $validated['name'],
+                'display_name' => $validated['display_name'] ?? null,
+                'description' => $validated['description'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
             ]);
 
             if ($request->has('permissions')) {
-                $permissions = Permission::whereIn('id', $request->permissions ?? [])
+                $permissions = Permission::whereIn('id', $validated['permissions'] ?? [])
                     ->forTenant($tenant->id)
                     ->get();
                 $role->syncPermissions($permissions);

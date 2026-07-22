@@ -1,3 +1,5 @@
+import FinancialSummary from '@/components/broker-slips/FinancialSummary';
+import RiskScheduleItem from '@/components/broker-slips/RiskScheduleItem';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -5,14 +7,16 @@ import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { formatAmount } from '@/lib/utils';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { Calculator, ExternalLink, PlusCircle, Trash2 } from 'lucide-react';
+import { ExternalLink, PlusCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
+type RiskMode = 'single' | 'scheduled' | 'mixed';
 
 interface BrokerSlipInfo {
     id: number;
@@ -21,15 +25,26 @@ interface BrokerSlipInfo {
     status: string;
 }
 
+interface PolicyType {
+    id: number;
+    name: string;
+}
+
 interface PolicyClass {
     id: number;
     name: string;
+    risk_mode?: string;
+    policy_type_id?: number;
 }
 
 interface PolicyProduct {
     id: number;
     name: string;
-    policyClass?: PolicyClass;
+    coverage_label?: string;
+    policy_class?: PolicyClass;
+    policy_type?: PolicyType;
+    base_premium?: string | number;
+    default_rate_basis?: string;
 }
 
 interface PlacementMarket {
@@ -70,13 +85,19 @@ interface ClauseLibraryItem {
     is_system: boolean;
 }
 
-interface SlipItem {
+interface SlipRisk {
+    policy_class_id: string;
+    policy_product_id: string;
     description: string;
-    sum_insured: string;
+    coverage_amount: string;
     rate: string;
     rate_basis: string;
     premium: string;
-    item_type: string;
+    commission_rate?: string;
+    commission_amount?: string;
+    taxes?: string;
+    fees?: string;
+    dynamic_fields: Record<string, any>;
 }
 
 interface SlipClause {
@@ -90,71 +111,57 @@ interface FormData {
     placement_id: string;
     placement_market_id: string;
     currency: string;
-    sum_insured: string;
-    rate: string;
-    rate_basis: string;
-    gross_premium: string;
-    commission_rate: string;
-    commission_amount: string;
-    co_broker_commission: string;
-    reporting_broker_commission: string;
-    fees: string;
-    taxes: string;
-    discount: string;
-    net_premium: string;
     period_start: string;
     period_end: string;
     claim_payment_condition: string;
-    items: SlipItem[];
+    commission_rate: string;
+    fees: string;
+    tax_rate: string;
+    risks: SlipRisk[];
     clauses: SlipClause[];
 }
 
 interface Props {
     placement: Placement | null;
     placements: Placement[];
+    policyTypes: PolicyType[];
+    policyClasses: PolicyClass[];
+    policyProducts: PolicyProduct[];
     clauseLibrary: ClauseLibraryItem[];
 }
-
-const rateBasisOptions = [
-    { value: 'percentage', label: 'Percentage (%)' },
-    { value: 'per_mille', label: 'Per Mille (‰)' },
-    { value: 'fixed', label: 'Fixed Amount' },
-];
-
-const currencies = [
-    { value: 'USD', label: 'USD ($)' },
-    { value: 'NGN', label: 'NGN (₦)' },
-    { value: 'EUR', label: 'EUR (€)' },
-    { value: 'GBP', label: 'GBP (£)' },
-];
 
 function getCustomerName(customer: Placement['customer']): string {
     if (customer.type === 'corporate') return customer.company_name;
     return `${customer.first_name ?? ''} ${customer.last_name ?? ''}`.trim();
 }
 
-export default function Create({ placement, placements, clauseLibrary }: Props) {
+function createEmptyRisk(classId: string, productId: string, product?: PolicyProduct): SlipRisk {
+    return {
+        policy_class_id: classId,
+        policy_product_id: productId,
+        description: '',
+        coverage_amount: '',
+        rate: product?.base_premium?.toString() || '',
+        rate_basis: product?.default_rate_basis || 'percentage',
+        premium: '',
+        dynamic_fields: {},
+    };
+}
+
+export default function Create({ placement, placements, policyTypes, policyClasses, policyProducts, clauseLibrary }: Props) {
     const [selectedPlacement, setSelectedPlacement] = useState<Placement | undefined>(placement ?? undefined);
+    const [feesFocused, setFeesFocused] = useState(false);
     const { data, setData, post, processing, errors } = useForm<FormData>({
         placement_id: placement?.id?.toString() || '',
         placement_market_id: placement?.markets?.[0]?.id?.toString() ?? '',
         currency: placement?.currency || 'USD',
-        sum_insured: placement?.total_sum_insured?.toString() || '',
-        rate: '',
-        rate_basis: 'percentage',
-        gross_premium: '',
-        commission_rate: '',
-        commission_amount: '',
-        co_broker_commission: '',
-        reporting_broker_commission: '',
-        fees: '',
-        taxes: '',
-        discount: '',
-        net_premium: '',
         period_start: placement?.proposed_start_date || '',
         period_end: placement?.proposed_end_date || '',
-        claim_payment_condition: '',
-        items: [] as SlipItem[],
+        claim_payment_condition: 'Within two weeks of submission of substantiating documents',
+        commission_rate: '',
+        fees: '',
+        tax_rate: '',
+        risks: [] as SlipRisk[],
         clauses: [] as SlipClause[],
     });
 
@@ -167,7 +174,6 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                 setData((prev) => ({
                     ...prev,
                     currency: selected.currency || prev.currency,
-                    sum_insured: selected.total_sum_insured?.toString() || prev.sum_insured,
                     period_start: selected.proposed_start_date || prev.period_start,
                     period_end: selected.proposed_end_date || prev.period_end,
                     placement_market_id: firstMarket?.id?.toString() ?? '',
@@ -176,109 +182,63 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
         }
     }, [data.placement_id, placements, setData]);
 
-    const selectedMarket = selectedPlacement?.markets?.find(
-        (m) => m.id.toString() === data.placement_market_id,
-    );
+    const selectedMarket = selectedPlacement?.markets?.find((m) => m.id.toString() === data.placement_market_id);
 
     const existingSlip = selectedMarket?.broker_slips?.[0] ?? null;
-
-    const calculateItemPremium = (item: SlipItem): string => {
-        const sumInsured = parseFloat(item.sum_insured) || 0;
-        const rate = parseFloat(item.rate) || 0;
-
-        let premium = 0;
-        switch (item.rate_basis) {
-            case 'percentage':
-                premium = (sumInsured * rate) / 100;
-                break;
-            case 'per_mille':
-                premium = (sumInsured * rate) / 1000;
-                break;
-            case 'fixed':
-                premium = rate;
-                break;
-        }
-
-        return premium.toFixed(2);
-    };
-
-    const handleItemChange = (index: number, field: keyof SlipItem, value: string) => {
-        const updated = data.items.map((item, i) => {
-            if (i !== index) return item;
-            const newItem = { ...item, [field]: value };
-
-            if (field === 'sum_insured' || field === 'rate' || field === 'rate_basis') {
-                newItem.premium = calculateItemPremium(newItem);
-            }
-
-            return newItem;
-        });
-
-        setData('items', updated);
-    };
-
-    const addItem = () => {
-        setData('items', [
-            ...data.items,
-            {
-                description: '',
-                sum_insured: '',
-                rate: '',
-                rate_basis: 'percentage',
-                premium: '',
-                item_type: 'general',
-            },
-        ]);
-    };
-
-    const removeItem = (index: number) => {
-        setData('items', data.items.filter((_, i) => i !== index));
-    };
+    const selectedProduct = selectedPlacement?.policyProduct;
+    const selectedPolicyClass = selectedProduct?.policy_class;
+    const selectedPolicyType = selectedProduct?.policy_type;
+    const riskMode: RiskMode = (selectedPolicyClass?.risk_mode as RiskMode) || 'single';
 
     useEffect(() => {
-        const sumInsured = parseFloat(data.sum_insured) || 0;
-        const rate = parseFloat(data.rate) || 0;
-        const rateBasis = data.rate_basis;
-        const commissionRate = parseFloat(data.commission_rate) || 0;
-        const coBrokerCommission = parseFloat(data.co_broker_commission) || 0;
-        const reportingBrokerCommission = parseFloat(data.reporting_broker_commission) || 0;
-        const fees = parseFloat(data.fees) || 0;
-        const taxes = parseFloat(data.taxes) || 0;
-        const discount = parseFloat(data.discount) || 0;
-
-        let grossPremium = 0;
-        switch (rateBasis) {
-            case 'percentage':
-                grossPremium = (sumInsured * rate) / 100;
-                break;
-            case 'per_mille':
-                grossPremium = (sumInsured * rate) / 1000;
-                break;
-            case 'fixed':
-                grossPremium = rate;
-                break;
+        if (selectedProduct && selectedPolicyClass) {
+            if (riskMode === 'single') {
+                setData((prev) => {
+                    const risks =
+                        prev.risks.length > 0
+                            ? [prev.risks[0]]
+                            : [createEmptyRisk(selectedPolicyClass.id.toString(), selectedProduct.id.toString(), selectedProduct)];
+                    risks[0].policy_class_id = selectedPolicyClass.id.toString();
+                    risks[0].policy_product_id = selectedProduct.id.toString();
+                    if (selectedProduct.base_premium && !risks[0].rate) {
+                        risks[0].rate = selectedProduct.base_premium.toString();
+                    }
+                    if (selectedProduct.default_rate_basis) {
+                        risks[0].rate_basis = selectedProduct.default_rate_basis;
+                    }
+                    return { ...prev, risks };
+                });
+            }
         }
+    }, [selectedProduct, selectedPolicyClass, riskMode, setData]);
 
-        const commissionAmount = (grossPremium * commissionRate) / 100;
-        const netPremium = Math.max(grossPremium - commissionAmount - coBrokerCommission - reportingBrokerCommission + fees + taxes - discount, 0);
+    const handleRiskChange = (index: number, updates: Partial<SlipRisk>) => {
+        setData((prev) => ({
+            ...prev,
+            risks: prev.risks.map((risk, i) => (i === index ? { ...risk, ...updates } : risk)),
+        }));
+    };
 
-        setData({
-            ...data,
-            gross_premium: grossPremium.toFixed(2),
-            commission_amount: commissionAmount.toFixed(2),
-            net_premium: netPremium.toFixed(2),
-        });
-    }, [
-        data.sum_insured,
-        data.rate,
-        data.rate_basis,
-        data.commission_rate,
-        data.co_broker_commission,
-        data.reporting_broker_commission,
-        data.fees,
-        data.taxes,
-        data.discount,
-    ]);
+    const addRisk = () => {
+        setData((prev) => ({
+            ...prev,
+            risks: [
+                ...prev.risks,
+                createEmptyRisk(
+                    riskMode === 'mixed' ? '' : selectedPolicyClass?.id?.toString() || '',
+                    riskMode === 'mixed' ? '' : selectedProduct?.id?.toString() || '',
+                    riskMode === 'mixed' ? undefined : selectedProduct,
+                ),
+            ],
+        }));
+    };
+
+    const removeRisk = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            risks: prev.risks.filter((_, i) => i !== index),
+        }));
+    };
 
     const isClauseSelected = (clause: ClauseLibraryItem) => {
         return data.clauses.some((c) => c.title === clause.title && c.content === clause.content);
@@ -286,20 +246,23 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
 
     const toggleClause = (clause: ClauseLibraryItem) => {
         if (isClauseSelected(clause)) {
-            setData(
-                'clauses',
-                data.clauses.filter((c) => !(c.title === clause.title && c.content === clause.content)),
-            );
+            setData((prev) => ({
+                ...prev,
+                clauses: prev.clauses.filter((c) => !(c.title === clause.title && c.content === clause.content)),
+            }));
         } else {
-            setData('clauses', [
-                ...data.clauses,
-                {
-                    clause_type: clause.clause_type,
-                    title: clause.title,
-                    content: clause.content,
-                    is_standard: clause.is_system,
-                },
-            ]);
+            setData((prev) => ({
+                ...prev,
+                clauses: [
+                    ...prev.clauses,
+                    {
+                        clause_type: clause.clause_type,
+                        title: clause.title,
+                        content: clause.content,
+                        is_standard: clause.is_system,
+                    },
+                ],
+            }));
         }
     };
 
@@ -316,6 +279,125 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
         });
     };
 
+    const renderRiskSchedule = () => {
+        const isSingle = riskMode === 'single';
+
+        if (isSingle && data.risks.length === 0) {
+            return null;
+        }
+
+        return (
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle>{isSingle ? 'Coverage Details' : 'Risk Schedule'}</CardTitle>
+                        {!isSingle && (
+                            <Button type="button" variant="outline" size="sm" onClick={addRisk}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Risk
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label>Currency</Label>
+                        <Select value={data.currency} onValueChange={(value) => setData('currency', value)}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="USD">USD ($)</SelectItem>
+                                <SelectItem value="NGN">NGN (₦)</SelectItem>
+                                <SelectItem value="EUR">EUR (€)</SelectItem>
+                                <SelectItem value="GBP">GBP (£)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {data.risks.length === 0 && !isSingle && (
+                        <p className="text-sm text-muted-foreground">No risks added yet. Click "Add Risk" to add coverage items.</p>
+                    )}
+
+                    {data.risks.map((risk, index) => (
+                        <RiskScheduleItem
+                            key={index}
+                            index={index}
+                            risk={risk}
+                            riskMode={riskMode}
+                            policyTypes={policyTypes}
+                            policyClasses={policyClasses}
+                            policyProducts={policyProducts}
+                            onChange={handleRiskChange}
+                            onRemove={isSingle ? () => {} : removeRisk}
+                            errors={errors}
+                        />
+                    ))}
+
+                    {/* Financial Details (Broker Slip Level) */}
+                    <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-3">
+                        <div>
+                            <Label htmlFor="commission_rate">Commission Rate (%)</Label>
+                            <Input
+                                id="commission_rate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                value={data.commission_rate}
+                                onChange={(e) => setData('commission_rate', e.target.value)}
+                                placeholder="0.00"
+                            />
+                            {errors.commission_rate && <p className="mt-1 text-sm text-red-600">{errors.commission_rate}</p>}
+                        </div>
+                        <div>
+                            <Label htmlFor="fees">Additional Fee</Label>
+                            <Input
+                                id="fees"
+                                type="text"
+                                inputMode="decimal"
+                                min="0"
+                                value={feesFocused ? data.fees : formatAmount(data.fees)}
+                                onChange={(e) => {
+                                    const raw = e.target.value.replace(/,/g, '');
+                                    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                        setData('fees', raw);
+                                    }
+                                }}
+                                onFocus={() => setFeesFocused(true)}
+                                onBlur={() => setFeesFocused(false)}
+                                placeholder="0.00"
+                            />
+                            {errors.fees && <p className="mt-1 text-sm text-red-600">{errors.fees}</p>}
+                        </div>
+                        <div>
+                            <Label htmlFor="tax_rate">Tax Rate (%)</Label>
+                            <Input
+                                id="tax_rate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                value={data.tax_rate}
+                                onChange={(e) => setData('tax_rate', e.target.value)}
+                                placeholder="0.00"
+                            />
+                            {errors.tax_rate && <p className="mt-1 text-sm text-red-600">{errors.tax_rate}</p>}
+                        </div>
+                    </div>
+
+                    <FinancialSummary
+                        risks={data.risks}
+                        commissionRate={data.commission_rate}
+                        fees={data.fees}
+                        taxRate={data.tax_rate}
+                        currency={data.currency}
+                    />
+                </CardContent>
+            </Card>
+        );
+    };
+
     return (
         <AppLayout>
             <Head title="Create Broker Slip" />
@@ -329,7 +411,7 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                 <form onSubmit={handleSubmit} className="space-y-8">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Placement & Coverage</CardTitle>
+                            <CardTitle>Customer & Coverage</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -362,7 +444,9 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                                         disabled={!selectedPlacement?.markets?.length}
                                     >
                                         <SelectTrigger className={errors.placement_market_id ? 'border-red-500' : ''}>
-                                            <SelectValue placeholder={selectedPlacement?.markets?.length ? 'Select insurer' : 'Select a placement first'} />
+                                            <SelectValue
+                                                placeholder={selectedPlacement?.markets?.length ? 'Select insurer' : 'Select a placement first'}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {selectedPlacement?.markets?.map((m) => (
@@ -390,15 +474,16 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                                             <dt className="text-muted-foreground">Insured</dt>
                                             <dd className="font-medium">{getCustomerName(selectedPlacement.customer)}</dd>
                                         </div>
-                                        {selectedPlacement.policyProduct && (
+                                        {selectedPolicyType && (
                                             <div>
-                                                <dt className="text-muted-foreground">Product</dt>
-                                                <dd className="font-medium">
-                                                    {selectedPlacement.policyProduct.name}
-                                                    {selectedPlacement.policyProduct.policyClass
-                                                        ? ` (${selectedPlacement.policyProduct.policyClass.name})`
-                                                        : ''}
-                                                </dd>
+                                                <dt className="text-muted-foreground">Policy Type</dt>
+                                                <dd className="font-medium">{selectedPolicyType.name}</dd>
+                                            </div>
+                                        )}
+                                        {selectedPolicyClass && (
+                                            <div>
+                                                <dt className="text-muted-foreground">Policy Class</dt>
+                                                <dd className="font-medium">{selectedPolicyClass.name}</dd>
                                             </div>
                                         )}
                                         <div>
@@ -482,339 +567,23 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                                     {errors.period_end && <p className="mt-1 text-sm text-red-600">{errors.period_end}</p>}
                                 </div>
                             </div>
-
-                            <div>
-                                <Label htmlFor="claim_payment_condition">Claim Payment Condition</Label>
-                                <Textarea
-                                    id="claim_payment_condition"
-                                    value={data.claim_payment_condition}
-                                    onChange={(e) => setData('claim_payment_condition', e.target.value)}
-                                    placeholder="e.g., 30 days after proof of loss"
-                                    rows={2}
-                                />
-                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Calculator className="h-5 w-5" />
-                                Premium Calculation
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                <div>
-                                    <Label>Currency</Label>
-                                    <Select value={data.currency} onValueChange={(value) => setData('currency', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {currencies.map((c) => (
-                                                <SelectItem key={c.value} value={c.value}>
-                                                    {c.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="sum_insured">Sum Insured *</Label>
-                                    <Input
-                                        id="sum_insured"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.sum_insured}
-                                        onChange={(e) => setData('sum_insured', e.target.value)}
-                                        className={errors.sum_insured ? 'border-red-500' : ''}
-                                        placeholder="0.00"
-                                    />
-                                    {errors.sum_insured && <p className="mt-1 text-sm text-red-600">{errors.sum_insured}</p>}
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="rate">Rate</Label>
-                                    <Input
-                                        id="rate"
-                                        type="number"
-                                        step="0.0001"
-                                        min={0}
-                                        value={data.rate}
-                                        onChange={(e) => setData('rate', e.target.value)}
-                                        placeholder="0.0000"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label>Rate Basis</Label>
-                                    <Select value={data.rate_basis} onValueChange={(value) => setData('rate_basis', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {rateBasisOptions.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                <div>
-                                    <Label htmlFor="gross_premium">Gross Premium *</Label>
-                                    <Input
-                                        id="gross_premium"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.gross_premium}
-                                        onChange={(e) => setData('gross_premium', e.target.value)}
-                                        className={` ${errors.gross_premium ? 'border-red-500' : ''}`}
-                                        readOnly
-                                    />
-                                    {errors.gross_premium && <p className="mt-1 text-sm text-red-600">{errors.gross_premium}</p>}
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="commission_rate">Commission Rate (%)</Label>
-                                    <Input
-                                        id="commission_rate"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        max={100}
-                                        value={data.commission_rate}
-                                        onChange={(e) => setData('commission_rate', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="commission_amount">Commission Amount</Label>
-                                    <Input
-                                        id="commission_amount"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.commission_amount}
-                                        onChange={(e) => setData('commission_amount', e.target.value)}
-                                        readOnly
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="net_premium">Net Premium *</Label>
-                                    <Input
-                                        id="net_premium"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.net_premium}
-                                        onChange={(e) => setData('net_premium', e.target.value)}
-                                        className={` ${errors.net_premium ? 'border-red-500' : ''}`}
-                                        readOnly
-                                    />
-                                    {errors.net_premium && <p className="mt-1 text-sm text-red-600">{errors.net_premium}</p>}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                <div>
-                                    <Label htmlFor="co_broker_commission">Co-Broker Commission</Label>
-                                    <Input
-                                        id="co_broker_commission"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.co_broker_commission}
-                                        onChange={(e) => setData('co_broker_commission', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="reporting_broker_commission">Reporting Broker Commission</Label>
-                                    <Input
-                                        id="reporting_broker_commission"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.reporting_broker_commission}
-                                        onChange={(e) => setData('reporting_broker_commission', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="fees">Fees</Label>
-                                    <Input
-                                        id="fees"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.fees}
-                                        onChange={(e) => setData('fees', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="taxes">Taxes</Label>
-                                    <Input
-                                        id="taxes"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.taxes}
-                                        onChange={(e) => setData('taxes', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div>
-                                    <Label htmlFor="discount">Discount</Label>
-                                    <Input
-                                        id="discount"
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        value={data.discount}
-                                        onChange={(e) => setData('discount', e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                            </div>
-
-                        </CardContent>
-                    </Card>
+                    {renderRiskSchedule()}
 
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle>Items</CardTitle>
-                                <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Add Item
-                                </Button>
-                            </div>
+                            <CardTitle>Claim Payment Condition</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {data.items.length === 0 && (
-                                <p className="text-sm text-muted-foreground">No items added yet. Click "Add Item" to add coverage items.</p>
-                            )}
-
-                            {data.items.map((item, index) => (
-                                <div key={index} className="space-y-4 rounded-lg border p-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">Item #{index + 1}</span>
-                                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(index)}>
-                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <Label>Category</Label>
-                                            <Select
-                                                value={item.item_type}
-                                                onValueChange={(value) => handleItemChange(index, 'item_type', value)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="general">General</SelectItem>
-                                                    <SelectItem value="property">Property</SelectItem>
-                                                    <SelectItem value="liability">Liability</SelectItem>
-                                                    <SelectItem value="marine">Marine</SelectItem>
-                                                    <SelectItem value="engineering">Engineering</SelectItem>
-                                                    <SelectItem value="motor">Motor</SelectItem>
-                                                    <SelectItem value="aviation">Aviation</SelectItem>
-                                                    <SelectItem value="energy">Energy</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div>
-                                            <Label>Description</Label>
-                                            <Input
-                                                type="text"
-                                                value={item.description}
-                                                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                                placeholder="Item description"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                                        <div>
-                                            <Label>Sum Insured *</Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                value={item.sum_insured}
-                                                onChange={(e) => handleItemChange(index, 'sum_insured', e.target.value)}
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Label>Rate</Label>
-                                            <Input
-                                                type="number"
-                                                step="0.0001"
-                                                min={0}
-                                                value={item.rate}
-                                                onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                                                placeholder="0.0000"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Label>Rate Basis</Label>
-                                            <Select
-                                                value={item.rate_basis}
-                                                onValueChange={(value) => handleItemChange(index, 'rate_basis', value)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {rateBasisOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div>
-                                            <Label>Premium (auto)</Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={item.premium}
-                                                readOnly
-                                                className="bg-gray-50"
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                        <CardContent>
+                            <Textarea
+                                id="claim_payment_condition"
+                                value={data.claim_payment_condition}
+                                onChange={(e) => setData('claim_payment_condition', e.target.value)}
+                                placeholder="e.g., 30 days after proof of loss"
+                                rows={2}
+                            />
                         </CardContent>
                     </Card>
 
@@ -844,7 +613,7 @@ export default function Create({ placement, placements, clauseLibrary }: Props) 
                                                         {clause.clause_type}
                                                     </span>
                                                 </div>
-                                                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{clause.content}</p>
+                                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{clause.content}</p>
                                             </div>
                                         </label>
                                     ))}

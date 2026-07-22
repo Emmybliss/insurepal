@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { formatAmount } from '@/lib/utils';
 import { Customer, Policy } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertCircle, Calendar, CheckCircle, Clock, Download, Edit, Eye, FileText, Plus, RotateCcw, Send, User, X, XCircle } from 'lucide-react';
@@ -253,7 +254,7 @@ export default function ShowCreditNote({ note: noteFromProps }: NoteDetailsProps
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <h4 className="mb-1 text-sm font-medium text-gray-500">Credit Note Number</h4>
-                                    <p className="font-mono text-lg">CN-{note.note_number}</p>
+                                    <p className="font-mono text-lg">{note.note_number?.startsWith('CN-') ? note.note_number : `CN-${note.note_number}`}</p>
                                 </div>
                                 {note.reference_number && (
                                     <div>
@@ -303,7 +304,7 @@ export default function ShowCreditNote({ note: noteFromProps }: NoteDetailsProps
                                     {note.amount_paid && note.balance_due && (
                                         <div className="mt-1">
                                             <p className="text-sm text-gray-500">
-                                                Paid: {note.amount_paid} / Balance: {note.balance_due}
+                                                Paid: {formatAmount(note.amount_paid)} / Balance: {formatAmount(note.balance_due)}
                                             </p>
                                         </div>
                                     )}
@@ -330,9 +331,9 @@ export default function ShowCreditNote({ note: noteFromProps }: NoteDetailsProps
                                             <div key={index} className="rounded-md border p-2">
                                                 <p className="font-medium">{item.description}</p>
                                                 <div className="mt-1 grid grid-cols-3 gap-2 text-sm text-gray-600">
-                                                    <p>Amount: {item.amount}</p>
-                                                    {item.tax_amount && <p>Tax: {item.tax_amount}</p>}
-                                                    <p>Total: {item.total_amount}</p>
+                                                    <p>Amount: {formatAmount(item.amount)}</p>
+                                                    {item.tax_amount && <p>Tax: {formatAmount(item.tax_amount)}</p>}
+                                                    <p>Total: {formatAmount(item.total_amount)}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -366,7 +367,7 @@ export default function ShowCreditNote({ note: noteFromProps }: NoteDetailsProps
                                         <span className="text-lg">{new Date(note.due_date).toLocaleDateString()}</span>
                                     </div>
                                 ) : (
-                                    <span className="text-gray-400">No due date set</span>
+                                    <span className="text-gray-400">To Be Advised</span>
                                 )}
                             </div>
                         </CardContent>

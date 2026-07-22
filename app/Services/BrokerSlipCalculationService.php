@@ -66,14 +66,14 @@ class BrokerSlipCalculationService
     }
 
     public function calculateItemPremium(
-        float $sumInsured,
+        float $coverageAmount,
         ?float $rate,
         string $rateBasis = 'percentage',
         ?int $quantity = null,
     ): float {
         $premium = match ($rateBasis) {
-            RateBasis::Percentage->value => $sumInsured * ($rate ?? 0) / 100,
-            RateBasis::PerMille->value => $sumInsured * ($rate ?? 0) / 1000,
+            RateBasis::Percentage->value => $coverageAmount * ($rate ?? 0) / 100,
+            RateBasis::PerMille->value => $coverageAmount * ($rate ?? 0) / 1000,
             default => $rate ?? 0,
         };
 

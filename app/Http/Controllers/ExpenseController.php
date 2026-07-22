@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreExpenseRequest;
+use App\Http\Requests\UpdateExpenseRequest;
 use App\Models\Expense;
 use App\Services\ExpenseService;
 use Illuminate\Http\Request;
@@ -52,18 +54,11 @@ class ExpenseController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreExpenseRequest $request)
     {
         $this->authorize('create', Expense::class);
 
-        $validated = $request->validate([
-            'category' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'required|string|size:3',
-            'description' => 'nullable|string',
-            'expense_date' => 'required|date',
-            'receipt' => 'nullable|image|max:2048',
-        ]);
+        $validated = $request->validated();
 
         $this->expenseService->createExpense(
             Auth::user()->tenant_id,
@@ -94,18 +89,11 @@ class ExpenseController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Expense $expense)
+    public function update(UpdateExpenseRequest $request, Expense $expense)
     {
         $this->authorize('update', $expense);
 
-        $validated = $request->validate([
-            'category' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'required|string|size:3',
-            'description' => 'nullable|string',
-            'expense_date' => 'required|date',
-            'receipt' => 'nullable|image|max:2048',
-        ]);
+        $validated = $request->validated();
 
         $this->expenseService->updateExpense(
             $expense,

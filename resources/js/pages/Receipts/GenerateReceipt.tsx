@@ -64,11 +64,15 @@ export default function GenerateReceipt({ receipt, defaultTemplateKey, defaultTe
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Customer</label>
-                                <p className="text-sm font-medium">{receipt.customer?.first_name} {receipt.customer?.last_name}</p>
+                                <p className="text-sm font-medium">
+                                    {receipt.customer?.first_name} {receipt.customer?.last_name}
+                                </p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Amount</label>
-                                <p className="text-sm font-medium">{receipt.currency ?? 'NGN'} {Number(receipt.amount).toLocaleString()}</p>
+                                <p className="text-sm font-medium">
+                                    {receipt.currency ?? 'NGN'} {Number(receipt.amount).toLocaleString()}
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -87,18 +91,18 @@ export default function GenerateReceipt({ receipt, defaultTemplateKey, defaultTe
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <p className="mb-4 text-sm text-muted-foreground">
                             Using the default template. You can change the default in{' '}
                             <a href={route('templates.index')} className="text-primary underline">
                                 Document Templates
                             </a>
                             .
                         </p>
-                        <div className="flex justify-center rounded-lg border bg-gray-50 p-6 overflow-auto">
-                            <div className="shadow-2xl bg-white w-full max-w-[210mm]">
+                        <div className="flex justify-center overflow-auto rounded-lg border bg-gray-50 p-6">
+                            <div className="w-full max-w-[210mm] bg-white shadow-2xl">
                                 <iframe
                                     src={route('receipts.html-preview', { receipt: receipt.id, template_key: defaultTemplateKey })}
-                                    className="w-full h-[500px] border-0"
+                                    className="h-[500px] w-full border-0"
                                     title="Receipt Preview"
                                 />
                             </div>

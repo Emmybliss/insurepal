@@ -208,7 +208,7 @@ it('calculates outstanding as due minus remitted', function () {
         'tenant_id' => $this->tenant->id,
         'client_bank_account_id' => $bankAccount->id,
         'insurer_id' => $this->insurer->id,
-        'remittance_date' => now()->subMonth(),
+        'remittance_date' => now(),
         'total_amount' => 100000,
         'status' => 'completed',
     ]);
@@ -260,7 +260,7 @@ it('identifies over-remittance', function () {
     $remittance = Remittance::factory()->create([
         'tenant_id' => $this->tenant->id,
         'insurer_id' => $this->insurer->id,
-        'remittance_date' => now()->subMonth(),
+        'remittance_date' => now(),
         'total_amount' => 70000,
         'status' => 'completed',
     ]);
@@ -478,7 +478,7 @@ it('supports remittance allocations routing to correct policy via claim', functi
     $remittance = Remittance::factory()->create([
         'tenant_id' => $this->tenant->id,
         'insurer_id' => $this->insurer->id,
-        'remittance_date' => now()->subMonth(),
+        'remittance_date' => now(),
         'total_amount' => 450000,
         'status' => 'completed',
     ]);

@@ -22,33 +22,37 @@ export default function Create() {
         setProcessing(true);
         setErrors({});
 
-        router.post(route('reports.naicom.store'), {
-            reporting_year: parseInt(year, 10),
-            reporting_half: half,
-            commission_recognition_date: commissionDate || null,
-        }, {
-            onError: (errs) => {
-                setErrors(errs);
-                setProcessing(false);
+        router.post(
+            route('reports.naicom.store'),
+            {
+                reporting_year: parseInt(year, 10),
+                reporting_half: half,
+                commission_recognition_date: commissionDate || null,
             },
-            onFinish: () => setProcessing(false),
-        });
+            {
+                onError: (errs) => {
+                    setErrors(errs);
+                    setProcessing(false);
+                },
+                onFinish: () => setProcessing(false),
+            },
+        );
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Reports', href: route('reports.index') },
-            { title: 'NAICOM Returns', href: route('reports.naicom.index') },
-            { title: 'New Report', href: '#' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Reports', href: route('reports.index') },
+                { title: 'NAICOM Returns', href: route('reports.naicom.index') },
+                { title: 'New Report', href: '#' },
+            ]}
+        >
             <Head title="New NAICOM Report" />
 
-            <div className="flex flex-col gap-6 p-6 max-w-2xl">
+            <div className="flex max-w-2xl flex-col gap-6 p-6">
                 <div>
                     <h1 className="text-2xl font-bold">New NAICOM Report</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Generate Forms 7.2A, 7.2B, and 7.2C for regulatory submission.
-                    </p>
+                    <p className="text-sm text-muted-foreground">Generate Forms 7.2A, 7.2B, and 7.2C for regulatory submission.</p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
@@ -58,9 +62,7 @@ export default function Create() {
                                 <FileSpreadsheet className="h-5 w-5" />
                                 Report Configuration
                             </CardTitle>
-                            <CardDescription>
-                                Select the reporting period and optional commission recognition date.
-                            </CardDescription>
+                            <CardDescription>Select the reporting period and optional commission recognition date.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="space-y-2">
@@ -79,30 +81,16 @@ export default function Create() {
 
                             <div className="space-y-2">
                                 <Label htmlFor="year">Reporting Year</Label>
-                                <Input
-                                    id="year"
-                                    type="number"
-                                    min={2020}
-                                    max={currentYear}
-                                    value={year}
-                                    onChange={(e) => setYear(e.target.value)}
-                                />
-                                {errors.reporting_year && (
-                                    <p className="text-sm text-destructive">{errors.reporting_year}</p>
-                                )}
+                                <Input id="year" type="number" min={2020} max={currentYear} value={year} onChange={(e) => setYear(e.target.value)} />
+                                {errors.reporting_year && <p className="text-sm text-destructive">{errors.reporting_year}</p>}
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="commission_date">
                                     Commission Recognition Date
-                                    <span className="text-muted-foreground text-xs ml-2">(optional)</span>
+                                    <span className="ml-2 text-xs text-muted-foreground">(optional)</span>
                                 </Label>
-                                <Input
-                                    id="commission_date"
-                                    type="date"
-                                    value={commissionDate}
-                                    onChange={(e) => setCommissionDate(e.target.value)}
-                                />
+                                <Input id="commission_date" type="date" value={commissionDate} onChange={(e) => setCommissionDate(e.target.value)} />
                                 <p className="text-xs text-muted-foreground">
                                     If not set, defaults to end of the reporting half. Used for straight-line earned commission calculation.
                                 </p>
@@ -112,8 +100,8 @@ export default function Create() {
                             </div>
 
                             <div className="rounded-lg border bg-muted/50 p-4 text-sm">
-                                <p className="font-medium mb-1">What this generates</p>
-                                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                                <p className="mb-1 font-medium">What this generates</p>
+                                <ul className="list-inside list-disc space-y-1 text-muted-foreground">
                                     <li>Form 7.2B — Statement of Business Generated</li>
                                     <li>Form 7.2C — Remittance & Outstanding Liability</li>
                                     <li className="text-muted-foreground/60">Form 7.2A — Monthly Assets & Liabilities (coming soon)</li>
@@ -122,7 +110,7 @@ export default function Create() {
                         </CardContent>
                     </Card>
 
-                    <div className="flex justify-end gap-4 mt-6">
+                    <div className="mt-6 flex justify-end gap-4">
                         <Button type="button" variant="outline" onClick={() => router.visit(route('reports.naicom.index'))}>
                             Cancel
                         </Button>

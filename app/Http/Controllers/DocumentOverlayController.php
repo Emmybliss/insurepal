@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DocumentOverlayRequest;
+use App\Http\Requests\DocumentOverlayStoreAssetRequest;
 use App\Models\Document;
 use App\Models\DocumentAsset;
 use App\Models\DocumentOverlay;
@@ -11,25 +13,13 @@ use Illuminate\Support\Facades\Storage;
 
 class DocumentOverlayController extends Controller
 {
-    public function store(Request $request, Document $document)
+    public function store(DocumentOverlayRequest $request, Document $document)
     {
         if ($document->tenant_id !== (Auth::user()->tenant_id ?? 1)) {
             abort(403);
         }
 
-        $request->validate([
-            'type' => 'required|string',
-            'page_number' => 'nullable|integer',
-            'position_x' => 'required|numeric',
-            'position_y' => 'required|numeric',
-            'width' => 'required|numeric',
-            'height' => 'required|numeric',
-            'rotation' => 'nullable|numeric',
-            'content' => 'nullable|string',
-            'settings' => 'nullable|array',
-        ]);
-
-        $overlay = $document->overlays()->create($request->all());
+        $overlay = $document->overlays()->create($request->validated());
 
         return response()->json($overlay);
     }
@@ -68,14 +58,8 @@ class DocumentOverlayController extends Controller
         return response()->json($assets);
     }
 
-    public function storeAsset(Request $request)
+    public function storeAsset(DocumentOverlayStoreAssetRequest $request)
     {
-        $request->validate([
-            'file' => 'required|image|max:10240',
-            'type' => 'required|string|in:signature,stamp,letterhead,footer',
-            'name' => 'required|string|max:255',
-        ]);
-
         $tenantId = Auth::user()->tenant_id ?? 1;
         $path = $request->file('file')->store("tenants/{$tenantId}/document_assets", 'local');
 

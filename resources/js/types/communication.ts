@@ -123,4 +123,3 @@ export interface CreateInboxMessageData {
     send?: boolean;
     action?: 'send' | 'draft';
 }
-

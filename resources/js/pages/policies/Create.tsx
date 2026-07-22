@@ -116,9 +116,7 @@ export default function Create({ policyTypes, policyClasses }: Props) {
     };
 
     const updatePremiumFactor = (index: number, field: 'name' | 'rate', value: string | number) => {
-        const updated = data.premium_factors.map((factor, i) =>
-            i === index ? { ...factor, [field]: value } : factor,
-        );
+        const updated = data.premium_factors.map((factor, i) => (i === index ? { ...factor, [field]: value } : factor));
         setData('premium_factors', updated);
     };
 
@@ -173,7 +171,7 @@ export default function Create({ policyTypes, policyClasses }: Props) {
                 console.log('Create:', errors);
                 toast.error('Failed to create policy');
             },
-});
+        });
     };
 
     return (
@@ -195,41 +193,41 @@ export default function Create({ policyTypes, policyClasses }: Props) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Policy Hierarchy */}
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <Label>Policy Type *</Label>
-                                            <Select value={data.policy_type_id.toString()} onValueChange={(value) => setData('policy_type_id', value)}>
-                                                <SelectTrigger className={errors.policy_type_id ? 'border-red-500' : ''}>
-                                                    <SelectValue placeholder="Select policy type" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {policyTypes.map((type) => (
-                                                        <SelectItem key={type.id} value={type.id.toString()}>
-                                                            {type.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.policy_type_id && <p className="mt-1 text-sm text-red-600">{errors.policy_type_id}</p>}
-                                        </div>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label>Policy Type *</Label>
+                                    <Select value={data.policy_type_id.toString()} onValueChange={(value) => setData('policy_type_id', value)}>
+                                        <SelectTrigger className={errors.policy_type_id ? 'border-red-500' : ''}>
+                                            <SelectValue placeholder="Select policy type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {policyTypes.map((type) => (
+                                                <SelectItem key={type.id} value={type.id.toString()}>
+                                                    {type.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.policy_type_id && <p className="mt-1 text-sm text-red-600">{errors.policy_type_id}</p>}
+                                </div>
 
-                                        <div>
-                                            <Label>Policy Class *</Label>
-                                            <Select value={data.policy_class_id.toString()} onValueChange={(value) => setData('policy_class_id', value)}>
-                                                <SelectTrigger className={errors.policy_class_id ? 'border-red-500' : ''}>
-                                                    <SelectValue placeholder="Select class" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {filteredClasses.map((cls) => (
-                                                        <SelectItem key={cls.id} value={cls.id.toString()}>
-                                                            {cls.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.policy_class_id && <p className="mt-1 text-sm text-red-600">{errors.policy_class_id}</p>}
-                                        </div>
-                                    </div>
+                                <div>
+                                    <Label>Policy Class *</Label>
+                                    <Select value={data.policy_class_id.toString()} onValueChange={(value) => setData('policy_class_id', value)}>
+                                        <SelectTrigger className={errors.policy_class_id ? 'border-red-500' : ''}>
+                                            <SelectValue placeholder="Select class" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredClasses.map((cls) => (
+                                                <SelectItem key={cls.id} value={cls.id.toString()}>
+                                                    {cls.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.policy_class_id && <p className="mt-1 text-sm text-red-600">{errors.policy_class_id}</p>}
+                                </div>
+                            </div>
 
                             {/* Name and Code */}
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

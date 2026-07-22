@@ -2,12 +2,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Customer, InvoiceItem, Policy, Tenant } from '@/types';
+import { Eye, RefreshCw } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 function mapInvoiceData(invoice: any, customer: any, tenant: any) {
     return {
-        customer_name: customer?.first_name && customer?.last_name
-            ? `${customer.first_name} ${customer.last_name}`
-            : customer?.company_name || 'N/A',
+        customer_name: customer?.first_name && customer?.last_name ? `${customer.first_name} ${customer.last_name}` : customer?.company_name || 'N/A',
         customer_address: customer?.address || 'N/A',
         customer_phone: customer?.phone || 'N/A',
         customer_email: customer?.email || 'N/A',
@@ -27,8 +27,6 @@ function mapInvoiceData(invoice: any, customer: any, tenant: any) {
         company_logo: tenant?.logo_url || null,
     };
 }
-import { Eye, RefreshCw } from 'lucide-react';
-import { useRef, useState } from 'react';
 
 interface Template {
     id: number;
@@ -73,13 +71,7 @@ interface InvoicePreviewProps {
     isGenerating?: boolean;
 }
 
-export default function InvoicePreview({
-    template,
-    invoiceData,
-    designJson,
-    onGenerate,
-    isGenerating = false,
-}: InvoicePreviewProps) {
+export default function InvoicePreview({ template, invoiceData, designJson, onGenerate, isGenerating = false }: InvoicePreviewProps) {
     const [previewMode, setPreviewMode] = useState<'design' | 'preview'>('design');
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -142,11 +134,11 @@ export default function InvoicePreview({
                             Design preview mode. Switch to preview to see populated data.
                         </div>
                     ) : (
-                        <div className="flex justify-center rounded-lg border bg-gray-50 p-6 overflow-auto custom-scrollbar">
-                            <div className="shadow-2xl bg-white">
+                        <div className="custom-scrollbar flex justify-center overflow-auto rounded-lg border bg-gray-50 p-6">
+                            <div className="bg-white shadow-2xl">
                                 <iframe
                                     src={route('invoices.html-preview', { invoice: invoiceData.id, template_id: template?.id })}
-                                    className="w-full h-full border-0"
+                                    className="h-full w-full border-0"
                                     title="Invoice Preview"
                                 />
                             </div>

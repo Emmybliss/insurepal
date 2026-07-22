@@ -50,8 +50,13 @@ interface DebitNote {
     note_number: string;
     amount: number;
     formatted_amount: string;
+    total_amount: number;
+    formatted_total_amount: string;
+    tax_amount: number;
+    formatted_tax_amount: string;
     description: string;
     status: string;
+    transaction_type?: string;
     issue_date: string;
     due_date?: string;
     paid_at?: string;
@@ -268,6 +273,7 @@ export default function DebitNotesIndex({ notes, customers, filters, stats }: Pr
                                         <tr className="border-b">
                                             <th className="px-4 py-3 text-left">Note Number</th>
                                             <th className="px-4 py-3 text-left">Customer</th>
+                                            <th className="px-4 py-3 text-left">Transaction Type</th>
                                             <th className="px-4 py-3 text-left">Amount</th>
                                             <th className="px-4 py-3 text-left">Status</th>
                                             <th className="px-4 py-3 text-left">Due Date</th>
@@ -278,18 +284,30 @@ export default function DebitNotesIndex({ notes, customers, filters, stats }: Pr
                                         {notes.data.map((note) => (
                                             <tr key={note.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                                                 <td className="px-4 py-3">
-                                                    <div className="font-mono text-sm">{note.note_number}</div>
-                                                    <div className="text-xs text-gray-500">{note.description}</div>
+                                                    <Link href={route('debit-notes.show', note.id)} className="font-mono text-sm text-blue-500">{note.note_number}</Link>
+                                                    {/* <div className="text-xs text-gray-500">{note.description}</div> */}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center space-x-2">
                                                         <User className="h-4 w-4 text-gray-400" />
                                                         <span className="text-sm">{getCustomerName(note.customer)}</span>
                                                     </div>
-                                                    <div className="text-xs text-gray-500">Policy: {note.policy?.policy_number ?? 'To Be Advised'}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Policy: {note.policy?.policy_number ?? 'To Be Advised'}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-semibold text-red-600">{note.formatted_amount}</div>
+                                                    <div className="text-sm capitalize">
+                                                        {note.transaction_type ? (
+                                                            note.transaction_type.replace(/_/g, ' ')
+                                                        ) : (
+                                                            <span className="text-gray-400">—</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-red-600">{note.total_amount}</div>
+                                                    <div className="text-xs text-gray-500">Tax: {note.tax_amount}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center space-x-2">
@@ -310,7 +328,7 @@ export default function DebitNotesIndex({ notes, customers, filters, stats }: Pr
                                                                 <span>{new Date(note.due_date).toLocaleDateString()}</span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-gray-400">N/A</span>
+                                                            <span className="text-gray-400">To Be Advised</span>
                                                         )}
                                                     </div>
                                                 </td>

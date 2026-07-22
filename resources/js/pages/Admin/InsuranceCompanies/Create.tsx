@@ -67,10 +67,9 @@ export default function InsuranceCompaniesCreate({ company, isEditing }: Props) 
         setErrors({});
 
         try {
-            const routeName = isEditing ? 'admin.insurance-companies.update' : 'admin.insurance-companies.store';
-            const routeMethod = isEditing ? 'post' : 'post';
+            const url = isEditing ? route('admin.insurance-companies.update', company.id) : route('admin.insurance-companies.store');
 
-            await router[routeMethod](routeName, company?.id ? { ...data, _method: 'put' } : data, {
+            await router.post(url, company?.id ? { ...data, _method: 'put' } : data, {
                 onSuccess: () => {
                     toast.success(isEditing ? 'Company updated successfully' : 'Company created successfully');
                     router.visit(route('admin.insurance-companies.index'));
@@ -94,13 +93,9 @@ export default function InsuranceCompaniesCreate({ company, isEditing }: Props) 
             <div className="mx-auto max-w-3xl space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight">
-                            {isEditing ? 'Edit Company' : 'Add Insurance Company'}
-                        </h2>
+                        <h2 className="text-3xl font-bold tracking-tight">{isEditing ? 'Edit Company' : 'Add Insurance Company'}</h2>
                         <p className="text-muted-foreground">
-                            {isEditing
-                                ? 'Update insurance company details'
-                                : 'Add a new insurance company to the directory'}
+                            {isEditing ? 'Update insurance company details' : 'Add a new insurance company to the directory'}
                         </p>
                     </div>
                 </div>
@@ -143,9 +138,7 @@ export default function InsuranceCompaniesCreate({ company, isEditing }: Props) 
                                             <SelectItem value="both">Both (Underwriter & Broker)</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    {errors.company_type && (
-                                        <p className="text-sm text-red-500">{errors.company_type}</p>
-                                    )}
+                                    {errors.company_type && <p className="text-sm text-red-500">{errors.company_type}</p>}
                                 </div>
                             </div>
 
@@ -296,24 +289,15 @@ export default function InsuranceCompaniesCreate({ company, isEditing }: Props) 
                             <div className="flex items-center justify-between rounded-lg border p-4">
                                 <div>
                                     <p className="font-medium">Active Status</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Inactive companies won't appear in searches
-                                    </p>
+                                    <p className="text-sm text-muted-foreground">Inactive companies won't appear in searches</p>
                                 </div>
-                                <Switch
-                                    checked={data.is_active}
-                                    onCheckedChange={(checked) => setData({ ...data, is_active: checked })}
-                                />
+                                <Switch checked={data.is_active} onCheckedChange={(checked) => setData({ ...data, is_active: checked })} />
                             </div>
                         </CardContent>
                     </Card>
 
                     <div className="flex justify-end gap-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => router.visit(route('admin.insurance-companies.index'))}
-                        >
+                        <Button type="button" variant="outline" onClick={() => router.visit(route('admin.insurance-companies.index'))}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={processing}>

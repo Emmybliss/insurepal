@@ -3,6 +3,7 @@ import {
     Award,
     Banknote,
     BarChart3,
+    Bot,
     Building,
     Building2,
     Calendar,
@@ -16,22 +17,18 @@ import {
     ImageOff,
     Key,
     LayoutGrid,
+    Mail,
     MessageCircle,
     NotebookText,
     Shield,
     ShieldCheck,
-    Ticket,
     Trash2,
     UserCog,
     Users,
 } from 'lucide-react';
 import type { AuthHelpers, PlanHelpers, TranslateFn } from './index';
 
-export function getUnderwriterNavItems(
-    auth: AuthHelpers,
-    plan: PlanHelpers,
-    t: TranslateFn,
-): NavItem[] {
+export function getUnderwriterNavItems(auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
     const { can, hasAnyRole } = auth;
     const items: NavItem[] = [];
 
@@ -41,19 +38,17 @@ export function getUnderwriterNavItems(
         icon: LayoutGrid,
     });
 
+    items.push({
+        title: t('AI Assistant'),
+        href: route('ai-assistant.index'),
+        icon: Bot,
+    });
+
     if (can('view_customers')) {
         items.push({
             title: t('Customers'),
             href: route('customers.index'),
             icon: Users,
-        });
-    }
-
-    if (can('view_policies')) {
-        items.push({
-            title: t('Insurance Products'),
-            href: route('policies.index'),
-            icon: Shield,
         });
     }
 
@@ -75,6 +70,12 @@ export function getUnderwriterNavItems(
 
     if (can('view_policies')) {
         const policySubItems: NavItem[] = [];
+
+        policySubItems.push({
+            title: t('Products'),
+            href: route('policies.index'),
+            icon: Shield,
+        });
 
         policySubItems.push({
             title: t('Issued Policies'),
@@ -177,13 +178,19 @@ export function getUnderwriterNavItems(
         });
     }
 
-    if (can('view_support_tickets')) {
-        items.push({
-            title: t('Support Tickets'),
-            href: route('support-tickets.index'),
-            icon: Ticket,
-        });
-    }
+    items.push({
+        title: t('Email'),
+        href: '/email/inbox',
+        icon: Mail,
+    });
+
+    // if (can('view_support_tickets')) {
+    //     items.push({
+    //         title: t('Support Tickets'),
+    //         href: route('support-tickets.index'),
+    //         icon: Ticket,
+    //     });
+    // }
 
     if (hasAnyRole(['underwriter', 'broker'])) {
         items.push({

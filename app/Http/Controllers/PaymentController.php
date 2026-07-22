@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePaymentRequest;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\Tenant;
@@ -23,12 +24,9 @@ class PaymentController extends Controller
     /**
      * Initialize subscription payment
      */
-    public function initializeSubscription(Request $request)
+    public function initializeSubscription(StorePaymentRequest $request)
     {
-        $request->validate([
-            'plan_id' => 'required|exists:subscription_plans,id',
-            'tenant_id' => 'required|exists:tenants,id',
-        ]);
+        $request->validated();
 
         $tenant = Tenant::findOrFail($request->tenant_id);
         $plan = \App\Models\SubscriptionPlan::findOrFail($request->plan_id);
@@ -99,7 +97,7 @@ class PaymentController extends Controller
     {
         $request->validate([
             'plan_id' => 'required|exists:subscription_plans,id',
-        ]);
+        ]); // single field — leave inline
 
         $user = \Illuminate\Support\Facades\Auth::user();
         $tenant = $user?->tenant;

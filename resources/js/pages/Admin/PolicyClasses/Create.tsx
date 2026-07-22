@@ -7,8 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { PlusCircle, Trash2 } from 'lucide-react';
-import React, { useState } from 'react';
+import React from 'react';
 import { toast } from 'sonner';
 
 interface PolicyType {
@@ -17,29 +16,15 @@ interface PolicyType {
     code: string;
 }
 
-interface FormField {
-    name: string;
-    type: string;
-    label: string;
-    required: boolean;
-    options?: string[];
-}
-
-interface RiskFactor {
-    name: string;
-    weight: number;
-}
-
 interface FormData {
     policy_type_id: number | string;
     name: string;
     code: string;
     description: string;
+    risk_mode: string;
     is_active: boolean;
-    form_fields: FormField[];
     premium_multiplier: number;
     commission_multiplier: number;
-    risk_factors: RiskFactor[];
     min_coverage_period: number;
     max_coverage_period: number;
     min_sum_assured: number;
@@ -51,45 +36,21 @@ interface Props {
     policyTypes: PolicyType[];
 }
 
-const fieldTypes = [
-    { value: 'text', label: 'Text' },
-    { value: 'number', label: 'Number' },
-    { value: 'select', label: 'Select' },
-    { value: 'textarea', label: 'Textarea' },
-    { value: 'checkbox', label: 'Checkbox' },
-    { value: 'date', label: 'Date' },
-    { value: 'email', label: 'Email' },
-    { value: 'phone', label: 'Phone' },
-];
-
 export default function Create({ policyTypes }: Props) {
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm<FormData>({
         policy_type_id: '',
         name: '',
         code: '',
         description: '',
+        risk_mode: 'single',
         is_active: true,
-        form_fields: [],
         premium_multiplier: 1.0,
         commission_multiplier: 1.0,
-        risk_factors: [],
         min_coverage_period: 30,
         max_coverage_period: 365,
         min_sum_assured: 0,
         max_sum_assured: '',
         sort_order: 0,
-    });
-
-    const [newField, setNewField] = useState<FormField>({
-        name: '',
-        type: 'text',
-        label: '',
-        required: false,
-        options: [],
-    });
-    const [newRiskFactor, setNewRiskFactor] = useState<RiskFactor>({
-        name: '',
-        weight: 1,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -102,44 +63,6 @@ export default function Create({ policyTypes }: Props) {
                 toast.error('Failed to create policy class');
             },
         });
-    };
-
-    const addFormField = () => {
-        if (!newField.name || !newField.label) return;
-
-        setData('form_fields', [...data.form_fields, { ...newField }]);
-        setNewField({
-            name: '',
-            type: 'text',
-            label: '',
-            required: false,
-            options: [],
-        });
-    };
-
-    const removeFormField = (index: number) => {
-        const updatedFields = data.form_fields.filter((_, i) => i !== index);
-        setData('form_fields', updatedFields);
-    };
-
-    const addRiskFactor = () => {
-        if (!newRiskFactor.name) return;
-
-        setData('risk_factors', [...data.risk_factors, { ...newRiskFactor }]);
-        setNewRiskFactor({
-            name: '',
-            weight: 1,
-        });
-    };
-
-    const removeRiskFactor = (index: number) => {
-        const updatedFactors = data.risk_factors.filter((_, i) => i !== index);
-        setData('risk_factors', updatedFactors);
-    };
-
-    const updateFieldOptions = (value: string) => {
-        const options = value.split('\n').filter((option) => option.trim());
-        setNewField({ ...newField, options });
     };
 
     return (
@@ -164,10 +87,7 @@ export default function Create({ policyTypes }: Props) {
                         <CardContent className="space-y-4">
                             <div>
                                 <Label htmlFor="policy_type_id">Policy Type *</Label>
-                                <Select
-                                    value={data.policy_type_id.toString()}
-                                    onValueChange={(value) => setData('policy_type_id', parseInt(value))}
-                                >
+                                <Select value={data.policy_type_id.toString()} onValueChange={(value) => setData('policy_type_id', parseInt(value))}>
                                     <SelectTrigger className={errors.policy_type_id ? 'border-red-500' : ''}>
                                         <SelectValue placeholder="Select a policy type" />
                                     </SelectTrigger>
@@ -219,6 +139,21 @@ export default function Create({ policyTypes }: Props) {
                                     rows={3}
                                 />
                                 {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="risk_mode">Risk Mode *</Label>
+                                <Select value={data.risk_mode} onValueChange={(value) => setData('risk_mode', value)}>
+                                    <SelectTrigger className={errors.risk_mode ? 'border-red-500' : ''}>
+                                        <SelectValue placeholder="Select risk mode" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="single">Single Risk</SelectItem>
+                                        <SelectItem value="scheduled">Scheduled Risks</SelectItem>
+                                        <SelectItem value="mixed">Mixed Risks</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {errors.risk_mode && <p className="mt-1 text-sm text-red-600">{errors.risk_mode}</p>}
                             </div>
 
                             <div className="flex items-center space-x-2">
@@ -350,168 +285,6 @@ export default function Create({ policyTypes }: Props) {
                                         placeholder="Leave empty for no limit"
                                     />
                                     {errors.max_sum_assured && <p className="mt-1 text-sm text-red-600">{errors.max_sum_assured}</p>}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Risk Factors */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Risk Factors</CardTitle>
-                            <p className="text-sm text-gray-600">Define risk factors that affect premium calculations for this class.</p>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Existing Risk Factors */}
-                            {data.risk_factors.length > 0 && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-medium">Configured Risk Factors</h4>
-                                    {data.risk_factors.map((factor, index) => (
-                                        <div key={index} className="flex items-center justify-between rounded-lg border p-4">
-                                            <div>
-                                                <div className="font-medium">{factor.name}</div>
-                                                <div className="text-sm text-gray-600">Weight: {factor.weight}%</div>
-                                            </div>
-                                            <Button type="button" variant="outline" size="sm" onClick={() => removeRiskFactor(index)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Add New Risk Factor */}
-                            <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
-                                <h4 className="mb-4 text-sm font-medium">Add Risk Factor</h4>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <Label htmlFor="risk_factor_name">Factor Name</Label>
-                                        <Input
-                                            id="risk_factor_name"
-                                            value={newRiskFactor.name}
-                                            onChange={(e) => setNewRiskFactor({ ...newRiskFactor, name: e.target.value })}
-                                            placeholder="e.g., Age Range"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="risk_factor_weight">Weight (%)</Label>
-                                        <Input
-                                            id="risk_factor_weight"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={newRiskFactor.weight}
-                                            onChange={(e) => setNewRiskFactor({ ...newRiskFactor, weight: parseFloat(e.target.value) || 1 })}
-                                            placeholder="e.g., 10"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="mt-4">
-                                    <Button type="button" variant="outline" onClick={addRiskFactor} disabled={!newRiskFactor.name}>
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Add Risk Factor
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Additional Form Fields */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Additional Form Fields</CardTitle>
-                            <p className="text-sm text-gray-600">Define class-specific form fields in addition to type and category fields.</p>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Existing Fields */}
-                            {data.form_fields.length > 0 && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-medium">Configured Fields</h4>
-                                    {data.form_fields.map((field, index) => (
-                                        <div key={index} className="flex items-center justify-between rounded-lg border p-4">
-                                            <div>
-                                                <div className="font-medium">{field.label}</div>
-                                                <div className="text-sm text-gray-600">
-                                                    {field.name} ({field.type}){field.required && ' - Required'}
-                                                </div>
-                                            </div>
-                                            <Button type="button" variant="outline" size="sm" onClick={() => removeFormField(index)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Add New Field */}
-                            <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
-                                <h4 className="mb-4 text-sm font-medium">Add New Field</h4>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <Label htmlFor="field_name">Field Name</Label>
-                                        <Input
-                                            id="field_name"
-                                            value={newField.name}
-                                            onChange={(e) => setNewField({ ...newField, name: e.target.value })}
-                                            placeholder="e.g., medical_history"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="field_label">Label</Label>
-                                        <Input
-                                            id="field_label"
-                                            value={newField.label}
-                                            onChange={(e) => setNewField({ ...newField, label: e.target.value })}
-                                            placeholder="e.g., Medical History"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label htmlFor="field_type">Type</Label>
-                                        <Select value={newField.type} onValueChange={(value) => setNewField({ ...newField, type: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {fieldTypes.map((type) => (
-                                                    <SelectItem key={type.value} value={type.value}>
-                                                        {type.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="flex items-center space-x-2">
-                                        <Switch
-                                            id="field_required"
-                                            checked={newField.required}
-                                            onCheckedChange={(checked) => setNewField({ ...newField, required: checked })}
-                                        />
-                                        <Label htmlFor="field_required">Required</Label>
-                                    </div>
-
-                                    {newField.type === 'select' && (
-                                        <div className="sm:col-span-2">
-                                            <Label htmlFor="field_options">Options (one per line)</Label>
-                                            <Textarea
-                                                id="field_options"
-                                                placeholder="Option 1\nOption 2\nOption 3"
-                                                onChange={(e) => updateFieldOptions(e.target.value)}
-                                                rows={3}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-4">
-                                    <Button type="button" variant="outline" onClick={addFormField} disabled={!newField.name || !newField.label}>
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Add Field
-                                    </Button>
                                 </div>
                             </div>
                         </CardContent>

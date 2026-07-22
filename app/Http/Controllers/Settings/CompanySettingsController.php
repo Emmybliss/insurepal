@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\CompanySettingsRequest;
+use App\Models\EmailAccount;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -19,6 +22,15 @@ class CompanySettingsController extends Controller
         if (! $tenant) {
             abort(403, 'Access denied: No tenant association.');
         }
+
+        $emailAccounts = EmailAccount::where('tenant_id', $tenant->id)
+            ->where(function ($q) {
+                $q->whereNotNull('oauth_token_encrypted')
+                    ->orWhereNotNull('credentials_encrypted');
+            })
+            ->select(['id', 'provider', 'email', 'account_name', 'is_active', 'is_system_default', 'last_sync_at', 'created_at'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return Inertia::render('settings/company', [
             'company' => $tenant->only([
@@ -43,17 +55,22 @@ class CompanySettingsController extends Controller
                 'stamp',
                 'header_image',
                 'footer_image',
-                'smtp_settings',
                 'paystack_public_key',
                 'paystack_secret_key',
             ]),
+            'emailAccounts' => $emailAccounts,
+            'themeColors' => $tenant->theme_settings ? [
+                'primary_color' => $tenant->theme_settings['primary_color'] ?? '#3b82f6',
+                'secondary_color' => $tenant->theme_settings['secondary_color'] ?? '#8b5cf6',
+                'accent_color' => $tenant->theme_settings['accent_color'] ?? '#10b981',
+            ] : null,
         ]);
     }
 
     /**
      * Update the company settings.
      */
-    public function update(Request $request)
+    public function update(CompanySettingsRequest $request)
     {
         $tenant = $request->user()->tenant;
 
@@ -61,37 +78,7 @@ class CompanySettingsController extends Controller
             abort(403, 'Unauthorized actions.');
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'required|string|max:20',
-            'address' => 'required|string',
-            'city' => 'required|string|max:255',
-            'state' => 'required|string|max:255',
-            'country' => 'required|string|max:255',
-            'postal_code' => 'nullable|string|max:20',
-            'website' => 'nullable|url|max:255',
-            'registration_number' => 'nullable|string|max:255',
-            'tax_id' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'naicom_reg_number' => 'nullable|string|max:255',
-            'rc_number' => 'nullable|string|max:255',
-            'slogan' => 'nullable|string|max:255',
-            'logo' => 'nullable|image|max:2048',
-            'signature' => 'nullable|image|max:1024',
-            'stamp' => 'nullable|image|max:1024',
-            'header_image' => 'nullable|image|max:2048',
-            'footer_image' => 'nullable|image|max:2048',
-            'smtp_settings' => 'nullable|array',
-            'smtp_settings.use_custom' => 'nullable|boolean',
-            'smtp_settings.host' => 'nullable|string|required_if:smtp_settings.use_custom,true',
-            'smtp_settings.port' => 'nullable|numeric|required_if:smtp_settings.use_custom,true',
-            'smtp_settings.username' => 'nullable|string|required_if:smtp_settings.use_custom,true',
-            'smtp_settings.password' => 'nullable|string',
-            'smtp_settings.encryption' => 'nullable|string|in:tls,ssl,starttls',
-            'paystack_public_key' => 'nullable|string|max:255',
-            'paystack_secret_key' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         // Handle file uploads
         $fileFields = ['logo', 'signature', 'stamp', 'header_image', 'footer_image'];
@@ -112,6 +99,47 @@ class CompanySettingsController extends Controller
 
         $tenant->update($validated);
 
+        if (! empty($validated['primary_color'])) {
+            $currentTheme = $tenant->theme_settings ?? [];
+            $tenant->theme_settings = array_merge($currentTheme, [
+                'primary_color' => $validated['primary_color'],
+                'secondary_color' => $validated['secondary_color'],
+                'accent_color' => $validated['accent_color'],
+                'gradient' => [
+                    'from' => $validated['primary_color'],
+                    'via' => $validated['secondary_color'],
+                    'to' => $validated['accent_color'],
+                ],
+                'sidebar_style' => $validated['sidebar_style'] ?? $currentTheme['sidebar_style'] ?? 'gradient',
+                'header_style' => $currentTheme['header_style'] ?? 'solid',
+                'body_style' => $currentTheme['body_style'] ?? 'gradient',
+            ]);
+            $tenant->save();
+        }
+
         return redirect()->back()->with('success', 'Company settings updated successfully.');
+    }
+
+    public function destroyEmailAccount(Request $request, EmailAccount $account): RedirectResponse
+    {
+        $tenant = $request->user()->tenant;
+        abort_unless($account->tenant_id === $tenant->id, 403);
+
+        $account->delete();
+
+        return redirect()->back()->with('success', 'Email account disconnected.');
+    }
+
+    public function updateEmailAccount(Request $request, EmailAccount $account): RedirectResponse
+    {
+        $tenant = $request->user()->tenant;
+        abort_unless($account->tenant_id === $tenant->id, 403);
+
+        $request->validate(['is_system_default' => 'boolean']);
+
+        EmailAccount::where('tenant_id', $tenant->id)->update(['is_system_default' => false]);
+        $account->update(['is_system_default' => true]);
+
+        return redirect()->back()->with('success', 'System default email account updated.');
     }
 }

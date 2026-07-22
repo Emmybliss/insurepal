@@ -3,13 +3,21 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Mobile\StoreClaimRequest;
+use App\Http\Requests\Mobile\UpdateClaimRequest;
 use App\Models\Claim;
+use App\Services\Claims\ClaimListingService;
+use App\Services\Claims\RegisterClaimService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ClaimController extends Controller
 {
+    public function __construct(
+        protected ClaimListingService $claimListingService,
+        protected RegisterClaimService $registerClaimService
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -22,36 +30,14 @@ class ClaimController extends Controller
             ], 422);
         }
 
-        $query = Claim::query();
+        $filters = array_filter([
+            'search' => $request->search,
+            'status' => $request->status,
+            'customer_id' => $request->customer_id,
+            'claim_type' => $request->claim_type,
+        ], fn ($value) => $value !== null && $value !== '');
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('claim_reference', 'like', "%{$search}%")
-                    ->orWhere('incident_description', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($cq) use ($search) {
-                        $cq->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('company_name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->has('customer_id') && $request->customer_id) {
-            $query->where('customer_id', $request->customer_id);
-        }
-
-        if ($request->has('claim_type') && $request->claim_type) {
-            $query->where('claim_type', $request->claim_type);
-        }
-
-        $claims = $query->with(['customer:id,first_name,last_name,company_name,type', 'policy:id,policy_number'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 20);
+        $claims = $this->claimListingService->list($user, $filters, $request->per_page ?? 20);
 
         $claims->getCollection()->transform(function ($claim) {
             return [
@@ -89,7 +75,7 @@ class ClaimController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreClaimRequest $request): JsonResponse
     {
         $user = $request->user();
         $tenant = $user->tenant;
@@ -101,24 +87,7 @@ class ClaimController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'policy_id' => ['required', 'exists:tenant_policies,id'],
-            'customer_id' => ['required', 'exists:tenant_customers,id'],
-            'claim_type' => ['required', Rule::in([
-                Claim::TYPE_ACCIDENT,
-                Claim::TYPE_THEFT,
-                Claim::TYPE_DAMAGE,
-                Claim::TYPE_FIRE,
-                Claim::TYPE_FLOOD,
-                Claim::TYPE_LIABILITY,
-                Claim::TYPE_HEALTH,
-                Claim::TYPE_OTHER,
-            ])],
-            'incident_date' => ['required', 'date'],
-            'incident_description' => ['required', 'string', 'max:2000'],
-            'incident_location' => ['nullable', 'string', 'max:500'],
-            'claim_amount' => ['required', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $policy = $tenant->policies()->findOrFail($validated['policy_id']);
 
@@ -129,18 +98,11 @@ class ClaimController extends Controller
             ], 422);
         }
 
-        $claim = Claim::create([
-            'tenant_id' => $tenant->id,
-            'policy_id' => $validated['policy_id'],
-            'customer_id' => $validated['customer_id'],
-            'claim_reference' => Claim::generateClaimReference($tenant->id),
-            'claim_type' => $validated['claim_type'],
-            'incident_date' => $validated['incident_date'],
-            'incident_description' => $validated['incident_description'],
-            'incident_location' => $validated['incident_location'] ?? null,
-            'claim_amount' => $validated['claim_amount'],
+        $claim = $this->registerClaimService->register($validated, $user);
+
+        $claim->update([
             'status' => Claim::STATUS_SUBMITTED,
-            'submitted_by' => $request->user()->id,
+            'submitted_by' => $user->id,
             'submitted_at' => now(),
         ]);
 
@@ -244,7 +206,7 @@ class ClaimController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdateClaimRequest $request, string $id): JsonResponse
     {
         $user = $request->user();
         $tenant = $user->tenant;
@@ -265,14 +227,7 @@ class ClaimController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'incident_date' => ['sometimes', 'date'],
-            'incident_description' => ['sometimes', 'string', 'max:2000'],
-            'incident_location' => ['nullable', 'string', 'max:500'],
-            'claim_amount' => ['sometimes', 'numeric', 'min:0'],
-        ]);
-
-        $claim->update($validated);
+        $this->registerClaimService->updateClaim($claim, $request->validated(), $user);
 
         return response()->json([
             'success' => true,

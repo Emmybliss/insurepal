@@ -71,6 +71,8 @@ class Claim extends Model
     // Claim type constants
     const TYPE_ACCIDENT = 'accident';
 
+    const TYPE_HEALTH = 'health';
+
     const TYPE_THEFT = 'theft';
 
     const TYPE_DAMAGE = 'damage';

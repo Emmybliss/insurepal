@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\Customer;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -11,7 +13,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -73,18 +74,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreUserRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'tenant_id' => 'nullable|exists:tenants,id',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
-            'send_welcome_email' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
             'name' => $validated['name'],
@@ -146,17 +138,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
-            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            'tenant_id' => 'nullable|exists:tenants,id',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         if ($user->hasRole('super_admin') && $validated['tenant_id']) {
             return back()->withErrors([
@@ -278,7 +262,7 @@ class UserController extends Controller
             'action' => 'required|in:activate,deactivate,delete,verify_email',
             'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'exists:users,id',
-        ]);
+        ]); // single field — leave inline
 
         $users = User::whereIn('id', $validated['user_ids'])->get();
         $authUser = Auth::user();

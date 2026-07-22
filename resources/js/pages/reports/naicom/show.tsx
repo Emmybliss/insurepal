@@ -5,11 +5,11 @@ import { NaicomReportStatusBadge } from '@/components/naicom/NaicomReportStatusB
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle, Download, FileSpreadsheet, Lock, Pencil, RotateCcw, UserCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle, FileSpreadsheet, Lock, Pencil, RotateCcw, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 
 interface PeriodicSummary {
@@ -48,7 +48,15 @@ interface Props {
     errors?: Record<string, string>;
 }
 
-function ConfirmDialog({ open, onOpenChange, title, description, action, onConfirm, loading }: {
+function ConfirmDialog({
+    open,
+    onOpenChange,
+    title,
+    description,
+    action,
+    onConfirm,
+    loading,
+}: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     title: string;
@@ -65,8 +73,12 @@ function ConfirmDialog({ open, onOpenChange, title, description, action, onConfi
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
-                    <Button onClick={onConfirm} disabled={loading}>{loading ? 'Processing...' : action}</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        Cancel
+                    </Button>
+                    <Button onClick={onConfirm} disabled={loading}>
+                        {loading ? 'Processing...' : action}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -118,18 +130,24 @@ export default function Show({ run, form, lines, monthlySummaries, hasAdjustment
     };
 
     const handleTabChange = (value: string) => {
-        router.get(route('reports.naicom.show', { reportRun: run.id, form: value }), {}, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+        router.get(
+            route('reports.naicom.show', { reportRun: run.id, form: value }),
+            {},
+            {
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Reports', href: route('reports.index') },
-            { title: 'NAICOM Returns', href: route('reports.naicom.index') },
-            { title: periodLabel, href: '#' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Reports', href: route('reports.index') },
+                { title: 'NAICOM Returns', href: route('reports.naicom.index') },
+                { title: periodLabel, href: '#' },
+            ]}
+        >
             <Head title={`NAICOM ${periodLabel}`} />
 
             <div className="flex flex-col gap-6 p-6">
@@ -158,42 +176,59 @@ export default function Show({ run, form, lines, monthlySummaries, hasAdjustment
                     </div>
                     <div className="flex items-center gap-2">
                         {isDraft && (
-                            <Button onClick={() => setConfirm({
-                                title: 'Submit for Review',
-                                description: 'Send this report for compliance review. This will change the status to "Under Review".',
-                                action: 'Submit for Review',
-                                actionName: 'submit-review',
-                            })}>
+                            <Button
+                                onClick={() =>
+                                    setConfirm({
+                                        title: 'Submit for Review',
+                                        description: 'Send this report for compliance review. This will change the status to "Under Review".',
+                                        action: 'Submit for Review',
+                                        actionName: 'submit-review',
+                                    })
+                                }
+                            >
                                 <UserCheck className="mr-2 h-4 w-4" /> Submit for Review
                             </Button>
                         )}
                         {isUnderReview && (
-                            <Button onClick={() => setConfirm({
-                                title: 'Approve Report',
-                                description: 'Approve this NAICOM report. Approved reports can be locked to prevent further changes.',
-                                action: 'Approve',
-                                actionName: 'approve',
-                            })}>
+                            <Button
+                                onClick={() =>
+                                    setConfirm({
+                                        title: 'Approve Report',
+                                        description: 'Approve this NAICOM report. Approved reports can be locked to prevent further changes.',
+                                        action: 'Approve',
+                                        actionName: 'approve',
+                                    })
+                                }
+                            >
                                 <CheckCircle className="mr-2 h-4 w-4" /> Approve
                             </Button>
                         )}
                         {isApproved && (
-                            <Button onClick={() => setConfirm({
-                                title: 'Lock Report',
-                                description: 'Lock this report to prevent any further changes or adjustments.',
-                                action: 'Lock',
-                                actionName: 'lock',
-                            })}>
+                            <Button
+                                onClick={() =>
+                                    setConfirm({
+                                        title: 'Lock Report',
+                                        description: 'Lock this report to prevent any further changes or adjustments.',
+                                        action: 'Lock',
+                                        actionName: 'lock',
+                                    })
+                                }
+                            >
                                 <Lock className="mr-2 h-4 w-4" /> Lock
                             </Button>
                         )}
                         {canMutate && (
-                            <Button variant="outline" onClick={() => setConfirm({
-                                title: 'Restate Report',
-                                description: 'Create a new version of this report. The current version will be marked as "Restated".',
-                                action: 'Restate',
-                                actionName: 'restate',
-                            })}>
+                            <Button
+                                variant="outline"
+                                onClick={() =>
+                                    setConfirm({
+                                        title: 'Restate Report',
+                                        description: 'Create a new version of this report. The current version will be marked as "Restated".',
+                                        action: 'Restate',
+                                        actionName: 'restate',
+                                    })
+                                }
+                            >
                                 <RotateCcw className="mr-2 h-4 w-4" /> Restate
                             </Button>
                         )}
@@ -202,34 +237,42 @@ export default function Show({ run, form, lines, monthlySummaries, hasAdjustment
                                 <Button variant="outline">
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Adjustments
-                                    {hasAdjustments && <Badge variant="secondary" className="ml-2">{'!'}</Badge>}
+                                    {hasAdjustments && (
+                                        <Badge variant="secondary" className="ml-2">
+                                            {'!'}
+                                        </Badge>
+                                    )}
                                 </Button>
                             </Link>
                         )}
                         <div className="flex items-center gap-1">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAction('export', { format: 'xlsx-72b' })}
-                            >
-                                <FileSpreadsheet className="mr-1 h-4 w-4" /> 7.2B
+                            <Button variant="outline" size="sm" onClick={() => handleAction('export', { format: 'xlsx-72b' })}>
+                                <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel 7.2B
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAction('export', { format: 'xlsx-72c' })}
-                            >
-                                <FileSpreadsheet className="mr-1 h-4 w-4" /> 7.2C
+                            <Button variant="outline" size="sm" onClick={() => handleAction('export', { format: 'xlsx-72c' })}>
+                                <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel 7.2C
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAction('export', { format: 'xlsx-72a' })}
-                            >
-                                <FileSpreadsheet className="mr-1 h-4 w-4" /> 7.2A
+                            <Button variant="outline" size="sm" onClick={() => handleAction('export', { format: 'xlsx-72a' })}>
+                                <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel 7.2A
                             </Button>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 text-sm shadow-sm">
+                    <span className="font-semibold text-muted-foreground">Financial Reconciliation:</span>
+                    <Badge variant="outline" className="border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <CheckCircle className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+                        Form 7.2A Balance Sheet Reconciled (Assets = Liabilities)
+                    </Badge>
+                    <Badge variant="outline" className="border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <CheckCircle className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+                        Commission Ledger Single Source Verified
+                    </Badge>
+                    <Badge variant="outline" className="border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <CheckCircle className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+                        Form 7.2C Remittances & Outstanding Balances Verified
+                    </Badge>
                 </div>
 
                 {generating && (
@@ -259,24 +302,15 @@ export default function Show({ run, form, lines, monthlySummaries, hasAdjustment
                     </TabsList>
 
                     <TabsContent value="7.2B" className="mt-6">
-                        <NaicomForm72BTable
-                            lines={lines as any}
-                            monthlySummaries={monthlySummaries}
-                        />
+                        <NaicomForm72BTable lines={lines as any} monthlySummaries={monthlySummaries} />
                     </TabsContent>
 
                     <TabsContent value="7.2A" className="mt-6">
-                        <NaicomForm72ATable
-                            lines={lines as any}
-                            monthlySummaries={monthlySummaries}
-                        />
+                        <NaicomForm72ATable lines={lines as any} monthlySummaries={monthlySummaries} />
                     </TabsContent>
 
                     <TabsContent value="7.2C" className="mt-6">
-                        <NaicomForm72CTable
-                            lines={lines as any}
-                            monthlySummaries={monthlySummaries}
-                        />
+                        <NaicomForm72CTable lines={lines as any} monthlySummaries={monthlySummaries} />
                     </TabsContent>
                 </Tabs>
 

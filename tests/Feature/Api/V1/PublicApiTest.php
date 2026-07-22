@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\Tenant;
+use App\Models\TenantApiKey;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -10,11 +11,11 @@ class PublicApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $tenant;
+    protected Tenant $tenant;
 
-    protected $apiKey;
+    protected string $apiKey;
 
-    protected $publicKey;
+    protected string $publicKey;
 
     protected function setUp(): void
     {
@@ -24,22 +25,29 @@ class PublicApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->tenant->update([
-            'api_key' => 'sk_test_12345',
-            'public_key' => 'pk_test_12345',
-        ]);
+        $this->apiKey = 'sk_test_'.str_repeat('a', 32);
+        $this->publicKey = 'pk_test_'.str_repeat('b', 32);
 
-        $this->apiKey = 'sk_test_12345';
-        $this->publicKey = 'pk_test_12345';
+        TenantApiKey::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Test API Key',
+            'token' => $this->apiKey,
+            'token_hash' => hash('sha256', $this->apiKey),
+            'public_key' => $this->publicKey,
+            'last_4_chars' => substr($this->apiKey, -4),
+            'scopes' => ['*'],
+            'allowed_domains' => null,
+            'is_active' => true,
+        ]);
     }
 
-    public function test_cannot_access_api_without_key()
+    public function test_cannot_access_api_without_key(): void
     {
         $response = $this->getJson('/api/v1/products');
         $response->assertStatus(401);
     }
 
-    public function test_can_access_products_with_api_key()
+    public function test_can_access_products_with_api_key(): void
     {
         $response = $this->withHeaders([
             'X-API-KEY' => $this->apiKey,
@@ -48,7 +56,7 @@ class PublicApiTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_widget_can_access_products_with_public_key()
+    public function test_widget_can_access_products_with_public_key(): void
     {
         $response = $this->withHeaders([
             'X-Tenant-Key' => $this->publicKey,
@@ -57,7 +65,7 @@ class PublicApiTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_invalid_api_key_rejected()
+    public function test_invalid_api_key_rejected(): void
     {
         $response = $this->withHeaders([
             'X-API-KEY' => 'wrong_key',

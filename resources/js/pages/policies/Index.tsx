@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { Policy, PolicyClass, PolicyType } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, Edit, Eye, MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
+import { Edit, MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -60,12 +60,7 @@ export default function Index({ policies, policyTypes, policyClasses, filters, s
         }
     }, [policyTypeId, policyClasses]);
 
-    const handleSearch = (
-        searchOverride?: string,
-        statusOverride?: string,
-        policyTypeIdOverride?: string,
-        policyClassIdOverride?: string,
-    ) => {
+    const handleSearch = (searchOverride?: string, statusOverride?: string, policyTypeIdOverride?: string, policyClassIdOverride?: string) => {
         router.get(
             route('policies.index'),
             {
@@ -303,14 +298,6 @@ export default function Index({ policies, policyTypes, policyClasses, filters, s
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
-                                                            <Can permission="view_policies">
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={route('policies.show', policy.id)}>
-                                                                        <Eye className="mr-2 h-4 w-4" />
-                                                                        View
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                            </Can>
                                                             <Can permission="edit_policies">
                                                                 <DropdownMenuItem asChild>
                                                                     <Link href={route('policies.edit', policy.id)}>
@@ -319,12 +306,7 @@ export default function Index({ policies, policyTypes, policyClasses, filters, s
                                                                     </Link>
                                                                 </DropdownMenuItem>
                                                             </Can>
-                                                            <DropdownMenuItem asChild>
-                                                                <Link href={route('policies.download', policy.id)} target="_blank">
-                                                                    <Download className="mr-2 h-4 w-4" />
-                                                                    Download PDF
-                                                                </Link>
-                                                            </DropdownMenuItem>
+
                                                             <Can permission="delete_policies">
                                                                 <DropdownMenuItem
                                                                     onClick={() => handleDelete(policy)}
@@ -346,7 +328,7 @@ export default function Index({ policies, policyTypes, policyClasses, filters, s
                                                     No policies found.
                                                     <Can permission="create_policies">
                                                         <Link href={route('policies.create')} className="ml-1 text-blue-600 hover:text-blue-800">
-                                                            Create your first policy
+                                                            Create your first policy product
                                                         </Link>
                                                     </Can>
                                                 </div>

@@ -1,3 +1,4 @@
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,6 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Building2, Calendar, Mail, MapPin, Percent, Phone, User } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 interface User {
     id: number;

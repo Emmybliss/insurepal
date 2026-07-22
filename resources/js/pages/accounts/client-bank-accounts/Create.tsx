@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -51,11 +51,13 @@ export default function Create() {
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Create' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Create' },
+            ]}
+        >
             <Head title="Create Bank Account" />
 
             <div className="flex flex-col gap-6 p-6">
@@ -155,18 +157,11 @@ export default function Create() {
 
                                 <div className="space-y-2">
                                     <Label>Opening Balance Date</Label>
-                                    <DatePickerSimple
-                                        value={form.opening_balance_date}
-                                        onChange={(date) => update('opening_balance_date', date)}
-                                    />
+                                    <DatePickerSimple value={form.opening_balance_date} onChange={(date) => update('opening_balance_date', date)} />
                                 </div>
 
                                 <div className="flex items-center gap-4 pt-6">
-                                    <Switch
-                                        id="is_active"
-                                        checked={form.is_active}
-                                        onCheckedChange={(v) => update('is_active', v)}
-                                    />
+                                    <Switch id="is_active" checked={form.is_active} onCheckedChange={(v) => update('is_active', v)} />
                                     <Label htmlFor="is_active">Active</Label>
                                 </div>
                             </div>
@@ -183,7 +178,9 @@ export default function Create() {
 
                             <div className="flex justify-end gap-4 pt-4">
                                 <Link href={route('client-bank-accounts.index')}>
-                                    <Button type="button" variant="outline">Cancel</Button>
+                                    <Button type="button" variant="outline">
+                                        Cancel
+                                    </Button>
                                 </Link>
                                 <Button type="submit" disabled={processing}>
                                     <Save className="mr-2 h-4 w-4" />

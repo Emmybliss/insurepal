@@ -5,6 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\IssuePolicyRequest;
 use App\Http\Requests\PolicyUpdateRequest;
 use App\Http\Requests\RecordPlacedPolicyRequest;
+use App\Http\Requests\RejectPolicyRequest;
+use App\Http\Requests\Shared\AmendmentIdNotesRequest;
+use App\Http\Requests\Shared\AmendmentIdRequest;
+use App\Http\Requests\Shared\EndorsementRequest;
+use App\Http\Requests\Shared\PolicyIdNotesRequest;
+use App\Http\Requests\Shared\PolicyIdsNotesRequest;
+use App\Http\Requests\Shared\PolicyIdsRequest;
+use App\Http\Requests\StorePolicyRequest;
 use App\Models\CreditNote;
 use App\Models\Customer;
 use App\Models\DebitNote;
@@ -20,7 +28,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -132,6 +141,8 @@ class PolicyManagementController extends Controller
                     $query->active();
                 } elseif ($status === 'expired') {
                     $query->expired();
+                } elseif ($status === 'expiring_soon') {
+                    $query->expiring(60);
                 } else {
                     $query->where('status', $status);
                 }
@@ -146,7 +157,7 @@ class PolicyManagementController extends Controller
         $stats = [
             'total' => (clone $baseQuery)->count(),
             'active' => (clone $baseQuery)->active()->count(),
-            'recorded' => (clone $baseQuery)->where('status', Policy::STATUS_RECORDED)->count(),
+            'expiring_soon' => (clone $baseQuery)->expiring(60)->count(),
             'expired' => (clone $baseQuery)->expired()->count(),
         ];
 
@@ -184,9 +195,12 @@ class PolicyManagementController extends Controller
             ->orderBy('name')
             ->get();
 
+        $policyClasses = \App\Models\PolicyClass::active()->ordered()->get(['id', 'name']);
+
         return Inertia::render('policies/CreateDirect', [
             'customers' => $customers,
             'policyProducts' => $policyProducts,
+            'policyClasses' => $policyClasses,
         ]);
     }
 
@@ -215,9 +229,14 @@ class PolicyManagementController extends Controller
             ->orderBy('name')
             ->get();
 
+        $policyTypes = \App\Models\PolicyType::active()->ordered()->get(['id', 'name']);
+        $policyClasses = \App\Models\PolicyClass::active()->ordered()->get(['id', 'name', 'policy_type_id']);
+
         return Inertia::render('policies/RecordPlacedPolicy', [
             'customers' => $customers,
             'policyProducts' => $policyProducts,
+            'policyTypes' => $policyTypes,
+            'policyClasses' => $policyClasses,
         ]);
     }
 
@@ -228,6 +247,7 @@ class PolicyManagementController extends Controller
     {
         try {
             $policyData = $request->safe()->except(['schedule_file', 'broker_slip_file']);
+            $policyData['coverage_details'] = $policyData['coverage_details'] ?? [];
             $policyData['total_amount'] = ($policyData['premium_amount'] ?? 0) + ($policyData['commission_amount'] ?? 0);
 
             $policy = $this->policyIssuanceService->recordPlacedPolicy(
@@ -242,9 +262,9 @@ class PolicyManagementController extends Controller
         } catch (\Exception $e) {
             Log::error('Error recording placed policy: '.$e->getMessage());
 
-            return back()
-                ->withInput()
-                ->with('error', 'Error recording policy: '.$e->getMessage());
+            throw ValidationException::withMessages([
+                'general' => 'Error recording policy: '.$e->getMessage(),
+            ]);
         }
     }
 
@@ -260,7 +280,7 @@ class PolicyManagementController extends Controller
                 'policy_type_id', 'effective_date', 'expiry_date', 'premium_amount',
                 'commission_amount', 'coverage_details', 'payment_frequency', 'form_data', 'notes',
                 'insurer_id', 'insurer_source', 'insurer_name', 'insurer_address',
-                'insurer_email', 'insurer_phone',
+                'insurer_email', 'insurer_phone', 'risks',
             ]);
 
             $policyData['total_amount'] = $policyData['premium_amount'] + ($policyData['commission_amount'] ?? 0);
@@ -324,10 +344,21 @@ class PolicyManagementController extends Controller
             abort(403, 'Unauthorized access to policy.');
         }
 
-        $policy->load(['customer', 'policyProduct']);
+        $policy->load(['customer', 'policyProduct.policyType', 'policyProduct.policyClass']);
+
+        $policyTypes = \App\Models\PolicyType::active()->ordered()->get(['id', 'name']);
+        $policyClasses = \App\Models\PolicyClass::active()->ordered()->get(['id', 'name', 'policy_type_id']);
+        $policyProducts = PolicyProduct::where('tenant_id', Auth::user()->tenant_id)
+            ->active()
+            ->with(['policyType', 'policyClass'])
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('policies/EditIssued', [
             'policy' => $policy,
+            'policyTypes' => $policyTypes,
+            'policyClasses' => $policyClasses,
+            'policyProducts' => $policyProducts,
         ]);
     }
 
@@ -341,7 +372,34 @@ class PolicyManagementController extends Controller
             abort(403, 'Unauthorized access to policy.');
         }
 
-        $policy->update($request->validated());
+        $data = $request->validated();
+
+        $risks = $data['risks'] ?? null;
+        unset($data['risks']);
+
+        if ($request->hasFile('schedule_file')) {
+            if ($policy->schedule_file_path) {
+                Storage::disk('public')->delete($policy->schedule_file_path);
+            }
+            $data['schedule_file_path'] = $request->file('schedule_file')
+                ->store("tenants/{$policy->tenant_id}/policies/schedules", 'public');
+        }
+
+        if ($request->hasFile('broker_slip_file')) {
+            if ($policy->broker_slip_file_path) {
+                Storage::disk('public')->delete($policy->broker_slip_file_path);
+            }
+            $data['broker_slip_file_path'] = $request->file('broker_slip_file')
+                ->store("tenants/{$policy->tenant_id}/policies/broker-slips", 'public');
+        }
+
+        unset($data['schedule_file'], $data['broker_slip_file']);
+
+        $policy->update($data);
+
+        if (! empty($risks)) {
+            $this->policyIssuanceService->syncRisks($policy, $risks);
+        }
 
         return redirect()->route('policy-management.show', $policy)
             ->with('success', 'Policy updated successfully.');
@@ -350,15 +408,8 @@ class PolicyManagementController extends Controller
     /**
      * Convert quote to policy
      */
-    public function convertQuote(Request $request): JsonResponse
+    public function convertQuote(StorePolicyRequest $request): JsonResponse
     {
-        $request->validate([
-            'quote_id' => 'required|exists:quotes,id',
-            'effective_date' => 'required|date|after_or_equal:today',
-            'expiry_date' => 'required|date|after:effective_date',
-            'payment_frequency' => ['required', Rule::in(['monthly', 'quarterly', 'semi_annual', 'annual'])],
-        ]);
-
         try {
             $quote = Quote::findOrFail($request->quote_id);
 
@@ -387,13 +438,8 @@ class PolicyManagementController extends Controller
     /**
      * Submit policy for approval (Broker level)
      */
-    public function submitForApproval(Request $request): JsonResponse
+    public function submitForApproval(PolicyIdNotesRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_id' => 'required|exists:policies,id',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
         try {
             $policy = Policy::findOrFail($request->policy_id);
 
@@ -454,13 +500,8 @@ class PolicyManagementController extends Controller
     /**
      * Approve policy
      */
-    public function approve(Request $request): JsonResponse
+    public function approve(PolicyIdNotesRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_id' => 'required|exists:policies,id',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
         try {
             $policy = Policy::findOrFail($request->policy_id);
 
@@ -486,13 +527,8 @@ class PolicyManagementController extends Controller
     /**
      * Reject policy
      */
-    public function reject(Request $request): JsonResponse
+    public function reject(RejectPolicyRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_id' => 'required|exists:policies,id',
-            'reason' => 'required|string|max:1000',
-        ]);
-
         try {
             $policy = Policy::findOrFail($request->policy_id);
 
@@ -518,12 +554,8 @@ class PolicyManagementController extends Controller
     /**
      * Issue approved policy
      */
-    public function issue(Request $request): JsonResponse
+    public function issue(PolicyIdNotesRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_id' => 'required|exists:policies,id',
-        ]);
-
         try {
             $policy = Policy::findOrFail($request->policy_id);
 
@@ -551,14 +583,8 @@ class PolicyManagementController extends Controller
     /**
      * Bulk approve policies
      */
-    public function bulkApprove(Request $request): JsonResponse
+    public function bulkApprove(PolicyIdsNotesRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_ids' => 'required|array',
-            'policy_ids.*' => 'exists:policies,id',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
         try {
             $results = [];
             $tenantId = Auth::user()->tenant_id;
@@ -596,13 +622,8 @@ class PolicyManagementController extends Controller
     /**
      * Bulk issue policies
      */
-    public function bulkIssue(Request $request): JsonResponse
+    public function bulkIssue(PolicyIdsRequest $request): JsonResponse
     {
-        $request->validate([
-            'policy_ids' => 'required|array',
-            'policy_ids.*' => 'exists:policies,id',
-        ]);
-
         try {
             $results = $this->policyIssuanceService->bulkIssue($request->policy_ids, Auth::user());
 
@@ -652,26 +673,12 @@ class PolicyManagementController extends Controller
     /**
      * Store a new policy amendment
      */
-    public function storeAmendment(Request $request, Policy $policy): RedirectResponse
+    public function storeAmendment(EndorsementRequest $request, Policy $policy): RedirectResponse
     {
         // Check tenant access
         if ($policy->tenant_id !== Auth::user()->tenant_id) {
             abort(403, 'Unauthorized access to policy.');
         }
-
-        $request->validate([
-            'amendment_type' => 'required|in:coverage_change,premium_adjustment,beneficiary_change,policy_details_update,term_extension,endorsement,correction',
-            'amendment_reason' => 'required|string|max:1000',
-            'effective_date' => 'required|date|after_or_equal:today',
-            'customer_notes' => 'nullable|string|max:500',
-
-            // Dynamic fields based on amendment type
-            'coverage_details' => 'nullable|array',
-            'new_premium_amount' => 'nullable|numeric|min:0',
-            'new_expiry_date' => 'nullable|date|after:'.$policy->expiry_date,
-            'payment_frequency' => 'nullable|in:monthly,quarterly,semi_annual,annual',
-            'notes' => 'nullable|string|max:1000',
-        ]);
 
         try {
             // Store original policy data
@@ -724,12 +731,8 @@ class PolicyManagementController extends Controller
     /**
      * Submit amendment for approval
      */
-    public function submitAmendment(Request $request): JsonResponse
+    public function submitAmendment(AmendmentIdRequest $request): JsonResponse
     {
-        $request->validate([
-            'amendment_id' => 'required|exists:policy_amendments,id',
-        ]);
-
         try {
             $amendment = PolicyAmendment::findOrFail($request->amendment_id);
 
@@ -755,13 +758,8 @@ class PolicyManagementController extends Controller
     /**
      * Approve an amendment
      */
-    public function approveAmendment(Request $request): JsonResponse
+    public function approveAmendment(AmendmentIdNotesRequest $request): JsonResponse
     {
-        $request->validate([
-            'amendment_id' => 'required|exists:policy_amendments,id',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
         try {
             $amendment = PolicyAmendment::findOrFail($request->amendment_id);
 
@@ -787,12 +785,8 @@ class PolicyManagementController extends Controller
     /**
      * Activate an approved amendment
      */
-    public function activateAmendment(Request $request): JsonResponse
+    public function activateAmendment(AmendmentIdRequest $request): JsonResponse
     {
-        $request->validate([
-            'amendment_id' => 'required|exists:policy_amendments,id',
-        ]);
-
         try {
             $amendment = PolicyAmendment::findOrFail($request->amendment_id);
 
@@ -1088,55 +1082,16 @@ class PolicyManagementController extends Controller
         try {
             $policy->load(['customer']);
 
-            $policy->load(['customer']);
-
-            // Fetch default template for receipts
             $registry = config('document-templates.templates', []);
             $receiptTemplates = array_filter($registry, fn ($t) => ($t['type'] ?? '') === 'receipt');
             $defaultTemplateKey = array_key_first($receiptTemplates);
 
             if (! $defaultTemplateKey) {
-                throw new \Exception('No receipt template found.');
+                return response()->json(['error' => 'No receipt template found.'], 422);
             }
 
-            // A receipt MUST belong to an invoice according to DB constraints
-            $invoice = $policy->invoices()->latest()->first();
-
-            if (! $invoice) {
-                // If no invoice, create a quick draft invoice first
-                $lastInvoice = \App\Models\Invoice::withTrashed()->where('tenant_id', $policy->tenant_id)->latest('id')->first();
-                $lastNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, -6)) : 0;
-                $newInvNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-
-                $invoice = \App\Models\Invoice::create([
-                    'invoice_number' => $newInvNumber,
-                    'tenant_id' => $policy->tenant_id,
-                    'customer_id' => $policy->customer_id,
-                    'policy_id' => $policy->id,
-                    'user_id' => Auth::id(),
-                    'total_amount' => $policy->premium_amount,
-                    'subtotal' => $policy->premium_amount,
-                    'status' => 'draft',
-                    'due_date' => now(),
-                    'currency' => 'NGN',
-                ]);
-            }
-
-            $receiptNumber = \App\Models\Receipt::generateReceiptNumber($policy->tenant_id);
-
-            $receipt = \App\Models\Receipt::create([
-                'receipt_number' => $receiptNumber,
-                'tenant_id' => $policy->tenant_id,
-                'customer_id' => $policy->customer_id,
-                'policy_id' => $policy->id,
-                'invoice_id' => $invoice->id,
-                'payment_date' => now(),
-                'payment_method' => 'other',
-                'amount_paid' => $policy->premium_amount,
-                'currency' => 'NGN',
-                'payment_status' => 'pending',
-                'notes' => "Quick receipt generated for policy #{$policy->policy_number}",
-            ]);
+            $receipt = app(\App\Services\Finance\GenerateReceiptService::class)
+                ->quickCreate($policy, Auth::id());
 
             return response()->json([
                 'success' => true,

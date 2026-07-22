@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
 use App\Http\Requests\MessageRequest;
+use App\Http\Requests\Shared\MessageIdsRequest;
 use App\Models\Customer;
 use App\Models\Message;
 use App\Models\MessageRecipient;
@@ -336,12 +337,9 @@ class MessageController extends Controller
         return back()->with('success', $message);
     }
 
-    public function markAsRead(Request $request)
+    public function markAsRead(MessageIdsRequest $request)
     {
-        $messageIds = $request->validate([
-            'message_ids' => 'required|array',
-            'message_ids.*' => 'exists:messages,id',
-        ])['message_ids'];
+        $messageIds = $request->validated()['message_ids'];
 
         MessageRecipient::whereIn('message_id', $messageIds)
             ->where('recipient_id', Auth::id())
@@ -351,12 +349,9 @@ class MessageController extends Controller
         return back()->with('success', 'Messages marked as read.');
     }
 
-    public function markAsUnread(Request $request)
+    public function markAsUnread(MessageIdsRequest $request)
     {
-        $messageIds = $request->validate([
-            'message_ids' => 'required|array',
-            'message_ids.*' => 'exists:messages,id',
-        ])['message_ids'];
+        $messageIds = $request->validated()['message_ids'];
 
         MessageRecipient::whereIn('message_id', $messageIds)
             ->where('recipient_id', Auth::id())
@@ -365,12 +360,9 @@ class MessageController extends Controller
         return back()->with('success', 'Messages marked as unread.');
     }
 
-    public function bulkDelete(Request $request)
+    public function bulkDelete(MessageIdsRequest $request)
     {
-        $messageIds = $request->validate([
-            'message_ids' => 'required|array',
-            'message_ids.*' => 'exists:messages,id',
-        ])['message_ids'];
+        $messageIds = $request->validated()['message_ids'];
 
         $user = Auth::user();
 

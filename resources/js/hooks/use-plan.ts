@@ -41,9 +41,7 @@ export function useCanFeature(feature: string | string[]) {
 
     const features = tenantPlan?.features ?? [];
 
-    const canAccess = Array.isArray(feature)
-        ? feature.every((f) => features.includes(f))
-        : features.includes(feature);
+    const canAccess = Array.isArray(feature) ? feature.every((f) => features.includes(f)) : features.includes(feature);
 
     return {
         canAccess,

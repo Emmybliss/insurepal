@@ -171,6 +171,7 @@
         <div style="display: table; width: 100%;">
             <div style="display: table-cell; width: 100px; vertical-align: middle;">
                 <div class="logo-container">
+                    @inject('brandingService', 'App\Services\Documents\TenantBrandingService')
                     @php
                         $name = $customer->display_name ?? 'C';
                         $initials = collect(explode(' ', $name))->map(fn($n) => $n[0] ?? '')->take(2)->join('');
@@ -186,11 +187,9 @@
                         }
 
                         if ($imagePath) {
-                            $path = storage_path('app/public/' . $imagePath);
-                            if (file_exists($path)) {
+                            $imageSrc = $brandingService->getOptimizedImageLocalPath($imagePath, 'logo');
+                            if ($imageSrc) {
                                 $hasImage = true;
-                                $ext = pathinfo($path, PATHINFO_EXTENSION);
-                                $imageSrc = 'data:image/' . ($ext === 'jpg' ? 'jpeg' : $ext) . ';base64,' . base64_encode(file_get_contents($path));
                             }
                         }
                     @endphp

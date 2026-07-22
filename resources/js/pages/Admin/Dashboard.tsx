@@ -98,7 +98,9 @@ const SuperAdminDashboard = ({ stats, recentTenants }: DashboardProps) => {
             <div className="space-y-6">
                 <div className="flex items-center justify-between space-y-2">
                     <div>
-                        <h1 className="text-3xl font-bold text-foreground">{getTimeBasedGreeting()}, {user?.name} 👋</h1>
+                        <h1 className="text-3xl font-bold text-foreground">
+                            {getTimeBasedGreeting()}, {user?.name} 👋
+                        </h1>
                         <p className="mt-1 text-muted-foreground">Here's what's happening with Insure Pal today.</p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -253,9 +255,7 @@ const SuperAdminDashboard = ({ stats, recentTenants }: DashboardProps) => {
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="h-10 w-10 border shadow-sm">
                                                         <AvatarImage src={`${getImageUrl()}${tenant?.logo}`} />
-                                                        <AvatarFallback className="bg-muted">
-                                                            {getTypeIcon(tenant.type)}
-                                                        </AvatarFallback>
+                                                        <AvatarFallback className="bg-muted">{getTypeIcon(tenant.type)}</AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
                                                         <span className="leading-tight font-semibold">{tenant.name}</span>

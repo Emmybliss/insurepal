@@ -3,38 +3,35 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Services\QuoteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class QuoteController extends Controller
 {
+    public function __construct(
+        protected QuoteService $quoteService
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
-        $query = $request->tenant->quotes();
+        $user = $request->user();
+        $tenant = $user->tenant;
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('quote_number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($cq) use ($search) {
-                        $cq->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('company_name', 'like', "%{$search}%");
-                    });
-            });
+        if (! $tenant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tenant found',
+            ], 422);
         }
 
-        if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
-        }
+        $filters = array_filter([
+            'search' => $request->search,
+            'status' => $request->status,
+            'customer_id' => $request->customer_id,
+        ], fn ($value) => $value !== null && $value !== '');
 
-        if ($request->has('customer_id') && $request->customer_id) {
-            $query->where('customer_id', $request->customer_id);
-        }
-
-        $quotes = $query->with(['customer:id,first_name,last_name,company_name,type', 'policyProduct:id,name'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 20);
+        $quotes = $this->quoteService->getQuotesForTenant($user, $filters, $request->per_page ?? 20);
 
         $quotes->getCollection()->transform(function ($quote) {
             return [
@@ -46,7 +43,7 @@ class QuoteController extends Controller
                     'name' => $quote->customer?->display_name,
                     'type' => $quote->customer?->type,
                 ],
-                'product_name' => $quote->policyProduct?->name,
+                'product_name' => $quote->insuranceProduct?->name,
                 'premium_amount' => $quote->premium_amount,
                 'valid_until' => $quote->valid_until?->toISOString(),
                 'created_at' => $quote->created_at->toISOString(),
@@ -68,12 +65,20 @@ class QuoteController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $quote = $request->tenant->quotes()
+        $user = $request->user();
+        $tenant = $user->tenant;
+
+        if (! $tenant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tenant found',
+            ], 422);
+        }
+
+        $quote = $tenant->quotes()
             ->with([
                 'customer:id,type,first_name,last_name,company_name,email,phone,address,city,state',
-                'policyProduct:id,name,code',
-                'policyType:id,name',
-                'policyClass:id,name',
+                'insuranceProduct:id,name,code',
             ])
             ->findOrFail($id);
 
@@ -94,13 +99,11 @@ class QuoteController extends Controller
                     'city' => $quote->customer?->city,
                     'state' => $quote->customer?->state,
                 ],
-                'product' => $quote->policyProduct ? [
-                    'id' => $quote->policyProduct->id,
-                    'name' => $quote->policyProduct->name,
-                    'code' => $quote->policyProduct->code,
+                'product' => $quote->insuranceProduct ? [
+                    'id' => $quote->insuranceProduct->id,
+                    'name' => $quote->insuranceProduct->name,
+                    'code' => $quote->insuranceProduct->code,
                 ] : null,
-                'type' => $quote->policyType?->name,
-                'class' => $quote->policyClass?->name,
                 'premium_amount' => $quote->premium_amount,
                 'commission_amount' => $quote->commission_amount,
                 'total_amount' => $quote->total_amount,

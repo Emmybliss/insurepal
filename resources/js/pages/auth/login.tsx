@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { useLang } from '@/hooks/useLang';
 import AuthLayout from '@/layouts/auth-layout';
 import { Head, useForm, usePage } from '@inertiajs/react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
-import { Turnstile } from '@marsidev/react-turnstile';
 
 interface LoginProps {
     status?: string;
@@ -93,20 +93,18 @@ export default function Login({ status }: LoginProps) {
                         </div>
                         <InputError message={errors.password} />
                     </div>
-<div className="flex justify-center w-full flex-col items-center gap-2">
+                    <div className="flex w-full flex-col items-center justify-center gap-2">
                         <Turnstile
                             siteKey={turnstile.siteKey}
                             onSuccess={(token) => setData('cf-turnstile-response', token)}
                             onExpire={() => setData('cf-turnstile-response', '')}
                         />
-                        {errors['cf-turnstile-response'] && <InputError message={errors['cf-turnstile-response']} />}
+                        {errors['cf-turnstile-response'] && <InputError className="text-xs" message={errors['cf-turnstile-response']} />}
                     </div>
-                    
 
-                   
                     <Button type="submit" className="w-full" tabIndex={4} disabled={processing}>
                         {processing ? (
-                            <>  
+                            <>
                                 <LoaderCircle className="h-4 w-4 animate-spin" />
                                 Processing
                             </>

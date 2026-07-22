@@ -105,14 +105,14 @@ class CertificateSettingsController extends Controller
 
         $request->validate([
             'logo' => 'required|image|mimes:jpeg,png,jpg,svg|max:2048',
-        ]);
+        ]); // single field — leave inline
 
         $tenantId = Auth::user()->tenant_id;
 
         // Delete old logo if exists
         $oldLogoPath = CertificateSetting::getSetting(CertificateSetting::KEY_COMPANY_LOGO, null, $tenantId);
-        if ($oldLogoPath && Storage::exists($oldLogoPath)) {
-            Storage::delete($oldLogoPath);
+        if ($oldLogoPath && Storage::disk('public')->exists($oldLogoPath)) {
+            Storage::disk('public')->delete($oldLogoPath);
         }
 
         // Store new logo
@@ -139,7 +139,7 @@ class CertificateSettingsController extends Controller
 
         $request->validate([
             'signature' => 'required|image|mimes:jpeg,png,jpg|max:1024',
-        ]);
+        ]); // single field — leave inline
 
         $tenantId = Auth::user()->tenant_id;
 
@@ -147,8 +147,8 @@ class CertificateSettingsController extends Controller
         $signaturePaths = CertificateSetting::getSetting(CertificateSetting::KEY_SIGNATURE_PATHS, [], $tenantId);
         if (! empty($signaturePaths) && isset($signaturePaths['default'])) {
             $oldSignaturePath = $signaturePaths['default'];
-            if (Storage::exists($oldSignaturePath)) {
-                Storage::delete($oldSignaturePath);
+            if (Storage::disk('public')->exists($oldSignaturePath)) {
+                Storage::disk('public')->delete($oldSignaturePath);
             }
         }
 
@@ -179,8 +179,8 @@ class CertificateSettingsController extends Controller
         $logoPath = CertificateSetting::getSetting(CertificateSetting::KEY_COMPANY_LOGO, null, $tenantId);
 
         if ($logoPath) {
-            if (Storage::exists($logoPath)) {
-                Storage::delete($logoPath);
+            if (Storage::disk('public')->exists($logoPath)) {
+                Storage::disk('public')->delete($logoPath);
             }
 
             // Delete the setting
@@ -204,8 +204,8 @@ class CertificateSettingsController extends Controller
 
         if (! empty($signaturePaths) && isset($signaturePaths['default'])) {
             $signaturePath = $signaturePaths['default'];
-            if (Storage::exists($signaturePath)) {
-                Storage::delete($signaturePath);
+            if (Storage::disk('public')->exists($signaturePath)) {
+                Storage::disk('public')->delete($signaturePath);
             }
 
             // Remove the default signature from paths
@@ -244,8 +244,8 @@ class CertificateSettingsController extends Controller
         foreach ($allSettings as $setting) {
             // Delete uploaded files if they exist
             if ($setting->setting_key === CertificateSetting::KEY_COMPANY_LOGO && $setting->setting_value) {
-                if (Storage::exists($setting->setting_value)) {
-                    Storage::delete($setting->setting_value);
+                if (Storage::disk('public')->exists($setting->setting_value)) {
+                    Storage::disk('public')->delete($setting->setting_value);
                 }
             }
 
@@ -253,8 +253,8 @@ class CertificateSettingsController extends Controller
                 $signaturePaths = is_array($setting->setting_value) ? $setting->setting_value : json_decode($setting->setting_value, true);
                 if (is_array($signaturePaths)) {
                     foreach ($signaturePaths as $path) {
-                        if (Storage::exists($path)) {
-                            Storage::delete($path);
+                        if (Storage::disk('public')->exists($path)) {
+                            Storage::disk('public')->delete($path);
                         }
                     }
                 }
@@ -276,7 +276,7 @@ class CertificateSettingsController extends Controller
 
         $request->validate([
             'template_key' => 'required|string',
-        ]);
+        ]); // single field — leave inline
 
         try {
             // Generate test certificate data

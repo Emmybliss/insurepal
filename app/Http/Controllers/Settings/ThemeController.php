@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\ThemeRequest;
 use App\Models\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,19 +50,9 @@ class ThemeController extends Controller
     /**
      * Update theme settings
      */
-    public function update(Request $request): JsonResponse
+    public function update(ThemeRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'primary_color' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'secondary_color' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'accent_color' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'gradient.from' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'gradient.via' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'gradient.to' => 'required|string|regex:/^#[a-fA-F0-9]{6}$/',
-            'sidebar_style' => 'required|in:solid,gradient',
-            'header_style' => 'required|in:solid,gradient',
-            'body_style' => 'required|in:solid,gradient,none',
-        ]);
+        $validated = $request->validated();
 
         $tenant = Auth::user()->tenant;
 
@@ -82,6 +73,7 @@ class ThemeController extends Controller
      */
     public function applyPreset(Request $request)
     {
+        // single field — leave inline
         $request->validate([
             'preset' => 'required|string',
         ]);

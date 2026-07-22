@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Services\Policies\PolicyListingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PolicyController extends Controller
 {
+    public function __construct(
+        protected PolicyListingService $policyListingService
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -20,31 +25,14 @@ class PolicyController extends Controller
             ], 422);
         }
 
-        $query = $tenant->policies();
+        $filters = array_filter([
+            'search' => $request->search,
+            'status' => $request->status,
+            'customer_id' => $request->customer_id,
+            'sort' => '-created_at',
+        ], fn ($value) => $value !== null && $value !== '');
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('policy_number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($cq) use ($search) {
-                        $cq->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('company_name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->has('customer_id') && $request->customer_id) {
-            $query->where('customer_id', $request->customer_id);
-        }
-
-        $policies = $query->with(['customer:id,first_name,last_name,company_name,type,email,phone'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 20);
+        $policies = $this->policyListingService->list($user, $filters, $request->per_page ?? 20);
 
         $policies->getCollection()->transform(function ($policy) {
             $expiryStatus = 'active';
@@ -105,7 +93,6 @@ class PolicyController extends Controller
                 'policyProduct:id,name,code',
                 'policyType:id,name',
                 'policyClass:id,name',
-                'policyType:id,name',
             ])
             ->findOrFail($id);
 
@@ -168,7 +155,6 @@ class PolicyController extends Controller
                 ] : null,
                 'type' => $policy->policyType?->name,
                 'class' => $policy->policyClass?->name,
-                'type' => $policy->policyType?->name,
                 'premium_amount' => $policy->premium_amount,
                 'commission_amount' => $policy->commission_amount,
                 'total_amount' => $policy->total_amount,

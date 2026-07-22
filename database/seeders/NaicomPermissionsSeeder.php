@@ -48,7 +48,7 @@ class NaicomPermissionsSeeder extends Seeder
                 'name' => $name,
                 'tenant_id' => null,
                 'guard_name' => 'web',
-                'display_name' => ucfirst($action) . ' NAICOM Reports',
+                'display_name' => ucfirst($action).' NAICOM Reports',
                 'category' => 'Reports & Analytics',
                 'description' => "Allows user to {$action} NAICOM compliance reports",
                 'is_system_permission' => true,
@@ -92,7 +92,7 @@ class NaicomPermissionsSeeder extends Seeder
 
     private function ensureTenantRole(Tenant $tenant, string $roleName, array $permissionNames): void
     {
-        $role = Role::firstOrCreate(
+        $role = Role::updateOrCreate(
             ['name' => $roleName, 'tenant_id' => $tenant->id],
             [
                 'guard_name' => 'web',
@@ -103,6 +103,6 @@ class NaicomPermissionsSeeder extends Seeder
         );
 
         $permissions = Permission::whereIn('name', $permissionNames)->get();
-        $role->givePermissionTo($permissions);
+        $role->syncPermissions($permissions);
     }
 }

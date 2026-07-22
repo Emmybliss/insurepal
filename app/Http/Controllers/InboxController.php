@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\InboxActionRequest;
 use App\Http\Requests\StoreInboxMessageRequest;
 use App\Http\Requests\UpdateDraftRequest;
 use App\Models\CommunicationParticipant;
@@ -236,13 +237,8 @@ class InboxController extends Controller
             ->with('success', 'Message sent successfully.');
     }
 
-    public function bulkAction(Request $request)
+    public function bulkAction(InboxActionRequest $request)
     {
-        $request->validate([
-            'thread_ids' => 'required|array',
-            'thread_ids.*' => 'exists:communication_threads,id',
-            'action' => 'required|in:read,unread,delete,archive',
-        ]);
 
         $user = Auth::user();
         $threadIds = $request->input('thread_ids');

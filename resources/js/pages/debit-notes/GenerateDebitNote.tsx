@@ -122,18 +122,18 @@ export default function GenerateDebitNote({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <p className="mb-4 text-sm text-muted-foreground">
                             Using the default template. You can change the default in{' '}
                             <a href={route('templates.index')} className="text-primary underline">
                                 Document Templates
                             </a>
                             .
                         </p>
-                        <div className="flex justify-center rounded-lg border bg-gray-50 p-6 overflow-auto">
-                            <div className="shadow-2xl bg-white w-full max-w-[210mm]">
+                        <div className="flex justify-center overflow-auto rounded-lg border bg-gray-50 p-6">
+                            <div className="w-full max-w-[210mm] bg-white shadow-2xl">
                                 <iframe
                                     src={route('debit-notes.html-preview', { debitNote: debitNote.id, template_key: defaultTemplateKey })}
-                                    className="w-full h-[500px] border-0"
+                                    className="h-[500px] w-full border-0"
                                     title="Debit Note Preview"
                                 />
                             </div>
@@ -144,11 +144,7 @@ export default function GenerateDebitNote({
                 <div className="flex justify-end">
                     <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
                         {isGenerating && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-                        {isGenerating
-                            ? 'Generating...'
-                            : regenerate_debit_note_id
-                                ? 'Regenerate Debit Note'
-                                : 'Generate Debit Note'}
+                        {isGenerating ? 'Generating...' : regenerate_debit_note_id ? 'Regenerate Debit Note' : 'Generate Debit Note'}
                     </Button>
                 </div>
 

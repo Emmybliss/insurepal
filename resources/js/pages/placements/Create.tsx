@@ -1,3 +1,5 @@
+import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
@@ -5,8 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import AppLayout from '@/layouts/app-layout';
 import { Customer, PolicyProduct } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -57,14 +57,14 @@ export default function Create({ customers, policyProducts }: Props) {
     });
 
     const addMarket = () => {
-        setData('markets', [
-            ...data.markets,
-            { insurance_company_id: '', participation_percentage: '', status: 'pending', response_notes: '' },
-        ]);
+        setData('markets', [...data.markets, { insurance_company_id: '', participation_percentage: '', status: 'pending', response_notes: '' }]);
     };
 
     const removeMarket = (index: number) => {
-        setData('markets', data.markets.filter((_, i) => i !== index));
+        setData(
+            'markets',
+            data.markets.filter((_, i) => i !== index),
+        );
         setCompanyNames((prev) => {
             const next: Record<number, string> = {};
             Object.entries(prev).forEach(([key, value]) => {
@@ -146,8 +146,14 @@ export default function Create({ customers, policyProducts }: Props) {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setCustomerModalOpen(true)} className="shrink-0 self-start mt-0">
-                                            <Plus className="h-4 w-4 mr-1" />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCustomerModalOpen(true)}
+                                            className="mt-0 shrink-0 self-start"
+                                        >
+                                            <Plus className="mr-1 h-4 w-4" />
                                             Add New
                                         </Button>
                                     </div>
@@ -164,8 +170,8 @@ export default function Create({ customers, policyProducts }: Props) {
                                     <div className="flex gap-2">
                                         <div className="flex-1">
                                             <Select
-                                                value={data.insured_id?.toString() || "none"}
-                                                onValueChange={(value) => setData('insured_id', value === "none" ? "" : value)}
+                                                value={data.insured_id?.toString() || 'none'}
+                                                onValueChange={(value) => setData('insured_id', value === 'none' ? '' : value)}
                                             >
                                                 <SelectTrigger className={errors.insured_id ? 'border-red-500' : ''}>
                                                     <SelectValue placeholder="Same as customer" />
@@ -180,8 +186,14 @@ export default function Create({ customers, policyProducts }: Props) {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setInsuredModalOpen(true)} className="shrink-0 self-start mt-0">
-                                            <Plus className="h-4 w-4 mr-1" />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setInsuredModalOpen(true)}
+                                            className="mt-0 shrink-0 self-start"
+                                        >
+                                            <Plus className="mr-1 h-4 w-4" />
                                             Add New
                                         </Button>
                                     </div>
@@ -308,7 +320,11 @@ export default function Create({ customers, policyProducts }: Props) {
                                                         value={companyNames[index] || ''}
                                                         scope="tenant"
                                                         onSelect={(company) => {
-                                                            updateMarket(index, 'insurance_company_id', (company.company_id || company.id).toString());
+                                                            updateMarket(
+                                                                index,
+                                                                'insurance_company_id',
+                                                                (company.company_id || company.id).toString(),
+                                                            );
                                                             setCompanyNames((prev) => ({ ...prev, [index]: company.name }));
                                                         }}
                                                         placeholder="Search insurer..."
@@ -326,10 +342,7 @@ export default function Create({ customers, policyProducts }: Props) {
                                                 </div>
                                                 <div>
                                                     <Label>Status</Label>
-                                                    <Select
-                                                        value={market.status}
-                                                        onValueChange={(value) => updateMarket(index, 'status', value)}
-                                                    >
+                                                    <Select value={market.status} onValueChange={(value) => updateMarket(index, 'status', value)}>
                                                         <SelectTrigger>
                                                             <SelectValue />
                                                         </SelectTrigger>

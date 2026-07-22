@@ -1,13 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface Form72ARow {
@@ -86,12 +79,10 @@ export function NaicomForm72ATable({ lines, monthlySummaries }: Props) {
                     {months.map((m) => {
                         const balanced = isBalanced(m);
                         return (
-                            <div key={m.month} className={`rounded-lg border p-3 ${balanced ? 'bg-card' : 'bg-amber-50 border-amber-200'}`}>
+                            <div key={m.month} className={`rounded-lg border p-3 ${balanced ? 'bg-card' : 'border-amber-200 bg-amber-50'}`}>
                                 <p className="text-sm font-medium text-muted-foreground">{m.month_name}</p>
                                 <p className="text-2xl font-bold">{formatCurrency(m.total_assets)}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {balanced ? 'Balanced' : 'Imbalanced'}
-                                </p>
+                                <p className="text-xs text-muted-foreground">{balanced ? 'Balanced' : 'Imbalanced'}</p>
                             </div>
                         );
                     })}
@@ -105,7 +96,7 @@ export function NaicomForm72ATable({ lines, monthlySummaries }: Props) {
                             <TableRow>
                                 <TableHead className="w-64">Item</TableHead>
                                 {months.map((m) => (
-                                    <TableHead key={m.month} className="text-right min-w-[140px]">
+                                    <TableHead key={m.month} className="min-w-[140px] text-right">
                                         {m.month_name}
                                     </TableHead>
                                 ))}
@@ -113,7 +104,7 @@ export function NaicomForm72ATable({ lines, monthlySummaries }: Props) {
                         </TableHeader>
                         <TableBody>
                             <TableRow className="bg-muted/30">
-                                <TableCell colSpan={months.length + 1} className="py-2 font-bold text-sm">
+                                <TableCell colSpan={months.length + 1} className="py-2 text-sm font-bold">
                                     ASSETS
                                 </TableCell>
                             </TableRow>
@@ -141,7 +132,7 @@ export function NaicomForm72ATable({ lines, monthlySummaries }: Props) {
                             </TableRow>
 
                             <TableRow className="bg-muted/30">
-                                <TableCell colSpan={months.length + 1} className="py-2 font-bold text-sm">
+                                <TableCell colSpan={months.length + 1} className="py-2 text-sm font-bold">
                                     LIABILITIES
                                 </TableCell>
                             </TableRow>
@@ -176,7 +167,7 @@ export function NaicomForm72ATable({ lines, monthlySummaries }: Props) {
                     </Badge>
                 )}
                 {months.every((m) => isBalanced(m)) && (
-                    <Badge variant="outline" className="gap-1 text-green-600 border-green-300">
+                    <Badge variant="outline" className="gap-1 border-green-300 text-green-600">
                         <CheckCircle className="h-3 w-3" />
                         All months balanced (assets = liabilities)
                     </Badge>

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AssignRolesRequest;
+use App\Http\Requests\Admin\UpdateUserRolesRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -116,15 +118,11 @@ class UserRoleController extends Controller
     /**
      * Store a newly created user role assignment.
      */
-    public function store(Request $request)
+    public function store(AssignRolesRequest $request)
     {
         $authUser = Auth::user();
 
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'roles' => 'required|array|min:1',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         $user = User::findOrFail($validated['user_id']);
 
@@ -205,7 +203,7 @@ class UserRoleController extends Controller
     /**
      * Update user roles.
      */
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRolesRequest $request, User $user)
     {
         $authUser = Auth::user();
 
@@ -216,10 +214,7 @@ class UserRoleController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         $roles = Role::whereIn('id', $validated['roles'] ?? [])->get();
 
@@ -263,7 +258,7 @@ class UserRoleController extends Controller
         $request->validate([
             'roles' => 'required|array|min:1',
             'roles.*' => 'exists:roles,id',
-        ]);
+        ]); // single field — leave inline
 
         $roles = Role::whereIn('id', $request->roles)->get();
 
@@ -307,7 +302,7 @@ class UserRoleController extends Controller
         $request->validate([
             'permissions' => 'required|array|min:1',
             'permissions.*' => 'exists:permissions,id',
-        ]);
+        ]); // single field — leave inline
 
         // Prevent assigning permissions to super admin user (except by super admin)
         if ($user->hasRole('super_admin') && ! $authUser->hasRole('super_admin')) {
@@ -339,7 +334,7 @@ class UserRoleController extends Controller
 
         $request->validate([
             'role_id' => 'required|exists:roles,id',
-        ]);
+        ]); // single field — leave inline
 
         $role = Role::findOrFail($request->role_id);
 
@@ -372,7 +367,7 @@ class UserRoleController extends Controller
 
         $request->validate([
             'permission_id' => 'required|exists:permissions,id',
-        ]);
+        ]); // single field — leave inline
 
         $permission = Permission::findOrFail($request->permission_id);
 
@@ -441,7 +436,7 @@ class UserRoleController extends Controller
             'user_ids.*' => 'exists:users,id',
             'role_ids' => 'required|array|min:1',
             'role_ids.*' => 'exists:roles,id',
-        ]);
+        ]); // single field — leave inline
 
         $users = User::whereIn('id', $request->user_ids)->get();
         $roles = Role::whereIn('id', $request->role_ids)->get();

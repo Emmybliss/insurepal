@@ -15,7 +15,7 @@ test('reset password link can be requested', function () {
 
     $user = User::factory()->create();
 
-    $this->post(route('password.email'), ['email' => $user->email]);
+    $this->post(route('password.email'), ['email' => $user->email, 'cf-turnstile-response' => 'test']);
 
     Notification::assertSentTo($user, ResetPassword::class);
 });
@@ -25,7 +25,7 @@ test('reset password screen can be rendered', function () {
 
     $user = User::factory()->create();
 
-    $this->post(route('password.email'), ['email' => $user->email]);
+    $this->post(route('password.email'), ['email' => $user->email, 'cf-turnstile-response' => 'test']);
 
     Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
         $response = $this->get(route('password.reset', $notification->token));
@@ -41,7 +41,7 @@ test('password can be reset with valid token', function () {
 
     $user = User::factory()->create();
 
-    $this->post(route('password.email'), ['email' => $user->email]);
+    $this->post(route('password.email'), ['email' => $user->email, 'cf-turnstile-response' => 'test']);
 
     Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
         $response = $this->post(route('password.store'), [
@@ -49,6 +49,7 @@ test('password can be reset with valid token', function () {
             'email' => $user->email,
             'password' => 'password',
             'password_confirmation' => 'password',
+            'cf-turnstile-response' => 'test',
         ]);
 
         $response
@@ -67,6 +68,7 @@ test('password cannot be reset with invalid token', function () {
         'email' => $user->email,
         'password' => 'newpassword123',
         'password_confirmation' => 'newpassword123',
+        'cf-turnstile-response' => 'test',
     ]);
 
     $response->assertSessionHasErrors('email');

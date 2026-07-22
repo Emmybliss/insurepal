@@ -36,6 +36,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['has.tenant'])->group(function () {
         Route::get('settings/company', [\App\Http\Controllers\Settings\CompanySettingsController::class, 'edit'])->name('settings.company');
         Route::patch('settings/company', [\App\Http\Controllers\Settings\CompanySettingsController::class, 'update'])->name('settings.company.update');
+        Route::delete('settings/company/email-accounts/{account}', [\App\Http\Controllers\Settings\CompanySettingsController::class, 'destroyEmailAccount'])
+            ->name('settings.company.email-accounts.destroy');
+        Route::patch('settings/company/email-accounts/{account}', [\App\Http\Controllers\Settings\CompanySettingsController::class, 'updateEmailAccount'])
+            ->name('settings.company.email-accounts.update');
 
         // Billing & Subscription Management
         Route::get('settings/billing', [BillingController::class, 'index'])->name('settings.billing');
@@ -52,23 +56,25 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/api/generate', [\App\Http\Controllers\Settings\ApiKeyController::class, 'generate'])->name('settings.api.generate');
         Route::patch('settings/api/paystack', [\App\Http\Controllers\Settings\ApiKeyController::class, 'updatePaystack'])->name('settings.api.paystack');
 
-        // Certificate Settings
-        Route::get('settings/certificates', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'index'])
-            ->name('settings.certificates');
-        Route::patch('settings/certificates', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'update'])
-            ->name('settings.certificates.update');
-        Route::post('settings/certificates/upload-logo', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'uploadLogo'])
-            ->name('settings.certificates.upload-logo');
-        Route::post('settings/certificates/upload-signature', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'uploadSignature'])
-            ->name('settings.certificates.upload-signature');
-        Route::delete('settings/certificates/delete-logo', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'deleteLogo'])
-            ->name('settings.certificates.delete-logo');
-        Route::delete('settings/certificates/delete-signature', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'deleteSignature'])
-            ->name('settings.certificates.delete-signature');
-        Route::post('settings/certificates/reset-defaults', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'resetToDefaults'])
-            ->name('settings.certificates.reset-defaults');
-        Route::post('settings/certificates/test-generation', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'testGeneration'])
-            ->name('settings.certificates.test-generation');
+        // Certificate Settings (Underwriter only)
+        Route::middleware('tenant.type:underwriter')->group(function () {
+            Route::get('settings/certificates', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'index'])
+                ->name('settings.certificates');
+            Route::patch('settings/certificates', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'update'])
+                ->name('settings.certificates.update');
+            Route::post('settings/certificates/upload-logo', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'uploadLogo'])
+                ->name('settings.certificates.upload-logo');
+            Route::post('settings/certificates/upload-signature', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'uploadSignature'])
+                ->name('settings.certificates.upload-signature');
+            Route::delete('settings/certificates/delete-logo', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'deleteLogo'])
+                ->name('settings.certificates.delete-logo');
+            Route::delete('settings/certificates/delete-signature', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'deleteSignature'])
+                ->name('settings.certificates.delete-signature');
+            Route::post('settings/certificates/reset-defaults', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'resetToDefaults'])
+                ->name('settings.certificates.reset-defaults');
+            Route::post('settings/certificates/test-generation', [\App\Http\Controllers\Settings\CertificateSettingsController::class, 'testGeneration'])
+                ->name('settings.certificates.test-generation');
+        });
 
         // Theme Settings
         Route::get('settings/theme', [ThemeController::class, 'index'])->name('settings.theme');

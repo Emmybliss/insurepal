@@ -63,13 +63,11 @@ class Tenant extends Model
         'slogan',
         'known_company_id',
         'known_company_source',
-        'smtp_settings',
     ];
 
     protected $casts = [
         'settings' => 'array',
         'theme_settings' => 'array',
-        'smtp_settings' => 'array',
         'onboarding_steps' => 'array',
         'trial_ends_at' => 'datetime',
         'onboarding_completed_at' => 'datetime',
@@ -107,6 +105,11 @@ class Tenant extends Model
         return $this->hasMany(Policy::class);
     }
 
+    public function claims(): HasMany
+    {
+        return $this->hasMany(Claim::class);
+    }
+
     public function kyc(): HasOne
     {
         return $this->hasOne(TenantKyc::class);
@@ -120,6 +123,11 @@ class Tenant extends Model
     public function apiKeys(): HasMany
     {
         return $this->hasMany(TenantApiKey::class);
+    }
+
+    public function emailAccounts(): HasMany
+    {
+        return $this->hasMany(EmailAccount::class);
     }
 
     public function subscription(): HasOne
@@ -234,7 +242,7 @@ class Tenant extends Model
                 'via' => '#8b5cf6',
                 'to' => '#ec4899',
             ],
-            'sidebar_style' => 'gradient', // 'solid' or 'gradient'
+            'sidebar_style' => 'gradient', // 'solid', 'gradient', or 'transparent'
             'header_style' => 'solid', // 'solid' or 'gradient'
             'body_style' => 'gradient', // 'solid', 'gradient', or 'none'
         ];

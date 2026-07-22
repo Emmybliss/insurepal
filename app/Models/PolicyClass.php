@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RiskMode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,11 +17,10 @@ class PolicyClass extends Model
         'name',
         'code',
         'description',
+        'risk_mode',
         'is_active',
-        'form_fields',
         'premium_multiplier',
         'commission_multiplier',
-        'risk_factors',
         'min_coverage_period',
         'max_coverage_period',
         'min_sum_assured',
@@ -30,8 +30,7 @@ class PolicyClass extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
-        'form_fields' => 'array',
-        'risk_factors' => 'array',
+        'risk_mode' => RiskMode::class,
         'premium_multiplier' => 'decimal:4',
         'commission_multiplier' => 'decimal:4',
         'min_sum_assured' => 'decimal:2',

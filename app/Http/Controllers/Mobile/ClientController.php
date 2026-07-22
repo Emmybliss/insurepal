@@ -3,49 +3,42 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Mobile\ClientStoreRequest;
+use App\Http\Requests\Mobile\ClientUpdateRequest;
+use App\Services\Customers\CustomerListingService;
+use App\Services\CustomerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ClientController extends Controller
 {
+    public function __construct(
+        private CustomerService $customerService,
+        private CustomerListingService $customerListingService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $tenant = $user->tenant;
 
         if (! $tenant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tenant found',
-            ], 422);
+            return $this->error('No tenant found');
         }
 
-        $query = $tenant->customers();
-
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('company_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->has('type') && $request->type) {
-            $query->where('type', $request->type);
-        }
+        $filters = $request->only(['search', 'type']);
 
         if ($request->has('status') && $request->status) {
-            $query->where('is_active', $request->status === 'active');
+            $filters['is_active'] = $request->status === 'active';
         }
 
-        $clients = $query->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 20);
+        $customers = $this->customerListingService->list(
+            $user,
+            $filters,
+            $request->per_page ?? 20
+        );
 
-        $clients->getCollection()->transform(fn ($client) => [
+        $customers->getCollection()->transform(fn ($client) => [
             'id' => $client->id,
             'type' => $client->type,
             'name' => $client->display_name,
@@ -61,46 +54,27 @@ class ClientController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Clients fetched successfully',
-            'data' => $clients->items(),
+            'data' => $customers->items(),
             'meta' => [
-                'current_page' => $clients->currentPage(),
-                'per_page' => $clients->perPage(),
-                'total' => $clients->total(),
-                'last_page' => $clients->lastPage(),
+                'current_page' => $customers->currentPage(),
+                'per_page' => $customers->perPage(),
+                'total' => $customers->total(),
+                'last_page' => $customers->lastPage(),
             ],
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(ClientStoreRequest $request): JsonResponse
     {
         $user = $request->user();
         $tenant = $user->tenant;
 
         if (! $tenant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tenant found',
-            ], 422);
+            return $this->error('No tenant found');
         }
 
-        $validated = $request->validate([
-            'type' => ['required', Rule::in(['individual', 'corporate'])],
-            'first_name' => ['required_if:type,individual', 'nullable', 'string', 'max:255'],
-            'last_name' => ['required_if:type,individual', 'nullable', 'string', 'max:255'],
-            'company_name' => ['required_if:type,corporate', 'nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'country' => ['nullable', 'string', 'max:100'],
-            'date_of_birth' => ['nullable', 'date'],
-            'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
-            'occupation' => ['nullable', 'string', 'max:255'],
-        ]);
-
         $existingCustomer = $tenant->customers()
-            ->where('email', $validated['email'])
+            ->where('email', $request->email)
             ->first();
 
         if ($existingCustomer) {
@@ -118,9 +92,9 @@ class ClientController extends Controller
         }
 
         $customer = $tenant->customers()->create([
-            ...$validated,
+            ...$request->validated(),
             'is_active' => true,
-            'user_id' => $request->user()->id,
+            'user_id' => $user->id,
         ]);
 
         return response()->json([
@@ -143,14 +117,10 @@ class ClientController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $request->user()->tenant;
 
         if (! $tenant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tenant found',
-            ], 422);
+            return $this->error('No tenant found');
         }
 
         $customer = $tenant->customers()->findOrFail($id);
@@ -209,38 +179,16 @@ class ClientController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $id): JsonResponse
+    public function update(ClientUpdateRequest $request, string $id): JsonResponse
     {
-        $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $request->user()->tenant;
 
         if (! $tenant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tenant found',
-            ], 422);
+            return $this->error('No tenant found');
         }
 
         $customer = $tenant->customers()->findOrFail($id);
-
-        $validated = $request->validate([
-            'type' => ['sometimes', Rule::in(['individual', 'corporate'])],
-            'first_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['nullable', 'string', 'max:255'],
-            'company_name' => ['nullable', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'country' => ['nullable', 'string', 'max:100'],
-            'date_of_birth' => ['nullable', 'date'],
-            'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
-            'occupation' => ['nullable', 'string', 'max:255'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        $customer->update($validated);
+        $customer->update($request->validated());
 
         return response()->json([
             'success' => true,
@@ -258,14 +206,10 @@ class ClientController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $user = $request->user();
-        $tenant = $user->tenant;
+        $tenant = $request->user()->tenant;
 
         if (! $tenant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tenant found',
-            ], 422);
+            return $this->error('No tenant found');
         }
 
         $customer = $tenant->customers()->findOrFail($id);
@@ -277,11 +221,16 @@ class ClientController extends Controller
             ], 422);
         }
 
-        $customer->delete();
+        $this->customerService->deleteCustomer($customer);
 
         return response()->json([
             'success' => true,
             'message' => 'Client deleted successfully',
         ]);
+    }
+
+    private function error(string $message): JsonResponse
+    {
+        return response()->json(['success' => false, 'message' => $message], 422);
     }
 }

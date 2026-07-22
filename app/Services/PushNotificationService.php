@@ -11,15 +11,22 @@ use Minishlink\WebPush\WebPush;
 
 class PushNotificationService
 {
-    private WebPush $webPush;
+    private ?WebPush $webPush = null;
 
     public function __construct()
     {
+        $publicKey = config('services.vapid.public_key');
+        $privateKey = config('services.vapid.private_key');
+
+        if (! $publicKey || ! $privateKey) {
+            return;
+        }
+
         $auth = [
             'VAPID' => [
                 'subject' => config('services.vapid.subject', 'mailto:hello@insurepal.com'),
-                'publicKey' => config('services.vapid.public_key'),
-                'privateKey' => config('services.vapid.private_key'),
+                'publicKey' => $publicKey,
+                'privateKey' => $privateKey,
             ],
         ];
 
@@ -37,6 +44,10 @@ class PushNotificationService
      */
     public function sendToUser(User $user, array $payload): void
     {
+        if (! $this->webPush) {
+            return;
+        }
+
         $subscriptions = PushSubscription::where('user_id', $user->id)->get();
         $this->sendToSubscriptions($subscriptions, $payload);
     }
@@ -46,6 +57,10 @@ class PushNotificationService
      */
     public function sendToTenant(int $tenantId, array $payload): void
     {
+        if (! $this->webPush) {
+            return;
+        }
+
         $subscriptions = PushSubscription::where('tenant_id', $tenantId)->get();
         $this->sendToSubscriptions($subscriptions, $payload);
     }

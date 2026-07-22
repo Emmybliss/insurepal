@@ -101,7 +101,10 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 const getPolicyStatus = (policy: Policy) => {
-    if (policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+    const dateStatuses = ['active', 'expired', 'recorded'];
+    if (!dateStatuses.includes(policy.status)) return policy.status;
+
+    if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -114,7 +117,6 @@ const getPolicyStatus = (policy: Policy) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 60) return 'expiring_soon';
-    if (diffDays <= 90) return 'active';
 
     return 'active';
 };

@@ -1,15 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
@@ -92,11 +84,13 @@ export default function Show({ reconciliation }: Props) {
     const canReconcile = reconciliation.status === 'draft' || reconciliation.status === 'difference_identified';
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Bank Reconciliations', href: route('bank-reconciliations.index') },
-            { title: `#${reconciliation.id}` },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Bank Reconciliations', href: route('bank-reconciliations.index') },
+                { title: `#${reconciliation.id}` },
+            ]}
+        >
             <Head title={`Reconciliation #${reconciliation.id}`} />
 
             <div className="flex flex-col gap-6 p-6">
@@ -139,7 +133,7 @@ export default function Show({ reconciliation }: Props) {
 
                                     {reconciliation.status === 'difference_identified' && (
                                         <div className="space-y-4">
-                                            <div className="rounded-md border bg-muted/50 p-4 space-y-2 text-sm">
+                                            <div className="space-y-2 rounded-md border bg-muted/50 p-4 text-sm">
                                                 <div className="flex justify-between">
                                                     <span className="text-muted-foreground">Current Closing Balance</span>
                                                     <span className="font-mono font-medium">{formatCurrency(reconciliation.closing_balance)}</span>
@@ -150,7 +144,9 @@ export default function Show({ reconciliation }: Props) {
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-muted-foreground">Difference</span>
-                                                    <span className="font-mono font-medium text-destructive">{formatCurrency(reconciliation.difference)}</span>
+                                                    <span className="font-mono font-medium text-destructive">
+                                                        {formatCurrency(reconciliation.difference)}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
@@ -196,9 +192,15 @@ export default function Show({ reconciliation }: Props) {
                                     : reconciliation.status.charAt(0).toUpperCase() + reconciliation.status.slice(1)}
                             </Badge>
                             <div className="space-y-1 text-sm">
-                                <p><span className="text-muted-foreground">Date:</span> {reconciliation.reconciliation_date}</p>
-                                <p><span className="text-muted-foreground">Reconciled By:</span> {reconciliation.reconciled_by ?? '—'}</p>
-                                <p><span className="text-muted-foreground">Reconciled At:</span> {reconciliation.reconciled_at ?? '—'}</p>
+                                <p>
+                                    <span className="text-muted-foreground">Date:</span> {reconciliation.reconciliation_date}
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Reconciled By:</span> {reconciliation.reconciled_by ?? '—'}
+                                </p>
+                                <p>
+                                    <span className="text-muted-foreground">Reconciled At:</span> {reconciliation.reconciled_at ?? '—'}
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
@@ -210,9 +212,16 @@ export default function Show({ reconciliation }: Props) {
                         <CardContent>
                             {reconciliation.client_bank_account ? (
                                 <div className="space-y-1 text-sm">
-                                    <p><span className="text-muted-foreground">Bank:</span> {reconciliation.client_bank_account.bank_name}</p>
-                                    <p><span className="text-muted-foreground">Account:</span> {reconciliation.client_bank_account.account_name}</p>
-                                    <p><span className="text-muted-foreground">Number:</span> <span className="font-mono">{reconciliation.client_bank_account.account_number}</span></p>
+                                    <p>
+                                        <span className="text-muted-foreground">Bank:</span> {reconciliation.client_bank_account.bank_name}
+                                    </p>
+                                    <p>
+                                        <span className="text-muted-foreground">Account:</span> {reconciliation.client_bank_account.account_name}
+                                    </p>
+                                    <p>
+                                        <span className="text-muted-foreground">Number:</span>{' '}
+                                        <span className="font-mono">{reconciliation.client_bank_account.account_number}</span>
+                                    </p>
                                 </div>
                             ) : (
                                 <p className="text-sm text-muted-foreground">No bank account linked</p>
@@ -233,9 +242,11 @@ export default function Show({ reconciliation }: Props) {
                                 <span className="text-muted-foreground">Calculated Balance</span>
                                 <span className="font-mono font-medium">{formatCurrency(reconciliation.calculated_balance)}</span>
                             </div>
-                            <div className="flex justify-between text-sm border-t pt-3">
+                            <div className="flex justify-between border-t pt-3 text-sm">
                                 <span className="text-muted-foreground">Difference</span>
-                                <span className={`font-mono font-medium ${reconciliation.difference !== null && reconciliation.difference !== 0 ? 'text-destructive' : ''}`}>
+                                <span
+                                    className={`font-mono font-medium ${reconciliation.difference !== null && reconciliation.difference !== 0 ? 'text-destructive' : ''}`}
+                                >
                                     {formatCurrency(reconciliation.difference)}
                                 </span>
                             </div>
@@ -263,9 +274,7 @@ export default function Show({ reconciliation }: Props) {
                                         <tr key={line.id} className="border-b last:border-0">
                                             <td className="px-4 py-3 capitalize">{line.source_type.replace('_', ' ')}</td>
                                             <td className="px-4 py-3 capitalize">
-                                                <span className={line.type === 'debit' ? 'text-destructive' : 'text-emerald-600'}>
-                                                    {line.type}
-                                                </span>
+                                                <span className={line.type === 'debit' ? 'text-destructive' : 'text-emerald-600'}>{line.type}</span>
                                             </td>
                                             <td className="px-4 py-3 text-right font-mono">{formatCurrency(line.amount)}</td>
                                             <td className="px-4 py-3 text-center">
@@ -296,7 +305,7 @@ export default function Show({ reconciliation }: Props) {
                             <CardTitle>Notes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{reconciliation.notes}</p>
+                            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{reconciliation.notes}</p>
                         </CardContent>
                     </Card>
                 )}

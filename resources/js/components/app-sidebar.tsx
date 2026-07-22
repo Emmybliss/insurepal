@@ -1,7 +1,6 @@
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { getFooterNavItems, getSettingsNavItems, getSidebarConfig } from '@/config/sidebar';
 import {
     Sidebar,
     SidebarContent,
@@ -12,6 +11,7 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { getFooterNavItems, getSettingsNavItems, getSidebarConfig } from '@/config/sidebar';
 import { useAuth } from '@/hooks/use-permissions';
 import { usePlan } from '@/hooks/use-plan';
 import { useLang } from '@/hooks/useLang';
@@ -20,6 +20,7 @@ import { Link } from '@inertiajs/react';
 import {
     AlertCircle,
     Bell,
+    Bot,
     Building,
     Building2,
     Calendar,
@@ -28,14 +29,14 @@ import {
     FileText,
     Key,
     LayoutGrid,
+    Mail,
     MessageCircle,
     PlusCircle,
     Settings,
     Shield,
     ShieldCheck,
-    Ticket,
-    TrendingUp,
     Trash2,
+    TrendingUp,
     UserCog,
     Users,
 } from 'lucide-react';
@@ -59,6 +60,11 @@ export function AppSidebar() {
                 title: t('Dashboard'),
                 href: route('dashboard'),
                 icon: LayoutGrid,
+            },
+            {
+                title: t('Email'),
+                href: '/email/inbox',
+                icon: Mail,
             },
             {
                 title: t('Analytics'),
@@ -161,6 +167,11 @@ export function AppSidebar() {
                 href: route('dashboard'),
                 icon: LayoutGrid,
             },
+            {
+                title: t('AI Assistant'),
+                href: route('ai-assistant.index'),
+                icon: Bot,
+            },
             ...(can('view_policies')
                 ? [
                       {
@@ -200,6 +211,16 @@ export function AppSidebar() {
                       },
                   ]
                 : []),
+            {
+                title: t('AI Assistant'),
+                href: route('ai-assistant.index'),
+                icon: Bot,
+            },
+            {
+                title: t('Email'),
+                href: '/email/inbox',
+                icon: Mail,
+            },
             ...(can('view_renewals')
                 ? [
                       {
@@ -209,11 +230,11 @@ export function AppSidebar() {
                       },
                   ]
                 : []),
-            {
-                title: t('Support'),
-                href: route('support-tickets.index'),
-                icon: Ticket,
-            },
+            // {
+            //     title: t('Support'),
+            //     href: route('support-tickets.index'),
+            //     icon: Ticket,
+            // },
             {
                 title: t('My KYC Verification'),
                 href: route('customer.kyc.show'),
@@ -226,18 +247,13 @@ export function AppSidebar() {
             },
         ];
     } else if (auth.isUnderwriter || auth.isBroker) {
-        mainNavItems = getSidebarConfig(
-            auth.isUnderwriter ? 'underwriter' : 'broker',
-            auth,
-            plan,
-            t,
-        );
+        mainNavItems = getSidebarConfig(auth.isUnderwriter ? 'underwriter' : 'broker', auth, plan, t);
     } else {
         mainNavItems = [];
     }
 
     return (
-        <Sidebar collapsible="icon" variant="inset" className="bg-primary dark:bg-background">
+        <Sidebar collapsible="icon" variant="inset" style={{ background: 'var(--sidebar)' } as React.CSSProperties}>
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -253,9 +269,7 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} />
 
-                {settingsNavItems.length > 0 && (
-                    <NavMain items={settingsNavItems} title={t('Settings')} />
-                )}
+                {settingsNavItems.length > 0 && <NavMain items={settingsNavItems} title={t('Settings')} />}
             </SidebarContent>
 
             <SidebarFooter>

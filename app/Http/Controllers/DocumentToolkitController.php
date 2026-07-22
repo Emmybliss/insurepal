@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DocumentToolkitBatchConvertRequest;
+use App\Http\Requests\DocumentToolkitCompressRequest;
+use App\Http\Requests\DocumentToolkitConvertRequest;
+use App\Http\Requests\DocumentToolkitMergeRequest;
+use App\Http\Requests\DocumentToolkitOptimizePdfRequest;
 use App\Services\DocumentToolkitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -64,19 +69,17 @@ class DocumentToolkitController extends Controller
         $conversionType = $request->input('conversion_type', 'single');
 
         if ($conversionType === 'batch' && $request->hasFile('images')) {
-            $request->validate([
-                'images' => 'required|array|min:1',
-                'images.*' => 'required|image|max:20480',
-                'title' => 'nullable|string|max:255',
-            ]);
+            $validatedRequest = DocumentToolkitBatchConvertRequest::createFrom($request);
+            $validatedRequest->setContainer(app());
+            $validatedRequest->validateResolved();
 
             try {
                 $pdfPath = $this->toolkitService->convertImagesToPdf(
-                    $request->file('images'),
-                    $request->input('title')
+                    $validatedRequest->file('images'),
+                    $validatedRequest->input('title')
                 );
 
-                return response()->download($pdfPath)->deleteFileAfterSend(true);
+                return $this->safeDownloadAndDelete($pdfPath);
             } catch (\Throwable $e) {
                 Log::error('Document Toolkit - Batch image conversion failed: '.$e->getMessage(), [
                     'exception' => $e,
@@ -86,38 +89,33 @@ class DocumentToolkitController extends Controller
             }
         }
 
-        $request->validate([
-            'file' => 'required|file|max:51200',
-            'format' => 'required|string',
-        ]);
+        $validatedRequest = DocumentToolkitConvertRequest::createFrom($request);
+        $validatedRequest->setContainer(app());
+        $validatedRequest->validateResolved();
 
         try {
-            $pdfPath = $this->toolkitService->convertToPdf($request->file('file'));
+            $pdfPath = $this->toolkitService->convertToPdf($validatedRequest->file('file'));
 
-            return response()->download($pdfPath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($pdfPath);
         } catch (\Throwable $e) {
             Log::error('Document Toolkit - Conversion failed: '.$e->getMessage(), [
                 'exception' => $e,
-                'file' => $request->file('file') ? $request->file('file')->getClientOriginalName() : 'no file',
+                'file' => $validatedRequest->file('file') ? $validatedRequest->file('file')->getClientOriginalName() : 'no file',
             ]);
 
             return response()->json(['message' => 'Conversion failed: '.$e->getMessage()], 422);
         }
     }
 
-    public function merge(Request $request)
+    public function merge(DocumentToolkitMergeRequest $request)
     {
         set_time_limit(300);
         ini_set('memory_limit', '512M');
-        $request->validate([
-            'files' => 'required|array|min:2',
-            'files.*' => 'required|file|mimes:pdf|max:51200',
-        ]);
 
         try {
             $pdfPath = $this->toolkitService->mergeDocuments($request->file('files'));
 
-            return response()->download($pdfPath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($pdfPath);
         } catch (\Throwable $e) {
             Log::error('Document Toolkit - Merge failed: '.$e->getMessage(), ['exception' => $e]);
 
@@ -125,19 +123,15 @@ class DocumentToolkitController extends Controller
         }
     }
 
-    public function compress(Request $request)
+    public function compress(DocumentToolkitCompressRequest $request)
     {
         set_time_limit(300);
         ini_set('memory_limit', '512M');
-        $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
-            'level' => 'required|in:Low,Medium,High',
-        ]);
 
         try {
             $pdfPath = $this->toolkitService->compressPdf($request->file('file'), $request->input('level'));
 
-            return response()->download($pdfPath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($pdfPath);
         } catch (\Throwable $e) {
             Log::error('Document Toolkit - Compression failed: '.$e->getMessage(), ['exception' => $e]);
 
@@ -154,7 +148,7 @@ class DocumentToolkitController extends Controller
         try {
             $imgPath = $this->toolkitService->optimizeImage($request->file('file'));
 
-            return response()->download($imgPath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($imgPath);
         } catch (\Throwable $e) {
             Log::error('Document Toolkit - Image optimization failed: '.$e->getMessage(), ['exception' => $e]);
 
@@ -162,21 +156,16 @@ class DocumentToolkitController extends Controller
         }
     }
 
-    public function optimizePdf(Request $request)
+    public function optimizePdf(DocumentToolkitOptimizePdfRequest $request)
     {
         set_time_limit(300);
         ini_set('memory_limit', '512M');
-        $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
-            'level' => 'nullable|in:Low,Medium,High',
-        ]);
 
         try {
             $level = $request->input('level', 'Medium');
             $pdfPath = $this->toolkitService->compressPdf($request->file('file'), $level);
 
-            return response()->download($pdfPath, 'optimized_'.$request->file('file')->getClientOriginalName())
-                ->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($pdfPath, 'optimized_'.$request->file('file')->getClientOriginalName());
         } catch (\Throwable $e) {
             return response()->json(['message' => 'PDF optimization failed: '.$e->getMessage()], 422);
         }

@@ -133,7 +133,6 @@ interface Props {
 }
 
 export default function CustomerShow({ customer, stats, credentials }: Props) {
-    console.log('Show', customer);
     const [showCredentials, setShowCredentials] = useState(!!credentials);
 
     // Filters State for Policies
@@ -158,7 +157,6 @@ export default function CustomerShow({ customer, stats, credentials }: Props) {
         });
     }, [customer.policies, policySearch, policyStatus]);
 
-    console.log('customer.policies', customer.policies);
     const policyStats = useMemo(() => {
         const p = customer.policies || [];
         const isExpired = (policy: any) => {

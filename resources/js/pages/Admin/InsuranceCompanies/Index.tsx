@@ -6,8 +6,9 @@ import { Switch } from '@/components/ui/switch';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import debounce from 'lodash/debounce';
 import { Building2, GitBranch, Plus, Search, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 interface InsuranceCompany {
@@ -60,18 +61,26 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
     const [search, setSearch] = useState(filters.search || '');
     const [typeFilter, setTypeFilter] = useState(filters.type || 'all');
 
+    const debouncedSearch = useRef(
+        debounce((searchTerm: string, type: string) => {
+            router.get(route('admin.insurance-companies.index'), { search: searchTerm, type }, { replace: true, preserveState: true });
+        }, 300),
+    ).current;
+
+    useEffect(() => {
+        return () => {
+            debouncedSearch.cancel();
+        };
+    }, []);
+
     useEffect(() => {
         setSearch(filters.search || '');
         setTypeFilter(filters.type || 'all');
     }, [filters.search, filters.type]);
 
-    const handleSearch = () => {
-        router.get(route('admin.insurance-companies.index'), { search, type: typeFilter }, { replace: true });
-    };
-
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
-            handleSearch();
+            debouncedSearch.flush();
         }
     };
 
@@ -123,16 +132,25 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
                     <CardContent>
                         <div className="flex flex-col gap-4 md:flex-row">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search by name, email, phone, reg number..."
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearch(e.target.value);
+                                        debouncedSearch(e.target.value, typeFilter);
+                                    }}
                                     onKeyDown={handleSearchKeyDown}
                                     className="pl-9"
                                 />
                             </div>
-                            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); router.get(route('admin.insurance-companies.index'), { search, type: v }, { replace: true }); }}>
+                            <Select
+                                value={typeFilter}
+                                onValueChange={(v) => {
+                                    setTypeFilter(v);
+                                    router.get(route('admin.insurance-companies.index'), { search, type: v }, { replace: true, preserveState: true });
+                                }}
+                            >
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="All Types" />
                                 </SelectTrigger>
@@ -164,7 +182,7 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b">
-                                            <th className="pb-3 text-left font-medium w-12">#</th>
+                                            <th className="w-12 pb-3 text-left font-medium">#</th>
                                             <th className="pb-3 text-left font-medium">Company</th>
                                             <th className="pb-3 text-left font-medium">Type</th>
                                             <th className="pb-3 text-center font-medium">Branches</th>
@@ -204,8 +222,8 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
                                                             company.company_type === 'underwriter'
                                                                 ? 'bg-blue-100 text-blue-800'
                                                                 : company.company_type === 'broker'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-purple-100 text-purple-800'
+                                                                  ? 'bg-green-100 text-green-800'
+                                                                  : 'bg-purple-100 text-purple-800'
                                                         }`}
                                                     >
                                                         {COMPANY_TYPE_LABELS[company.company_type]}
@@ -227,12 +245,14 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
                                                     <div className="text-sm">
                                                         {company.naicom_reg_number && (
                                                             <div>
-                                                                <span className="text-xs text-muted-foreground">NAICOM:</span> {company.naicom_reg_number}
+                                                                <span className="text-xs text-muted-foreground">NAICOM:</span>{' '}
+                                                                {company.naicom_reg_number}
                                                             </div>
                                                         )}
                                                         {company.ncrib_reg_number && (
                                                             <div>
-                                                                <span className="text-xs text-muted-foreground">NCRIB:</span> {company.ncrib_reg_number}
+                                                                <span className="text-xs text-muted-foreground">NCRIB:</span>{' '}
+                                                                {company.ncrib_reg_number}
                                                             </div>
                                                         )}
                                                         {company.rc_number && (
@@ -243,10 +263,7 @@ export default function InsuranceCompaniesIndex({ companies, filters }: Props) {
                                                     </div>
                                                 </td>
                                                 <td className="py-3 text-center">
-                                                    <Switch
-                                                        checked={company.is_active}
-                                                        onCheckedChange={() => handleToggle(company)}
-                                                    />
+                                                    <Switch checked={company.is_active} onCheckedChange={() => handleToggle(company)} />
                                                 </td>
                                                 <td className="py-3 text-right">
                                                     <div className="flex justify-end gap-2">

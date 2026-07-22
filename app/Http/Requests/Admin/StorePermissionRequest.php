@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Http\Requests\Admin;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StorePermissionRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255|unique:permissions,name',
+            'label' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'module' => 'required|string|max:100',
+            'is_active' => 'boolean',
+            'roles' => 'array',
+            'roles.*' => 'exists:roles,id',
+        ];
+    }
+}

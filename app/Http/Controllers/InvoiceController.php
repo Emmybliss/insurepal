@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Requests\UpdateInvoiceRequest;
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Policy;
 use App\Models\TenantDefaultTemplate;
 use App\Services\DocumentGenerationService;
+use App\Services\Finance\GenerateInvoiceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +19,10 @@ class InvoiceController extends Controller
 {
     protected DocumentGenerationService $documentService;
 
-    public function __construct(DocumentGenerationService $documentService)
-    {
+    public function __construct(
+        DocumentGenerationService $documentService,
+        private GenerateInvoiceService $generateInvoiceService,
+    ) {
         $this->documentService = $documentService;
     }
 
@@ -59,81 +63,19 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreInvoiceRequest $request)
     {
-        $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'policy_id' => 'nullable|exists:policies,id',
-            'due_date' => 'required|date',
-            'currency' => 'required|string|size:3',
-            'notes' => 'nullable|string',
-            'billing_address' => 'required|array',
-            'shipping_address' => 'nullable|array',
-            'items' => 'required|array|min:1',
-            'items.*.description' => 'required|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0',
-            'items.*.tax_rate' => 'nullable|numeric|min:0',
-            'items.*.discount_rate' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
-
-            // Calculate totals from items
-            $items = collect($validated['items'])->map(function ($item) {
-                $subtotal = $item['quantity'] * $item['unit_price'];
-                $taxAmount = $subtotal * ($item['tax_rate'] ?? 0) / 100;
-                $discountAmount = $subtotal * ($item['discount_rate'] ?? 0) / 100;
-                $total = $subtotal + $taxAmount - $discountAmount;
-
-                return [
-                    'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'tax_rate' => $item['tax_rate'] ?? 0,
-                    'tax_amount' => $taxAmount,
-                    'discount_rate' => $item['discount_rate'] ?? 0,
-                    'discount_amount' => $discountAmount,
-                    'total' => $total,
-                ];
-            });
-            // Generate Debit Note Number
-            $lastInvoice = Invoice::withTrashed()->where('tenant_id', Auth::user()->tenant_id)->latest('id')->first();
-            $lastNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, -6)) : 0;
-            $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-
-            $lastSequence = Invoice::withTrashed()->where('tenant_id', Auth::user()->tenant_id)->latest('id')->first();
-            $sequenceNumber = $lastSequence ? $lastSequence->sequence_number + 1 : 1;
-            $invoice = Invoice::create([
-                'invoice_number' => $newNumber,
-                'sequence_number' => $sequenceNumber,
-                'tenant_id' => Auth::user()->tenant_id,
-                'customer_id' => $validated['customer_id'],
-                'policy_id' => $validated['policy_id'] ?? null,
-                'user_id' => Auth::id(), // Assuming the authenticated user is the creator
-                'due_date' => $validated['due_date'],
-                'currency' => $validated['currency'],
-                'notes' => $validated['notes'],
-                'billing_address' => $validated['billing_address'],
-                'shipping_address' => $validated['shipping_address'],
-                'subtotal' => $items->sum('total'),
-                'tax_amount' => $items->sum('tax_amount'),
-                'discount_amount' => $items->sum('discount_amount'),
-                'total_amount' => $items->sum('total'),
-                'status' => 'draft',
-            ]);
-
-            // Create invoice items
-            $invoice->items()->createMany($items->toArray());
-
-            DB::commit();
+            $invoice = $this->generateInvoiceService->generate(
+                $validated,
+                Auth::user(),
+            );
 
             return redirect()->route('invoices.show', $invoice)
                 ->with('success', 'Invoice created successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return redirect()->back()
                 ->with('error', 'Failed to create invoice. '.$e->getMessage());
         }
@@ -165,94 +107,21 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function update(Request $request, Invoice $invoice)
+    public function update(UpdateInvoiceRequest $request, Invoice $invoice)
     {
         if ($invoice->status !== 'draft') {
             return redirect()->back()
                 ->with('error', 'Only draft invoices can be edited.');
         }
 
-        $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'policy_id' => 'nullable|exists:policies,id',
-            'due_date' => 'required|date',
-            'currency' => 'required|string|size:3',
-            'notes' => 'nullable|string',
-            'billing_address' => 'required|array',
-            'shipping_address' => 'nullable|array',
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'nullable|exists:invoice_items,id',
-            'items.*.description' => 'required|string',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0',
-            'items.*.tax_rate' => 'nullable|numeric|min:0',
-            'items.*.discount_rate' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
         try {
-            DB::beginTransaction();
-
-            // Calculate totals and prepare items
-            $items = collect($validated['items'])->map(function ($item) {
-                $subtotal = $item['quantity'] * $item['unit_price'];
-                $taxAmount = $subtotal * ($item['tax_rate'] ?? 0) / 100;
-                $discountAmount = $subtotal * ($item['discount_rate'] ?? 0) / 100;
-                $total = $subtotal + $taxAmount - $discountAmount;
-
-                return [
-                    'id' => $item['id'] ?? null,
-                    'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'tax_rate' => $item['tax_rate'] ?? 0,
-                    'tax_amount' => $taxAmount,
-                    'discount_rate' => $item['discount_rate'] ?? 0,
-                    'discount_amount' => $discountAmount,
-                    'total' => $total,
-                ];
-            });
-
-            // Update invoice
-            $invoice->update([
-                'customer_id' => $validated['customer_id'],
-                'policy_id' => $validated['policy_id'] ?? null,
-                'due_date' => $validated['due_date'],
-                'currency' => $validated['currency'],
-                'notes' => $validated['notes'],
-                'billing_address' => $validated['billing_address'],
-                'shipping_address' => $validated['shipping_address'],
-                'subtotal' => $items->sum('total'),
-                'tax_amount' => $items->sum('tax_amount'),
-                'discount_amount' => $items->sum('discount_amount'),
-                'total_amount' => $items->sum('total'),
-            ]);
-
-            // Update or create items
-            $existingItemIds = $invoice->items->pluck('id')->toArray();
-            $updatedItemIds = $items->pluck('id')->filter()->toArray();
-
-            // Delete removed items
-            $itemsToDelete = array_diff($existingItemIds, $updatedItemIds);
-            if (! empty($itemsToDelete)) {
-                InvoiceItem::whereIn('id', $itemsToDelete)->delete();
-            }
-
-            // Update or create items
-            foreach ($items as $item) {
-                if (isset($item['id'])) {
-                    InvoiceItem::find($item['id'])->update($item);
-                } else {
-                    $invoice->items()->create($item);
-                }
-            }
-
-            DB::commit();
+            $this->generateInvoiceService->updateInvoice($invoice, $validated);
 
             return redirect()->route('invoices.show', $invoice)
                 ->with('success', 'Invoice updated successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return redirect()->back()
                 ->with('error', 'Failed to update invoice. '.$e->getMessage());
         }
@@ -335,7 +204,7 @@ class InvoiceController extends Controller
     {
         $request->validate([
             'template_key' => 'required|string',
-        ]);
+        ]); // single field — leave inline
 
         try {
             DB::beginTransaction();
@@ -391,23 +260,12 @@ class InvoiceController extends Controller
 
     public function htmlPreview(Request $request, Invoice $invoice)
     {
-        $registry = config('document-templates.templates', []);
         $templateKey = $request->input('template_key', 'invoice.classic');
-        $template = $registry[$templateKey] ?? null;
+        $pdfContent = $this->documentService->generateInvoicePdf($invoice, $templateKey);
 
-        if (! $template) {
-            // Get first invoice template from config
-            $invoiceTemplates = array_filter($registry, fn ($t) => ($t['type'] ?? '') === 'invoice');
-            $templateKey = array_key_first($invoiceTemplates);
-            $template = $templateKey ? $registry[$templateKey] : null;
-        }
-
-        if (! $template) {
-            return 'No invoice template found.';
-        }
-
-        $html = $this->documentService->generateInvoiceHtml($invoice, $template, true);
-
-        return response($html);
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="invoice-preview.pdf"',
+        ]);
     }
 }

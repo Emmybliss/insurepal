@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StorePermissionRequest;
+use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -84,33 +85,25 @@ class PermissionController extends Controller
     /**
      * Store a newly created permission.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StorePermissionRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:permissions,name',
-            'label' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'module' => 'required|string|max:100',
-            'is_active' => 'boolean',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         // Format permission name (ensure it's lowercase with underscores)
-        $permissionName = strtolower(str_replace([' ', '-'], '_', $request->name));
+        $permissionName = strtolower(str_replace([' ', '-'], '_', $validated['name']));
 
         $permission = Permission::create([
             'name' => $permissionName,
-            'label' => $request->label,
-            'description' => $request->description ?? '',
-            'module' => $request->module,
-            'is_active' => $request->boolean('is_active', true),
+            'label' => $validated['label'],
+            'description' => $validated['description'] ?? '',
+            'module' => $validated['module'],
+            'is_active' => $validated['is_active'] ?? true,
             'guard_name' => 'web',
         ]);
 
         // Assign to roles if provided
-        if ($request->has('roles')) {
-            $roles = Role::whereIn('id', $request->roles)->get();
+        if (! empty($validated['roles'])) {
+            $roles = Role::whereIn('id', $validated['roles'])->get();
             $permission->assignRole($roles);
         }
 
@@ -149,37 +142,24 @@ class PermissionController extends Controller
     /**
      * Update the specified permission.
      */
-    public function update(Request $request, Permission $permission): RedirectResponse
+    public function update(UpdatePermissionRequest $request, Permission $permission): RedirectResponse
     {
-        $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('permissions')->ignore($permission->id),
-            ],
-            'label' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'module' => 'required|string|max:100',
-            'is_active' => 'boolean',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
+        $validated = $request->validated();
 
         // Format permission name (ensure it's lowercase with underscores)
-        $permissionName = strtolower(str_replace([' ', '-'], '_', $request->name));
+        $permissionName = strtolower(str_replace([' ', '-'], '_', $validated['name']));
 
         $permission->update([
             'name' => $permissionName,
-            'label' => $request->label,
-            'description' => $request->description ?? $permission->description,
-            'module' => $request->module,
-            'is_active' => $request->boolean('is_active', $permission->is_active),
+            'label' => $validated['label'],
+            'description' => $validated['description'] ?? $permission->description,
+            'module' => $validated['module'],
+            'is_active' => $validated['is_active'] ?? $permission->is_active,
         ]);
 
         // Update role assignments if provided
-        if ($request->has('roles')) {
-            $roles = Role::whereIn('id', $request->roles)->get();
+        if (! empty($validated['roles'])) {
+            $roles = Role::whereIn('id', $validated['roles'])->get();
             $permission->syncRoles($roles);
         }
 
@@ -233,7 +213,7 @@ class PermissionController extends Controller
         $request->validate([
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
-        ]);
+        ]); // single field — leave inline
 
         $user = Auth::user();
         $roles = Role::whereIn('id', $request->roles)->get();
@@ -329,7 +309,7 @@ class PermissionController extends Controller
             'permissions.*.name' => 'required|string|max:255|unique:permissions,name',
             'permissions.*.description' => 'nullable|string|max:1000',
             'permissions.*.category' => 'nullable|string|max:100',
-        ]);
+        ]); // single field — leave inline
 
         $createdCount = 0;
 

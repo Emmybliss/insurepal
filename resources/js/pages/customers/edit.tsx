@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
@@ -13,7 +14,6 @@ import dayjs from 'dayjs';
 import { Save } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 
 interface Customer {
     id: number;
@@ -322,23 +322,23 @@ export default function CustomerEdit({ customer }: Props) {
                             </div>
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-2">
-                                            <Label htmlFor="city">
-                                                City <span className="text-xs text-muted-foreground">(optional)</span>
-                                            </Label>
+                                    <Label htmlFor="city">
+                                        City <span className="text-xs text-muted-foreground">(optional)</span>
+                                    </Label>
                                     <Input id="city" value={data.city} onChange={(e) => setData('city', e.target.value)} />
                                     <InputError message={errors.city} />
                                 </div>
                                 <div className="space-y-2">
-                                            <Label htmlFor="state">
-                                                State <span className="text-xs text-muted-foreground">(optional)</span>
-                                            </Label>
+                                    <Label htmlFor="state">
+                                        State <span className="text-xs text-muted-foreground">(optional)</span>
+                                    </Label>
                                     <Input id="state" value={data.state} onChange={(e) => setData('state', e.target.value)} />
                                     <InputError message={errors.state} />
                                 </div>
                                 <div className="space-y-2">
-                                            <Label htmlFor="country">
-                                                Country <span className="text-xs text-muted-foreground">(optional)</span>
-                                            </Label>
+                                    <Label htmlFor="country">
+                                        Country <span className="text-xs text-muted-foreground">(optional)</span>
+                                    </Label>
                                     <Input id="country" value={data.country} onChange={(e) => setData('country', e.target.value)} />
                                     <InputError message={errors.country} />
                                 </div>

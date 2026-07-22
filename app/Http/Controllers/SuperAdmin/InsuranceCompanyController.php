@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\StoreInsuranceCompanyRequest;
+use App\Http\Requests\SuperAdmin\UpdateInsuranceCompanyRequest;
 use App\Models\InsuranceCompany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,26 +41,9 @@ class InsuranceCompanyController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreInsuranceCompanyRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'company_type' => 'required|in:underwriter,broker,both',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'website' => 'nullable|url|max:255',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'country' => 'nullable|string|max:100',
-            'naicom_reg_number' => 'nullable|string|max:100',
-            'ncrib_reg_number' => 'nullable|string|max:100',
-            'rc_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
-
-        InsuranceCompany::create($validated);
+        InsuranceCompany::create($request->validated());
 
         return redirect()->route('admin.insurance-companies.index')
             ->with('success', 'Insurance company created successfully');
@@ -79,26 +64,9 @@ class InsuranceCompanyController extends Controller
         ]);
     }
 
-    public function update(Request $request, InsuranceCompany $insuranceCompany): RedirectResponse
+    public function update(UpdateInsuranceCompanyRequest $request, InsuranceCompany $insuranceCompany): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'company_type' => 'required|in:underwriter,broker,both',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'website' => 'nullable|url|max:255',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'country' => 'nullable|string|max:100',
-            'naicom_reg_number' => 'nullable|string|max:100',
-            'ncrib_reg_number' => 'nullable|string|max:100',
-            'rc_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
-
-        $insuranceCompany->update($validated);
+        $insuranceCompany->update($request->validated());
 
         return redirect()->route('admin.insurance-companies.index')
             ->with('success', 'Insurance company updated successfully');

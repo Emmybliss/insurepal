@@ -57,8 +57,15 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (Schema::hasColumn('support_tickets', 'conversation_id')) {
+            return;
+        }
+
         Schema::table('support_tickets', function (Blueprint $table) {
-            $table->foreignId('conversation_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('conversation_id')->nullable();
+            if (Schema::hasTable('conversations')) {
+                $table->foreign('conversation_id')->references('id')->on('conversations')->nullOnDelete();
+            }
         });
     }
 };

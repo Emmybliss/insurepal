@@ -1,4 +1,3 @@
-import { Can } from '@/components/auth/permission-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +25,13 @@ interface Placement {
     customer: Pick<Customer, 'id' | 'type' | 'first_name' | 'last_name' | 'company_name' | 'email'>;
     policyProduct: { id: number; name: string; code: string } | null;
     createdBy: { id: number; name: string } | null;
-    markets: Array<{ id: number; placement_id: number; insurance_company_id: number; status: string; insurance_company: { id: number; name: string } | null }>;
+    markets: Array<{
+        id: number;
+        placement_id: number;
+        insurance_company_id: number;
+        status: string;
+        insurance_company: { id: number; name: string } | null;
+    }>;
 }
 
 interface Props {
@@ -70,11 +75,7 @@ export default function Index({ placements, filters, customers }: Props) {
         if (flash?.error) toast.error(flash.error);
     }, [flash]);
 
-    const handleSearch = (
-        searchOverride?: string,
-        statusOverride?: string,
-        customerIdOverride?: string,
-    ) => {
+    const handleSearch = (searchOverride?: string, statusOverride?: string, customerIdOverride?: string) => {
         router.get(
             route('placements.index'),
             {
@@ -125,27 +126,35 @@ export default function Index({ placements, filters, customers }: Props) {
 
     const handleSubmitToMarket = (placement: Placement) => {
         if (confirm(`Submit placement "${placement.placement_number}" to market?`)) {
-            router.post(route('placements.submit-to-market', placement.id), {}, {
-                onSuccess: () => {
-                    toast.success('Placement submitted to market');
+            router.post(
+                route('placements.submit-to-market', placement.id),
+                {},
+                {
+                    onSuccess: () => {
+                        toast.success('Placement submitted to market');
+                    },
+                    onError: () => {
+                        toast.error('Failed to submit placement to market.');
+                    },
                 },
-                onError: () => {
-                    toast.error('Failed to submit placement to market.');
-                },
-            });
+            );
         }
     };
 
     const handleConvertToPolicy = (placement: Placement) => {
         if (confirm(`Convert placement "${placement.placement_number}" to a policy?`)) {
-            router.post(route('placements.convert-to-policy', placement.id), {}, {
-                onSuccess: () => {
-                    toast.success('Placement converted to policy');
+            router.post(
+                route('placements.convert-to-policy', placement.id),
+                {},
+                {
+                    onSuccess: () => {
+                        toast.success('Placement converted to policy');
+                    },
+                    onError: () => {
+                        toast.error('Failed to convert placement to policy.');
+                    },
                 },
-                onError: () => {
-                    toast.error('Failed to convert placement to policy.');
-                },
-            });
+            );
         }
     };
 
@@ -260,9 +269,7 @@ export default function Index({ placements, filters, customers }: Props) {
                                                         {placement.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>
-                                                    {placement.policyProduct?.name || '—'}
-                                                </TableCell>
+                                                <TableCell>{placement.policyProduct?.name || '—'}</TableCell>
                                                 <TableCell>{formatCurrency(placement.total_sum_insured, placement.currency)}</TableCell>
                                                 <TableCell>
                                                     <span className="inline-flex items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">

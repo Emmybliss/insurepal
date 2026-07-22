@@ -5,44 +5,66 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
-import { Customer, Policy } from '@/types';
+import { cn, formatAmount } from '@/lib/utils';
+import { Customer } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { CalendarIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CalendarIcon, Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import CompanySearchCombobox, { InsuranceCompany } from '@/components/insurance/CompanySearchCombobox';
+import { useEffect, useState } from 'react';
+
+const TRANSACTION_TYPE_OPTIONS = [
+    { value: 'new', label: 'New Business' },
+    { value: 'renewal', label: 'Renewal' },
+    { value: 'endorsement', label: 'Endorsement' },
+    { value: 'additional_premium', label: 'Additional Premium' },
+    { value: 'adjustment', label: 'Adjustment' },
+    { value: 'reinstatement', label: 'Reinstatement' },
+    { value: 'replacement', label: 'Replacement' },
+    { value: 'extension', label: 'Extension' },
+    { value: 'short_period', label: 'Short Period' },
+];
 
 export interface LastCreditNoteProp {
     note_number: string;
 }
+
 interface CreateCreditNoteProps {
-    lastCreditNote?: LastCreditNoteProp;
+    lastCreditNote?: LastCreditNoteProp | string;
+    debit_notes: any[];
     customers: Customer[];
-    policies: Policy[];
-    selectedCustomer?: number;
+    selectedDebitNote?: number | string;
+    selectedCustomer?: number | string;
     tenant_id?: number;
 }
 
-export default function CreateCreditNote({ customers, policies, selectedCustomer, lastCreditNote, tenant_id }: CreateCreditNoteProps) {
+export default function CreateCreditNote({ debit_notes = [], customers = [], selectedDebitNote, selectedCustomer, lastCreditNote, tenant_id }: CreateCreditNoteProps) {
     const { data, setData, post, processing, errors } = useForm({
+        debit_note_id: selectedDebitNote?.toString() || '',
         customer_id: selectedCustomer?.toString() || '',
         policy_id: '',
         amount: '',
+        tax_rate: '',
         tax_amount: '0',
+        commission_rate: '',
+        commission_amount: '',
         total_amount: 0,
-        description: '',
+        transaction_type: '',
+        description: "Being the premium due on the policy. The net will be remitted to you within 30 days in compliance with the 'No Premium No Cover' policy of NAICOM",
         internal_notes: '',
-        issue_date: new Date(),
+        issue_date: undefined as Date | undefined,
         due_date: undefined as Date | undefined,
         currency_code: 'NGN',
         exchange_rate: 1,
         payment_terms_days: '',
-        note_number: lastCreditNote?.note_number ? String(Number(lastCreditNote.note_number) + 1).padStart(6, '0') : '000001',
+        note_number: typeof lastCreditNote === 'string' ? lastCreditNote : (lastCreditNote?.note_number ?? 'CN-AUTO'),
         tenant_id: tenant_id,
+        policy_type: '',
+        class_of_business: '',
         // Insurer fields
         insurer_id: '',
         insurer_name: '',
@@ -52,85 +74,82 @@ export default function CreateCreditNote({ customers, policies, selectedCustomer
         insurer_source: '',
     });
 
-    const [isRateLoading, setIsRateLoading] = useState(false);
-    const [rateError, setRateError] = useState<string | null>(null);
-    const [filteredPolicies, setFilteredPolicies] = useState<Policy[]>(policies ?? []);
-    const [selectedInsurer, setSelectedInsurer] = useState<InsuranceCompany | null>(null);
-
+    const [selectedDebitNoteData, setSelectedDebitNoteData] = useState<any>(null);
+    const [openCombobox, setOpenCombobox] = useState(false);
+    const [isLoadingDebitNotes, setIsLoadingDebitNotes] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [commissionAmountFocused, setCommissionAmountFocused] = useState(false);
+    console.log(debit_notes);
+    // Populate data when debit note changes
     useEffect(() => {
-        if (!data.description) {
-            setData(
-                'description',
-                "Being the premium due on the policy. The net will be remitted to you within 30 days in compliance with the 'No Premium No Cover' policy of NAICOM ",
-            );
+        if (data.debit_note_id) {
+            const dn = debit_notes.find((d) => d.id.toString() === data.debit_note_id);
+            setSelectedDebitNoteData(dn || null);
+            if (dn) {
+                const pType = dn.policy_type || dn.policy?.policy_type?.name || dn.policy?.policy_product?.name || '';
+                const cBusiness = dn.class_of_business || dn.policy?.policy_class?.name || '';
+                setData((prev) => ({
+                    ...prev,
+                    customer_id: dn.customer_id?.toString() || '',
+                    policy_id: dn.policy_id?.toString() || '',
+                    amount: dn.amount?.toString() || '0', // Original premium amount (base for calculations)
+                    tax_rate: dn.tax_rate?.toString() || '0',
+                    tax_amount: dn.tax_amount?.toString() || '0',
+                    currency_code: dn.currency_code || 'NGN',
+                    exchange_rate: dn.exchange_rate || 1,
+                    policy_type: pType || prev.policy_type,
+                    class_of_business: cBusiness || prev.class_of_business,
+                    insurer_id: dn.insurer_id?.toString() || '',
+                    insurer_name: dn.insurer_name || '',
+                    insurer_email: dn.insurer_email || '',
+                    insurer_phone: dn.insurer_phone || '',
+                    insurer_address: dn.insurer_address || '',
+                    insurer_source: dn.insurer_source || '',
+                    transaction_type: dn.transaction_type || '',
+                    description: prev.description || `Credit Note for Debit Note ${dn.note_number?.startsWith('DN-') ? dn.note_number : 'DN-' + dn.note_number}`,
+                }));
+            }
+        } else {
+            setSelectedDebitNoteData(null);
         }
-    }, []);
+    }, [data.debit_note_id, debit_notes]);
 
+    // Auto-calculate tax amount from tax rate and base amount
+    useEffect(() => {
+        const base = parseFloat(data.amount) || 0;
+        const taxRate = parseFloat(data.tax_rate) || 0;
+        const calculatedTax = parseFloat(((base * taxRate) / 100).toFixed(2));
+        setData('tax_amount', calculatedTax.toString());
+    }, [data.amount, data.tax_rate]);
+
+    const filteredDebitNotes = debit_notes.filter((dn) => {
+        const matchesCustomer = !data.customer_id || dn.customer_id?.toString() === data.customer_id.toString();
+        if (!matchesCustomer) return false;
+        if (!searchQuery.trim()) return true;
+
+        const dnNum = dn.note_number?.startsWith('DN-') ? dn.note_number : `DN-${dn.note_number}`;
+        const custName = `${dn.customer?.first_name || ''} ${dn.customer?.last_name || dn.customer?.company_name || ''}`;
+        const searchString = `${dnNum} ${custName} ${dn.total_amount}`.toLowerCase();
+        return searchString.includes(searchQuery.toLowerCase().trim());
+    });
+
+    // Auto-calculate commission amount from commission rate and base amount
+    useEffect(() => {
+        const base = parseFloat(data.amount) || 0;
+        const commissionRate = parseFloat(data.commission_rate) || 0;
+        if (commissionRate > 0 && data.commission_rate !== '') {
+            const calculatedCommission = parseFloat(((base * commissionRate) / 100).toFixed(2));
+            setData('commission_amount', calculatedCommission.toString());
+        }
+    }, [data.amount, data.commission_rate]);
+
+    // Auto-calculate total = original_amount + tax_amount - commission_amount
     useEffect(() => {
         const base = parseFloat(data.amount) || 0;
         const tax = parseFloat(data.tax_amount) || 0;
-        setData('total_amount', base + tax);
-    }, [data.amount, data.tax_amount]);
-
-    useEffect(() => {
-        let active = true;
-
-        const fetchRate = async () => {
-            if (data.currency_code === 'NGN') {
-                setData('exchange_rate', 1);
-                setRateError(null);
-                return;
-            }
-
-            setIsRateLoading(true);
-            setRateError(null);
-
-            try {
-                const res = await fetch(`/api/exchange-rate?from=${data.currency_code}&to=NGN`);
-                if (!res.ok) throw new Error('Failed to fetch exchange rate');
-
-                const rateData = await res.json();
-                if (active && rateData.rate) setData('exchange_rate', rateData.rate);
-            } catch (err) {
-                if (active) {
-                    setRateError('Unable to fetch exchange rate');
-                    console.error(err);
-                }
-            } finally {
-                if (active) setIsRateLoading(false);
-            }
-        };
-
-        fetchRate();
-        return () => {
-            active = false;
-        };
-    }, [data.currency_code]);
-
-    useEffect(() => {
-        if (data.customer_id) {
-            setFilteredPolicies(policies.filter((policy) => policy.customer_id.toString() === data.customer_id.toString()));
-        } else {
-            setFilteredPolicies([]);
-        }
-    }, [data.customer_id, policies]);
-
-    const handlePolicyChange = (policyId: string) => {
-        const policy = policies.find((p) => p.id.toString() === policyId);
-        setData('policy_id', policyId);
-        if (policy) {
-            setData('amount', policy.premium_amount.toString());
-            setData(
-                'description',
-                `Being Premium Due on the Policy ${policy.policy_product.name}(${policy.policy_number}) Scheme for ${
-                    policy.effective_date ? dayjs(policy.effective_date).format('DD-MM-YYYY') : 'N/A'
-                } to ${policy.expiry_date ? dayjs(policy.expiry_date).format('DD-MM-YYYY') : 'N/A'}. `,
-            );
-        } else {
-            setData('amount', '');
-            setData('description', '');
-        }
-    };
+        const comm = parseFloat(data.commission_amount) || 0;
+        setData('total_amount', base + tax - comm);
+    }, [data.amount, data.commission_amount, data.tax_amount]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -139,6 +158,10 @@ export default function CreateCreditNote({ customers, policies, selectedCustomer
 
     const getCustomerName = (customer: Customer) => {
         return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
+    };
+
+    const clearDate = (field: 'issue_date' | 'due_date') => {
+        setData(field, undefined);
     };
 
     return (
@@ -159,31 +182,83 @@ export default function CreateCreditNote({ customers, policies, selectedCustomer
                         <CardContent className="space-y-4">
                             <input type="hidden" name="tenant_id" value={data.tenant_id} />
                             <div className="space-y-6">
+                                {/* Note Number + Transaction Type */}
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="note_number">Credit Note Number</Label>
-                                        <Input id="note_number" name="note_number" value={data.note_number} readOnly />
+                                        <Input id="note_number" name="note_number" value={data.note_number} readOnly className="bg-muted" />
+                                        <p className="text-xs text-muted-foreground">Auto-generated upon creation.</p>
                                         <InputError message={errors.note_number} />
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                                    {/* Insurer Selection */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="customer_id">Customer(Insured)</Label>
+                                        <Label>Underwriter</Label>
+                                        <CompanySearchCombobox
+                                            companyType="underwriter"
+                                            scope="tenant"
+                                            value={data.insurer_name || ''}
+                                            onSelect={(company: InsuranceCompany) => {
+                                                const displayName = company.branch && company.company_name
+                                                    ? `${company.company_name} — ${company.branch.name}`
+                                                    : company.name;
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    insurer_id: company.id?.toString() || '',
+                                                    insurer_name: displayName,
+                                                    insurer_email: company.email || '',
+                                                    insurer_phone: company.phone || '',
+                                                    insurer_address: [company.address, company.city, company.state].filter(Boolean).join(', ') || '',
+                                                    insurer_source: company.source || '',
+                                                }));
+                                            }}
+                                            onClear={() => {
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    insurer_id: '',
+                                                    insurer_name: '',
+                                                    insurer_email: '',
+                                                    insurer_phone: '',
+                                                    insurer_address: '',
+                                                    insurer_source: '',
+                                                }));
+                                            }}
+                                            placeholder="Search for an underwriter..."
+                                        />
+                                        <InputError message={errors.insurer_name} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    {/* Customer Selection */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="customer_id">Customer</Label>
                                         <Select
                                             name="customer_id"
                                             value={data.customer_id}
                                             onValueChange={(value) => {
-                                                router.get(route('credit-notes.create'), { customer_id: value }, { preserveScroll: true });
+                                                setIsLoadingDebitNotes(true);
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    customer_id: value,
+                                                    debit_note_id: '',
+                                                    policy_id: '',
+                                                    amount: '',
+                                                    tax_rate: '',
+                                                    tax_amount: '0',
+                                                    total_amount: 0,
+                                                }));
+                                                setSelectedDebitNoteData(null);
+                                                setTimeout(() => setIsLoadingDebitNotes(false), 250);
                                             }}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select a customer" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {customers.map((customer) => (
-                                                    <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                        {getCustomerName(customer)}
-                                                        {customer.email ? ` - ${customer.email}` : ''}
+                                                {customers.map((c) => (
+                                                    <SelectItem key={c.id} value={c.id.toString()}>
+                                                        {getCustomerName(c)}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -191,136 +266,164 @@ export default function CreateCreditNote({ customers, policies, selectedCustomer
                                         <InputError message={errors.customer_id} />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="policy_id">Policy / Risk Reference</Label>
-                                        <Select
-                                            name="policy_id"
-                                            value={data.policy_id}
-                                            onValueChange={handlePolicyChange}
-                                            disabled={!data.customer_id}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select policy or leave as To Be Advised" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {filteredPolicies.length === 0 ? (
-                                                    <SelectItem value="none" disabled>
-                                                        No policies available
-                                                    </SelectItem>
-                                                ) : (
-                                                    filteredPolicies.map((policy) => (
-                                                        <SelectItem key={policy.id} value={policy.id.toString()}>
-                                                            {policy.policy_number}
-                                                        </SelectItem>
-                                                    ))
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            Leave blank if the policy is not available yet. It will be marked as To Be Advised and can be updated later.
-                                        </p>
-                                        <InputError message={errors.policy_id} />
+                                    {/* Debit Note Selection */}
+                                    <div className="space-y-2 flex flex-col">
+                                        <Label htmlFor="debit_note_id">Debit Note</Label>
+                                        <Popover open={openCombobox} onOpenChange={(open) => data.customer_id && !isLoadingDebitNotes ? setOpenCombobox(open) : setOpenCombobox(false)}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openCombobox}
+                                                    disabled={!data.customer_id || isLoadingDebitNotes}
+                                                    className={cn("justify-between w-full font-normal", (!data.debit_note_id || !data.customer_id) && "text-muted-foreground")}
+                                                >
+                                                    {isLoadingDebitNotes ? (
+                                                        <span className="flex items-center gap-2">
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Loading debit notes...
+                                                        </span>
+                                                    ) : !data.customer_id ? (
+                                                        'Select a customer first'
+                                                    ) : data.debit_note_id ? (
+                                                        (() => {
+                                                            const dn = debit_notes.find((d) => d.id.toString() === data.debit_note_id);
+                                                            if (!dn) return 'Select a debit note';
+                                                            const dnNum = dn.note_number?.startsWith('DN-') ? dn.note_number : `DN-${dn.note_number}`;
+                                                            return `${dnNum} - ${dn.customer?.first_name || ''} ${dn.customer?.last_name || dn.customer?.company_name || ''} (₦${formatAmount(dn.total_amount)})`;
+                                                        })()
+                                                    ) : (
+                                                        'Select a debit note'
+                                                    )}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] max-w-full">
+                                                <Command shouldFilter={false}>
+                                                    <CommandInput
+                                                        placeholder="Search debit note..."
+                                                        value={searchQuery}
+                                                        onValueChange={setSearchQuery}
+                                                    />
+                                                    <CommandList>
+                                                        {filteredDebitNotes.length === 0 ? (
+                                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                                                No debit note found.
+                                                            </div>
+                                                        ) : (
+                                                            <CommandGroup>
+                                                                {filteredDebitNotes.map((dn) => {
+                                                                    const dnNum = dn.note_number?.startsWith('DN-') ? dn.note_number : `DN-${dn.note_number}`;
+                                                                    const label = `${dnNum} - ${dn.customer?.first_name || ''} ${dn.customer?.last_name || dn.customer?.company_name || ''}`;
+                                                                    const isSelected = data.debit_note_id === dn.id.toString();
+                                                                    return (
+                                                                        <div
+                                                                            key={dn.id}
+                                                                            role="option"
+                                                                            aria-selected={isSelected}
+                                                                            className={cn(
+                                                                                "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                                                                                isSelected && "bg-accent text-accent-foreground"
+                                                                            )}
+                                                                            onClick={() => {
+                                                                                setData('debit_note_id', dn.id.toString());
+                                                                                setOpenCombobox(false);
+                                                                                setSearchQuery('');
+                                                                            }}
+                                                                        >
+                                                                            <Check
+                                                                                className={cn(
+                                                                                    'mr-2 h-4 w-4 shrink-0',
+                                                                                    isSelected ? 'opacity-100' : 'opacity-0'
+                                                                                )}
+                                                                            />
+                                                                            <span className="truncate">{label} (₦{formatAmount(dn.total_amount)})</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </CommandGroup>
+                                                        )}
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <InputError message={errors.debit_note_id} />
                                     </div>
                                 </div>
+                                {selectedDebitNoteData && (
+                                    <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
+                                        <h4 className="text-sm font-semibold">Referenced Debit Note Summary</h4>
+                                        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                                            <div>
+                                                <span className="block text-muted-foreground">Customer:</span>
+                                                <span className="font-medium">
+                                                    {selectedDebitNoteData.customer?.first_name}{' '}
+                                                    {selectedDebitNoteData.customer?.last_name || selectedDebitNoteData.customer?.company_name}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Policy:</span>
+                                                <span className="font-medium">{selectedDebitNoteData.policy?.policy_number || 'TBA'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Policy Class:</span>
+                                                <span className="font-medium">{selectedDebitNoteData.class_of_business}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Transaction Type:</span>
+                                                <span className="font-medium">{selectedDebitNoteData.transaction_type}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Original Amount:</span>
+                                                <span className="font-medium">{formatAmount(selectedDebitNoteData.amount)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Original Amount:</span>
+                                                <span className="font-medium">{formatAmount(selectedDebitNoteData.amount)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-muted-foreground">Total with Tax:</span>
+                                                <span className="font-medium">{formatAmount(selectedDebitNoteData.total_amount)}</span>
+                                            </div>
 
-                                {/* Insurer Selection */}
-                                <div className="rounded-lg border bg-muted/20 p-4">
-                                    <div className="mb-3 flex items-center justify-between">
-                                        <div>
-                                            <Label className="text-base font-semibold">Insurer (Underwriter)</Label>
-                                            <p className="text-sm text-muted-foreground">
-                                                Select the insurer for this credit note. If a policy is selected, you can override the insurer.
-                                            </p>
                                         </div>
                                     </div>
-                                    <CompanySearchCombobox
-                                        companyType="underwriter"
-                                        value={data.insurer_name}
-                                        scope="tenant"
-                                        onSelect={(company) => {
-                                            setSelectedInsurer(company);
-                                            setData({
-                                                ...data,
-                                                insurer_id: String(company.company_id || company.id),
-                                                insurer_name: company.name,
-                                                insurer_email: company.email || '',
-                                                insurer_phone: company.phone || '',
-                                                insurer_address: company.address || '',
-                                                insurer_source: company.source,
-                                            });
-                                        }}
-                                        onClear={() => {
-                                            setSelectedInsurer(null);
-                                            setData({
-                                                ...data,
-                                                insurer_id: '',
-                                                insurer_name: '',
-                                                insurer_email: '',
-                                                insurer_phone: '',
-                                                insurer_address: '',
-                                                insurer_source: '',
-                                            });
-                                        }}
-                                        placeholder="Search for an underwriter..."
-                                    />
-                                    {errors.insurer_id && <p className="mt-2 text-sm text-red-500">{errors.insurer_id}</p>}
-                                </div>
+                                )}
 
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                                {/* Currency + Exchange Rate (Read Only) */}
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                     <div className="space-y-2">
                                         <Label htmlFor="currency_code">Currency</Label>
-                                        <Select
-                                            name="currency_code"
-                                            value={data.currency_code}
-                                            onValueChange={(value) => setData('currency_code', value)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select currency" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="NGN">NGN</SelectItem>
-                                                <SelectItem value="USD">USD</SelectItem>
-                                                <SelectItem value="GBP">GBP</SelectItem>
-                                                <SelectItem value="EUR">EUR</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError message={errors.currency_code} />
+                                        <Input id="currency_code" value={data.currency_code} readOnly className="bg-muted" />
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="exchange_rate">Exchange Rate</Label>
-                                        <div className="relative">
-                                            <Input
-                                                id="exchange_rate"
-                                                name="exchange_rate"
-                                                type="number"
-                                                step="0.000001"
-                                                value={data.exchange_rate}
-                                                onChange={(e) => setData('exchange_rate', parseFloat(e.target.value))}
-                                                required
-                                            />
-                                            {isRateLoading && (
-                                                <span className="absolute top-2 right-2 text-xs text-muted-foreground">Fetching...</span>
-                                            )}
-                                            {rateError && <p className="text-xs text-red-500">{rateError}</p>}
-                                        </div>
-                                        <InputError message={errors.exchange_rate} />
+                                        <Input id="exchange_rate" type="number" value={data.exchange_rate} readOnly className="bg-muted" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="amount">Base Amount (From DN)</Label>
+                                        <Input id="amount" name="amount" type="text" value={formatAmount(data.amount)} readOnly className="bg-muted" />
+                                        <InputError message={errors.amount} />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                {/* Amount Fields */}
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+
                                     <div className="space-y-2">
-                                        <Label htmlFor="amount">Base Amount</Label>
+                                        <Label htmlFor="tax_rate">Tax Rate (%)</Label>
                                         <Input
-                                            id="amount"
-                                            name="amount"
+                                            id="tax_rate"
+                                            name="tax_rate"
                                             type="number"
-                                            step="0.01"
-                                            value={data.amount}
-                                            onChange={(e) => setData('amount', e.target.value)}
-                                            required
+                                            value={data.tax_rate}
+                                            onChange={(e) => setData('tax_rate', e.target.value)}
+                                            placeholder="e.g. 7.5"
                                         />
-                                        <InputError message={errors.amount} />
+                                        <InputError message={errors.tax_rate} />
                                     </div>
 
                                     <div className="space-y-2">
@@ -328,106 +431,99 @@ export default function CreateCreditNote({ customers, policies, selectedCustomer
                                         <Input
                                             id="tax_amount"
                                             name="tax_amount"
-                                            type="number"
-                                            step="0.01"
-                                            value={data.tax_amount}
-                                            onChange={(e) => setData('tax_amount', e.target.value)}
+                                            type="text"
+                                            value={formatAmount(data.tax_amount)}
+                                            readOnly
+                                            className="bg-muted"
                                         />
+                                        <p className="text-xs text-muted-foreground">Auto-calculated from tax rate.</p>
                                         <InputError message={errors.tax_amount} />
                                     </div>
+                                    {/* Commission Fields (Optional) */}
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="total_amount">Total Amount in {data.currency_code}</Label>
+                                        <Label htmlFor="commission_rate">
+                                            Commission Rate (%) <span className="text-xs text-muted-foreground">(Optional)</span>
+                                        </Label>
                                         <Input
-                                            id="total_amount"
-                                            name="total_amount"
+                                            id="commission_rate"
+                                            name="commission_rate"
                                             type="number"
                                             step="0.01"
-                                            value={
-                                                data.currency_code === 'NGN'
-                                                    ? data.total_amount
-                                                    : parseFloat((data.total_amount * data.exchange_rate).toFixed(2))
-                                            }
-                                            readOnly
-                                            required
+                                            min="0"
+                                            max="100"
+                                            value={data.commission_rate}
+                                            onChange={(e) => setData('commission_rate', e.target.value)}
+                                            placeholder="e.g. 15"
                                         />
-                                        {data.currency_code !== 'NGN' && (
-                                            <p className="text-sm text-muted-foreground">
-                                                ≈{' '}
-                                                {(data.total_amount * data.exchange_rate).toLocaleString('en-NG', {
-                                                    style: 'currency',
-                                                    currency: 'NGN',
-                                                })}
-                                            </p>
-                                        )}
-                                        <InputError message={errors.total_amount} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="issue_date">Issue Date</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={'outline'}
-                                                    className={cn(
-                                                        'w-full justify-start text-left font-normal',
-                                                        !data.issue_date && 'text-muted-foreground',
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {data.issue_date ? dayjs(data.issue_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={data.issue_date}
-                                                    onSelect={(date) => date && setData('issue_date', date)}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <InputError message={errors.issue_date} />
+                                        <InputError message={errors.commission_rate} />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="due_date">Due Date</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={'outline'}
-                                                    className={cn(
-                                                        'w-full justify-start text-left font-normal',
-                                                        !data.due_date && 'text-muted-foreground',
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {data.due_date ? dayjs(data.due_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar mode="single" selected={data.due_date} onSelect={(date) => setData('due_date', date)} />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <InputError message={errors.due_date} />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="payment_terms_days">Payment Terms (Days)</Label>
+                                        <Label htmlFor="commission_amount">
+                                            Commission Amount <span className="text-xs text-muted-foreground">(Optional)</span>
+                                        </Label>
                                         <Input
-                                            id="payment_terms_days"
-                                            name="payment_terms_days"
-                                            type="number"
-                                            value={data.payment_terms_days}
-                                            onChange={(e) => setData('payment_terms_days', e.target.value)}
-                                            placeholder="Optional"
+                                            id="commission_amount"
+                                            name="commission_amount"
+                                            type="text"
+                                            inputMode="decimal"
+                                            step="0.01"
+                                            value={commissionAmountFocused ? data.commission_amount : formatAmount(data.commission_amount)}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/,/g, '');
+                                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                                    setData('commission_amount', raw);
+                                                }
+                                            }}
+                                            onFocus={() => setCommissionAmountFocused(true)}
+                                            onBlur={() => setCommissionAmountFocused(false)}
+                                            placeholder="Auto-calculated or enter manually"
                                         />
-                                        <InputError message={errors.payment_terms_days} />
+                                        <p className="text-xs text-muted-foreground">Auto-calculated from commission rate, or enter manually.</p>
+                                        <InputError message={errors.commission_amount} />
                                     </div>
+
+
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="total_amount">Total Amount in {data.currency_code}</Label>
+                                    <Input
+                                        id="total_amount"
+                                        name="total_amount"
+                                        type="text"
+                                        value={
+                                            data.currency_code === 'NGN'
+                                                ? formatAmount(data.total_amount)
+                                                : formatAmount(parseFloat((data.total_amount * data.exchange_rate).toFixed(2)))
+                                        }
+                                        readOnly
+                                        required
+                                        className="bg-muted"
+                                    />
+                                    {data.currency_code !== 'NGN' && (
+                                        <p className="text-sm text-muted-foreground">
+                                            ≈ ₦{formatAmount(data.total_amount * data.exchange_rate)}
+                                        </p>
+                                    )}
+                                    <InputError message={errors.total_amount} />
                                 </div>
 
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="payment_terms_days">Payment Terms (Days)</Label>
+                                    <Input
+                                        id="payment_terms_days"
+                                        name="payment_terms_days"
+                                        type="number"
+                                        value={data.payment_terms_days}
+                                        onChange={(e) => setData('payment_terms_days', e.target.value)}
+                                        placeholder="Optional"
+                                    />
+                                    <InputError message={errors.payment_terms_days} />
+                                </div>
+
+                                {/* Description + Notes */}
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="description">Description</Label>

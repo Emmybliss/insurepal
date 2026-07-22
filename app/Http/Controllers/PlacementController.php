@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePlacementRequest;
+use App\Http\Requests\UpdatePlacementRequest;
 use App\Models\Customer;
 use App\Models\Placement;
 use App\Models\PolicyProduct;
@@ -25,7 +27,7 @@ class PlacementController extends Controller
         $filters = $request->only(['search', 'status', 'customer_id', 'date_from', 'date_to']);
 
         return Inertia::render('placements/Index', [
-            'placements' => $this->placementService->getPlacementsForTenant($filters, $request->integer('per_page', 15)),
+            'placements' => $this->placementService->getPlacementsForTenant($request->user(), $filters, $request->integer('per_page', 15)),
             'filters' => $filters,
             'customers' => Customer::forTenant($request->user()->tenant_id)
                 ->select('id', 'type', 'first_name', 'last_name', 'company_name')
@@ -54,25 +56,9 @@ class PlacementController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StorePlacementRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'quote_id' => ['nullable', 'exists:quotes,id'],
-            'customer_id' => ['required', 'exists:customers,id'],
-            'insured_id' => ['nullable', 'exists:customers,id'],
-            'policy_product_id' => ['required', 'exists:policy_products,id'],
-            'currency' => ['nullable', 'string', 'size:3'],
-            'proposed_start_date' => ['required', 'date'],
-            'proposed_end_date' => ['required', 'date', 'after:proposed_start_date'],
-            'total_sum_insured' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
-            'risk_details' => ['nullable', 'array'],
-            'markets' => ['nullable', 'array'],
-            'markets.*.insurance_company_id' => ['required', 'string'],
-            'markets.*.participation_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'markets.*.status' => ['nullable', 'string'],
-            'markets.*.response_notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $placement = $this->placementService->createPlacement($validated);
 
@@ -114,24 +100,9 @@ class PlacementController extends Controller
         ]);
     }
 
-    public function update(Request $request, Placement $placement): RedirectResponse
+    public function update(UpdatePlacementRequest $request, Placement $placement): RedirectResponse
     {
-        $validated = $request->validate([
-            'customer_id' => ['sometimes', 'exists:customers,id'],
-            'insured_id' => ['nullable', 'exists:customers,id'],
-            'policy_product_id' => ['sometimes', 'exists:policy_products,id'],
-            'currency' => ['nullable', 'string', 'size:3'],
-            'proposed_start_date' => ['sometimes', 'date'],
-            'proposed_end_date' => ['sometimes', 'date', 'after:proposed_start_date'],
-            'total_sum_insured' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
-            'risk_details' => ['nullable', 'array'],
-            'markets' => ['nullable', 'array'],
-            'markets.*.insurance_company_id' => ['required', 'string'],
-            'markets.*.participation_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'markets.*.status' => ['nullable', 'string'],
-            'markets.*.response_notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $this->placementService->updatePlacement($placement, $validated);
 
@@ -152,9 +123,9 @@ class PlacementController extends Controller
         return to_route('placements.show', $placement);
     }
 
-    public function convertToPolicy(Placement $placement): RedirectResponse
+    public function convertToPolicy(Request $request, Placement $placement): RedirectResponse
     {
-        $policy = $this->placementService->convertToPolicy($placement);
+        $policy = $this->placementService->convertToPolicy($request->user(), $placement);
 
         return to_route('policy-management.show', $policy);
     }

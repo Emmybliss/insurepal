@@ -127,11 +127,15 @@ export default function Show({ placement }: Props) {
 
     const handleSubmitToMarket = () => {
         if (confirm('Submit this placement to market?')) {
-            router.post(route('placements.submit-to-market', placement.id), {}, {
-                onSuccess: () => {
-                    router.reload({ only: ['placement'] });
+            router.post(
+                route('placements.submit-to-market', placement.id),
+                {},
+                {
+                    onSuccess: () => {
+                        router.reload({ only: ['placement'] });
+                    },
                 },
-            });
+            );
         }
     };
 
@@ -310,7 +314,7 @@ export default function Show({ placement }: Props) {
                         </CardHeader>
                         <CardContent>
                             {placement.notes ? (
-                                <p className="whitespace-pre-wrap text-sm text-gray-700">{placement.notes}</p>
+                                <p className="text-sm whitespace-pre-wrap text-gray-700">{placement.notes}</p>
                             ) : (
                                 <p className="text-sm text-gray-400">No notes added.</p>
                             )}
@@ -366,12 +370,14 @@ export default function Show({ placement }: Props) {
                                             <tbody className="divide-y">
                                                 {placement.markets.map((market) => (
                                                     <tr key={market.id}>
-                                                        <td className="py-3 font-medium">
-                                                            {market.insurance_company?.name || '—'}
+                                                        <td className="py-3 font-medium">{market.insurance_company?.name || '—'}</td>
+                                                        <td className="py-3">
+                                                            {market.participation_percentage ? `${market.participation_percentage}%` : '—'}
                                                         </td>
-                                                        <td className="py-3">{market.participation_percentage ? `${market.participation_percentage}%` : '—'}</td>
                                                         <td className="py-3">{market.offered_rate ? `${market.offered_rate}%` : '—'}</td>
-                                                        <td className="py-3">{formatCurrency(parseFloat(market.gross_premium || '0'), placement.currency)}</td>
+                                                        <td className="py-3">
+                                                            {formatCurrency(parseFloat(market.gross_premium || '0'), placement.currency)}
+                                                        </td>
                                                         <td className="py-3">
                                                             <Badge className={`${marketStatusColors[market.status] || 'bg-gray-100 text-gray-800'}`}>
                                                                 {market.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -400,9 +406,7 @@ export default function Show({ placement }: Props) {
                                     <div className="flex flex-col items-center justify-center py-10 text-center">
                                         <Send className="mb-3 h-10 w-10 text-gray-300" />
                                         <p className="font-medium text-gray-500">No markets added yet</p>
-                                        <p className="mt-1 text-sm text-gray-400">
-                                            Add insurers to this placement before submitting to market.
-                                        </p>
+                                        <p className="mt-1 text-sm text-gray-400">Add insurers to this placement before submitting to market.</p>
                                     </div>
                                 )}
                             </>
@@ -433,9 +437,7 @@ export default function Show({ placement }: Props) {
                                     <div className="flex flex-col items-center justify-center py-10 text-center">
                                         <Shield className="mb-3 h-10 w-10 text-gray-300" />
                                         <p className="font-medium text-gray-500">Not yet converted</p>
-                                        <p className="mt-1 text-sm text-gray-400">
-                                            Accept a market offer and convert this placement to a policy.
-                                        </p>
+                                        <p className="mt-1 text-sm text-gray-400">Accept a market offer and convert this placement to a policy.</p>
                                     </div>
                                 )}
                             </>

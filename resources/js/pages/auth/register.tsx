@@ -172,7 +172,7 @@ export default function Register() {
                         <InputError message={errors.password_confirmation} />
                     </div>
 
-                    <div className="col-span-2 flex justify-center w-full">
+                    <div className="col-span-2 flex w-full justify-center">
                         <Turnstile
                             siteKey={turnstile.siteKey}
                             onSuccess={(token) => setData('cf-turnstile-response', token)}

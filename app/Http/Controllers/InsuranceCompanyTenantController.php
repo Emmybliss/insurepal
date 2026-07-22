@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreInsuranceCompanyTenantRequest;
+use App\Http\Requests\UpdateInsuranceCompanyTenantRequest;
 use App\Models\InsuranceCompany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -121,19 +123,11 @@ class InsuranceCompanyTenantController extends Controller
         return response()->json($result);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreInsuranceCompanyTenantRequest $request): RedirectResponse
     {
         $tenant = app('tenant');
 
-        $validated = $request->validate([
-            'insurance_company_id' => ['required', 'exists:insurance_companies,id'],
-            'insurance_company_branch_id' => [
-                'nullable',
-                'exists:insurance_company_branches,id',
-            ],
-            'reference_code' => ['nullable', 'string', 'max:100'],
-            'is_preferred' => ['boolean'],
-        ]);
+        $validated = $request->validated();
 
         $alreadySaved = DB::table('insurance_company_tenant')
             ->where('tenant_id', $tenant->id)
@@ -162,7 +156,7 @@ class InsuranceCompanyTenantController extends Controller
         return redirect()->back()->with('success', 'Insurance company added successfully');
     }
 
-    public function update(Request $request, int $pivotId): RedirectResponse
+    public function update(UpdateInsuranceCompanyTenantRequest $request, int $pivotId): RedirectResponse
     {
         $tenant = app('tenant');
 
@@ -174,10 +168,7 @@ class InsuranceCompanyTenantController extends Controller
             return redirect()->back()->with('error', 'Record not found.');
         }
 
-        $validated = $request->validate([
-            'reference_code' => ['nullable', 'string', 'max:100'],
-            'is_preferred' => ['boolean'],
-        ]);
+        $validated = $request->validated();
 
         $tenant->insuranceCompanies()->updateExistingPivot($pivot->id, $validated);
 

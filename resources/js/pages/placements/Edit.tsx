@@ -1,3 +1,4 @@
+import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
@@ -5,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import AppLayout from '@/layouts/app-layout';
 import { Customer, PolicyProduct } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -100,14 +100,14 @@ export default function Edit({ placement, customers, policyProducts }: Props) {
     });
 
     const addMarket = () => {
-        setData('markets', [
-            ...data.markets,
-            { insurance_company_id: '', participation_percentage: '', status: 'pending', response_notes: '' },
-        ]);
+        setData('markets', [...data.markets, { insurance_company_id: '', participation_percentage: '', status: 'pending', response_notes: '' }]);
     };
 
     const removeMarket = (index: number) => {
-        setData('markets', data.markets.filter((_, i) => i !== index));
+        setData(
+            'markets',
+            data.markets.filter((_, i) => i !== index),
+        );
         setCompanyNames((prev) => {
             const next: Record<number, string> = {};
             Object.entries(prev).forEach(([key, value]) => {
@@ -151,7 +151,10 @@ export default function Edit({ placement, customers, policyProducts }: Props) {
             <div className="space-y-6">
                 <div className="mb-8">
                     <div className="mb-4">
-                        <Link href={route('placements.show', placement.id)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+                        <Link
+                            href={route('placements.show', placement.id)}
+                            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+                        >
                             <ArrowLeft className="mr-1 h-4 w-4" />
                             Back to Placement Details
                         </Link>
@@ -195,10 +198,10 @@ export default function Edit({ placement, customers, policyProducts }: Props) {
                                     <Label>Insured (optional)</Label>
                                     <Select
                                         // Use "none" if the ID is falsy, otherwise convert the ID to a string
-                                        value={data.insured_id ? data.insured_id.toString() : "none"}
+                                        value={data.insured_id ? data.insured_id.toString() : 'none'}
                                         onValueChange={(value) => {
                                             // If the user selects "none", set the ID to an empty string (or null)
-                                            setData('insured_id', value === "none" ? "" : value);
+                                            setData('insured_id', value === 'none' ? '' : value);
                                         }}
                                     >
                                         <SelectTrigger className={errors.insured_id ? 'border-red-500' : ''}>
@@ -332,7 +335,11 @@ export default function Edit({ placement, customers, policyProducts }: Props) {
                                                         value={companyNames[index] || ''}
                                                         scope="tenant"
                                                         onSelect={(company) => {
-                                                            updateMarket(index, 'insurance_company_id', (company.company_id || company.id).toString());
+                                                            updateMarket(
+                                                                index,
+                                                                'insurance_company_id',
+                                                                (company.company_id || company.id).toString(),
+                                                            );
                                                             setCompanyNames((prev) => ({ ...prev, [index]: company.name }));
                                                         }}
                                                         placeholder="Search insurer..."
@@ -350,10 +357,7 @@ export default function Edit({ placement, customers, policyProducts }: Props) {
                                                 </div>
                                                 <div>
                                                     <Label>Status</Label>
-                                                    <Select
-                                                        value={market.status}
-                                                        onValueChange={(value) => updateMarket(index, 'status', value)}
-                                                    >
+                                                    <Select value={market.status} onValueChange={(value) => updateMarket(index, 'status', value)}>
                                                         <SelectTrigger>
                                                             <SelectValue />
                                                         </SelectTrigger>

@@ -35,3 +35,19 @@ git rm .github/workflows/deploy.yml
 git commit -m "Remove GitHub Actions deployment"
 
 git push origin main
+
+# My daily debugging workflow for InsurePal
+
+<!-- If I were maintaining your server, I'd usually have three terminals -->
+
+# Terminal 1 – Laravel
+
+tail -f /var/www/insurepal/storage/logs/laravel.log
+
+# Terminal 2 – Nginx
+
+tail -f /var/log/nginx/error.log
+
+# Terminal 3 – PHP-FPM
+
+journalctl -u php8.4-fpm -f

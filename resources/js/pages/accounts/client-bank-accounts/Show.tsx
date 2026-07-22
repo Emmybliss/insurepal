@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Pencil, Banknote } from 'lucide-react';
+import { ArrowLeft, Banknote, Pencil } from 'lucide-react';
 
 interface ClientBankAccount {
     id: number;
@@ -31,11 +31,13 @@ interface Props {
 
 export default function Show({ account, currentBalance }: Props) {
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
-            { title: account.account_name },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
+                { title: account.account_name },
+            ]}
+        >
             <Head title={account.account_name} />
 
             <div className="flex flex-col gap-6 p-6">
@@ -69,10 +71,10 @@ export default function Show({ account, currentBalance }: Props) {
                                 {account.bank_name}
                             </div>
                             <p className="font-mono text-sm">{account.account_number}</p>
-                            <p className="text-sm capitalize text-muted-foreground">{account.account_type} · {account.currency}</p>
-                            <Badge variant={account.is_active ? 'default' : 'secondary'}>
-                                {account.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
+                            <p className="text-sm text-muted-foreground capitalize">
+                                {account.account_type} · {account.currency}
+                            </p>
+                            <Badge variant={account.is_active ? 'default' : 'secondary'}>{account.is_active ? 'Active' : 'Inactive'}</Badge>
                         </CardContent>
                     </Card>
 

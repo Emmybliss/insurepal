@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
-import { Paperclip, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useState } from 'react';
 
 interface User {
@@ -43,7 +43,7 @@ export default function InboxCreate({ recipients, customers }: Props) {
                 onSuccess: () => {
                     router.visit(route('inbox.index'));
                 },
-            }
+            },
         );
     };
 
@@ -95,10 +95,7 @@ export default function InboxCreate({ recipients, customers }: Props) {
                                 {formData.recipients.map((id) => {
                                     const user = allRecipients.find((u) => u.id === id);
                                     return user ? (
-                                        <span
-                                            key={id}
-                                            className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
-                                        >
+                                        <span key={id} className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800">
                                             {user.name}
                                             <button
                                                 type="button"
@@ -146,10 +143,7 @@ export default function InboxCreate({ recipients, customers }: Props) {
 
                     <div>
                         <Label htmlFor="priority">Priority</Label>
-                        <Select
-                            value={formData.priority}
-                            onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                        >
+                        <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                             <SelectTrigger className="mt-1 w-48">
                                 <SelectValue />
                             </SelectTrigger>
@@ -179,11 +173,7 @@ export default function InboxCreate({ recipients, customers }: Props) {
                             <Send className="mr-2 h-4 w-4" />
                             Send
                         </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleSubmit(false)}
-                        >
+                        <Button type="button" variant="outline" onClick={() => handleSubmit(false)}>
                             Save Draft
                         </Button>
                     </div>

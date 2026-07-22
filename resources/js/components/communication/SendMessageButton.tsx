@@ -1,11 +1,5 @@
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,7 +30,7 @@ export function SendMessageButton({
     const [formData, setFormData] = useState({
         subject: relatedSubject || '',
         body: '',
-        recipients: recipientId ? [recipientId] : [] as number[],
+        recipients: recipientId ? [recipientId] : ([] as number[]),
         priority: 'normal',
     });
 
@@ -60,7 +54,7 @@ export function SendMessageButton({
                     });
                     onSuccess?.();
                 },
-            }
+            },
         );
     };
 
@@ -82,9 +76,7 @@ export function SendMessageButton({
                         <Input
                             id="subject"
                             value={formData.subject}
-                            onChange={(e) =>
-                                setFormData({ ...formData, subject: e.target.value })
-                            }
+                            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                             placeholder="Enter subject..."
                         />
                     </div>
@@ -94,9 +86,7 @@ export function SendMessageButton({
                         <Textarea
                             id="body"
                             value={formData.body}
-                            onChange={(e) =>
-                                setFormData({ ...formData, body: e.target.value })
-                            }
+                            onChange={(e) => setFormData({ ...formData, body: e.target.value })}
                             placeholder="Type your message..."
                             rows={5}
                         />
@@ -107,10 +97,7 @@ export function SendMessageButton({
                     <Button variant="outline" onClick={() => handleSubmit(false)}>
                         Save Draft
                     </Button>
-                    <Button
-                        onClick={() => handleSubmit(true)}
-                        disabled={!formData.subject.trim() || !formData.body.trim()}
-                    >
+                    <Button onClick={() => handleSubmit(true)} disabled={!formData.subject.trim() || !formData.body.trim()}>
                         <Send className="mr-2 h-4 w-4" />
                         Send
                     </Button>

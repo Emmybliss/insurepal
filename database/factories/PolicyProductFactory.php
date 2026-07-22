@@ -19,7 +19,7 @@ class PolicyProductFactory extends Factory
             'policy_type_id' => $policyType->id,
             'policy_class_id' => $policyClass->id,
             'name' => fake()->word().' Insurance',
-            'code' => strtoupper(fake()->lexify('???')),
+            'code' => strtoupper(fake()->unique()->lexify('?????')),
             'base_premium' => 10000,
             'commission_rate' => 10,
             'is_active' => true,

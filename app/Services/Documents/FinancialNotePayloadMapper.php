@@ -15,20 +15,32 @@ class FinancialNotePayloadMapper
      */
     public function mapDebitNote(DebitNote $debitNote): array
     {
-        $debitNote->loadMissing(['customer', 'policy', 'tenant', 'createdBy']);
+        $debitNote->loadMissing(['customer', 'policy.policyType', 'policy.policyClass', 'policy.policyProduct', 'tenant', 'createdBy']);
+
+        $policyType = $debitNote->policy_type
+            ?? $debitNote->policy?->policyType?->name
+            ?? $debitNote->policy?->policyProduct?->name
+            ?? '';
+        $classOfBusiness = $debitNote->class_of_business
+            ?? $debitNote->policy?->policyClass?->name
+            ?? '';
 
         return [
             // ... (keep existing fields)
             'note_number' => $debitNote->note_number,
-            'issue_date' => $debitNote->issue_date ? $debitNote->issue_date->format('F j, Y') : ($debitNote->created_at ? $debitNote->created_at->format('F j, Y') : ''),
+            'created_at' => $debitNote->created_at ? $debitNote->created_at->format('F j, Y') : '',
+            'issue_date' => $debitNote->issue_date ? $debitNote->issue_date->format('F j, Y') : '',
             'due_date' => $debitNote->due_date ? $debitNote->due_date->format('F j, Y') : '',
             'customer_name' => $this->getCustomerName($debitNote->customer),
             'customer_address' => $debitNote->customer ? $debitNote->customer->address : '',
             'policy_number' => $debitNote->policy ? $debitNote->policy->policy_number : 'To Be Advised',
+            'policy_type' => $policyType,
+            'class_of_business' => $classOfBusiness,
             'amount' => number_format($debitNote->amount ?? 0, 2),
             'tax_amount' => number_format($debitNote->tax_amount ?? 0, 2),
             'total_amount' => number_format($debitNote->total_amount ?? 0, 2),
             'description' => $debitNote->description ?? '',
+            'settlement_condition' => $debitNote->settlement_condition ?? '',
             'currency' => $debitNote->currency_code ?? 'NGN',
             'insurer_name' => optional($debitNote->policy)->insurer_name ?? 'N/A',
             'insurer_address' => optional($debitNote->policy)->insurer_address ?? '',
@@ -44,7 +56,7 @@ class FinancialNotePayloadMapper
      */
     public function mapCreditNote(CreditNote $creditNote): array
     {
-        $creditNote->loadMissing(['customer', 'policy', 'tenant', 'createdBy']);
+        $creditNote->loadMissing(['customer', 'policy.policyType', 'policy.policyClass', 'policy.policyProduct', 'debitNote', 'tenant', 'createdBy']);
 
         // Use direct insurer fields on credit note, fallback to policy insurer if not set
         $insurerName = $creditNote->insurer_name
@@ -60,15 +72,30 @@ class FinancialNotePayloadMapper
             ?? $creditNote->policy?->insurer_phone
             ?? '';
 
+        $policyType = $creditNote->policy_type
+            ?? $creditNote->debitNote?->policy_type
+            ?? $creditNote->policy?->policyType?->name
+            ?? $creditNote->policy?->policyProduct?->name
+            ?? '';
+        $classOfBusiness = $creditNote->class_of_business
+            ?? $creditNote->debitNote?->class_of_business
+            ?? $creditNote->policy?->policyClass?->name
+            ?? '';
+
         return [
             'note_number' => $creditNote->note_number,
-            'issue_date' => $creditNote->issue_date ? $creditNote->issue_date->format('F j, Y') : ($creditNote->created_at ? $creditNote->created_at->format('F j, Y') : ''),
+            'created_at' => $creditNote->created_at ? $creditNote->created_at->format('F j, Y') : '',
+            'issue_date' => $creditNote->issue_date ? $creditNote->issue_date->format('F j, Y') : '',
             'customer_name' => $this->getCustomerName($creditNote->customer),
             'customer_address' => $creditNote->customer ? $creditNote->customer->address : '',
             'policy_number' => $creditNote->policy ? $creditNote->policy->policy_number : 'To Be Advised',
+            'policy_type' => $policyType,
+            'class_of_business' => $classOfBusiness,
             'amount' => number_format($creditNote->amount ?? 0, 2),
             'tax_amount' => number_format($creditNote->tax_amount ?? 0, 2),
             'total_amount' => number_format($creditNote->total_amount ?? 0, 2),
+            'commission_rate' => number_format($creditNote->commission_rate ?? 0, 2),
+            'commission_amount' => number_format($creditNote->commission_amount ?? 0, 2),
             'description' => $creditNote->description ?? '',
             'currency' => $creditNote->currency_code ?? 'NGN',
             'insurer_name' => $insurerName,
@@ -169,6 +196,8 @@ class FinancialNotePayloadMapper
         $insurer = $slip->placementMarket?->insuranceCompany;
 
         return [
+            'slip' => $slip,
+            'risks' => $slip->items,
             'slip_number' => $slip->slip_number,
             'version' => $slip->version,
             'currency' => $slip->currency ?? 'NGN',

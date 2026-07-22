@@ -38,7 +38,6 @@ interface Policy {
     default_coverage_period: number;
     min_sum_assured: number;
     max_sum_assured: number | null;
-    requires_underwriting: boolean;
     requires_medical_exam: boolean;
     currency: string;
     sort_order: number;
@@ -140,7 +139,7 @@ export default function Edit({ policy, policyTypes, policyClasses }: Props) {
             <div className="space-y-6">
                 <div className="mb-8">
                     <div className="mb-4">
-                        <Link href={route('policies.show', policy.id)} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+                        <Link href={route('policies.index')} className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
                             <ArrowLeft className="mr-1 h-4 w-4" />
                             Back to Policy Details
                         </Link>
@@ -376,7 +375,7 @@ export default function Edit({ policy, policyTypes, policyClasses }: Props) {
 
                     {/* Submit Buttons */}
                     <div className="flex justify-end space-x-4">
-                        <Link href={route('policies.show', policy.id)}>
+                        <Link href={route('policies.index')}>
                             <Button type="button" variant="outline">
                                 Cancel
                             </Button>

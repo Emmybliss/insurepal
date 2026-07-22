@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -68,11 +68,13 @@ export default function Edit({ account }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Edit' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Bank Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Edit' },
+            ]}
+        >
             <Head title="Edit Bank Account" />
 
             <div className="flex flex-col gap-6">
@@ -84,7 +86,9 @@ export default function Edit({ account }: Props) {
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">Edit Bank Account</h1>
-                        <p className="text-sm text-muted-foreground">{account.bank_name} - {account.account_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                            {account.bank_name} - {account.account_name}
+                        </p>
                     </div>
                 </div>
 
@@ -107,13 +111,20 @@ export default function Edit({ account }: Props) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="account_number">Account Number</Label>
-                                    <Input id="account_number" value={form.account_number} onChange={(e) => update('account_number', e.target.value)} maxLength={10} />
+                                    <Input
+                                        id="account_number"
+                                        value={form.account_number}
+                                        onChange={(e) => update('account_number', e.target.value)}
+                                        maxLength={10}
+                                    />
                                     {errors.account_number && <p className="text-sm text-destructive">{errors.account_number}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="account_type">Account Type</Label>
                                     <Select value={form.account_type} onValueChange={(v) => update('account_type', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="savings">Savings</SelectItem>
                                             <SelectItem value="current">Current</SelectItem>
@@ -123,7 +134,9 @@ export default function Edit({ account }: Props) {
                                 <div className="space-y-2">
                                     <Label htmlFor="currency">Currency</Label>
                                     <Select value={form.currency} onValueChange={(v) => update('currency', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="NGN">NGN</SelectItem>
                                             <SelectItem value="USD">USD</SelectItem>
@@ -134,7 +147,12 @@ export default function Edit({ account }: Props) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Opening Balance</Label>
-                                    <Input type="number" step="0.01" value={form.opening_balance} onChange={(e) => update('opening_balance', e.target.value)} />
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={form.opening_balance}
+                                        onChange={(e) => update('opening_balance', e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Opening Balance Date</Label>
@@ -151,7 +169,9 @@ export default function Edit({ account }: Props) {
                             </div>
                             <div className="flex justify-end gap-4 pt-4">
                                 <Link href={route('client-bank-accounts.index')}>
-                                    <Button type="button" variant="outline">Cancel</Button>
+                                    <Button type="button" variant="outline">
+                                        Cancel
+                                    </Button>
                                 </Link>
                                 <Button type="submit" disabled={processing}>
                                     <Save className="mr-2 h-4 w-4" />

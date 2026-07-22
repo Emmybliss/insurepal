@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Traits\DeletesStorageFiles;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Document extends Model
 {
-    use DeletesStorageFiles, SoftDeletes;
+    use BelongsToTenant, DeletesStorageFiles, SoftDeletes;
 
     public function storageDisk(): string
     {

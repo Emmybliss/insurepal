@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import useFlashToast from '@/hooks/useFlashToast';
 import { useLang } from '@/hooks/useLang';
-import { getTimeBasedGreeting } from '@/lib/greeting';
 import AppLayout from '@/layouts/app-layout';
+import { getTimeBasedGreeting } from '@/lib/greeting';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -122,7 +122,10 @@ const formatCurrency = (amount: number) =>
 const formatDate = (date: string) => (date ? new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 const getPolicyStatus = (policy: Policy) => {
-    if (policy.status && policy.status !== 'active' && policy.status !== 'expired') return policy.status;
+    const dateStatuses = ['active', 'expired', 'recorded'];
+    if (!dateStatuses.includes(policy.status)) return policy.status;
+
+    if (!policy.expiry_date) return policy.status === 'recorded' ? 'recorded' : 'active';
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -135,7 +138,6 @@ const getPolicyStatus = (policy: Policy) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 60) return 'expiring_soon';
-    if (diffDays <= 90) return 'active';
 
     return 'active';
 };
@@ -280,7 +282,6 @@ export default function CustomerDashboard({ tenant, customer, kyc, stats, polici
 
                 {/* ── Stats Cards ────────────────────────────────────────── */}
                 <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-
                     <Card
                         className="cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg active:scale-[0.98]"
                         onClick={() => router.get('/policies', { status: 'active' })}

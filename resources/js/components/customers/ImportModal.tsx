@@ -52,7 +52,7 @@ export default function ImportModal({ open, onOpenChange }: ImportModalProps) {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: formData,
             });
@@ -85,7 +85,13 @@ export default function ImportModal({ open, onOpenChange }: ImportModalProps) {
     };
 
     return (
-        <Dialog open={open} onOpenChange={(val) => { if (!val) handleClose(); else onOpenChange(true); }}>
+        <Dialog
+            open={open}
+            onOpenChange={(val) => {
+                if (!val) handleClose();
+                else onOpenChange(true);
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Import Customers</DialogTitle>
@@ -143,9 +149,7 @@ export default function ImportModal({ open, onOpenChange }: ImportModalProps) {
                                 <p className="text-sm font-medium">Import Results</p>
                                 <div className="mt-2 space-y-1 text-sm">
                                     <p className="text-green-600">✓ {result.created} customer(s) created</p>
-                                    {result.skipped > 0 && (
-                                        <p className="text-amber-600">⏭ {result.skipped} row(s) skipped (duplicate emails)</p>
-                                    )}
+                                    {result.skipped > 0 && <p className="text-amber-600">⏭ {result.skipped} row(s) skipped (duplicate emails)</p>}
                                 </div>
                                 {result.errors.length > 0 && (
                                     <div className="mt-3">

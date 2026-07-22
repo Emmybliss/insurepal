@@ -126,6 +126,7 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // single field — leave inline
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);

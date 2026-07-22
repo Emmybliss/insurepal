@@ -20,7 +20,7 @@ const FrontendHeader = () => {
         { href: '#faqs', label: 'FAQs', type: 'anchor' },
     ];
 
-    const NavItems = ({ className = '', onClick = () => { } }: { className?: string; onClick?: () => void }) => (
+    const NavItems = ({ className = '', onClick = () => {} }: { className?: string; onClick?: () => void }) => (
         <>
             {navLinks.map((link) =>
                 link.type === 'link' ? (
@@ -106,7 +106,7 @@ const FrontendHeader = () => {
                                         </SheetTitle>
                                     </SheetHeader>
                                     <div className="mt-8 flex flex-col gap-6 px-3">
-                                        <NavItems className="text-lg font-medium w-full text-center" onClick={() => setIsOpen(false)} />
+                                        <NavItems className="w-full text-center text-lg font-medium" onClick={() => setIsOpen(false)} />
                                         <div className="flex items-center gap-4 border-t pt-6">
                                             <ModeToggle />
                                             <span className="text-sm text-muted-foreground">Toggle Theme</span>

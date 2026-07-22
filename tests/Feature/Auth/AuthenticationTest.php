@@ -15,6 +15,7 @@ test('users can authenticate using the login screen', function () {
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
         'password' => 'password',
+        'cf-turnstile-response' => 'test',
     ]);
 
     $this->assertAuthenticated();
@@ -28,6 +29,7 @@ test('users can not authenticate with invalid password', function () {
     $this->post(route('login.store'), [
         'email' => $user->email,
         'password' => 'wrong-password',
+        'cf-turnstile-response' => 'test',
     ]);
 
     $this->assertGuest();
@@ -40,7 +42,11 @@ test('users can logout', function () {
     $response = $this->actingAs($user)->post(route('logout'));
 
     $this->assertGuest();
+<<<<<<< HEAD
     $response->assertRedirect('/');
+=======
+    $response->assertRedirect(route('login'));
+>>>>>>> 4b443a0 (Added The Naicom report and Various broker slip)
 });
 
 test('users get validation errors with invalid credentials', function () {

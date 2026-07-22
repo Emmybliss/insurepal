@@ -5,12 +5,12 @@ namespace App\Services;
 use App\Models\CreditNote;
 use App\Models\DebitNote;
 use App\Models\Policy;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class FinancialDocumentService
 {
-    public function createDebitNoteFromPolicy(Policy $policy, array $data): DebitNote
+    public function createDebitNoteFromPolicy(Policy $policy, User $user, array $data): DebitNote
     {
         $tenantId = $policy->tenant_id;
         $sequenceNumber = $this->getNextSequenceNumber('debit', $tenantId);
@@ -24,14 +24,14 @@ class FinancialDocumentService
             'tenant_id' => $tenantId,
             'customer_id' => $policy->customer_id,
             'policy_id' => $policy->id,
-            'broker_id' => Auth::user()->isBroker() ? Auth::id() : null, // Assuming an isBroker() method on User model
+            'broker_id' => $user->isBroker() ? $user->id : null,
             'amount' => $data['amount'],
             'tax_amount' => $data['tax_amount'] ?? 0,
             'total_amount' => $data['amount'] + ($data['tax_amount'] ?? 0),
             'description' => $data['description'] ?? 'Debit Note for Policy #'.$policy->policy_number,
             'issue_date' => now()->format('Y-m-d'),
             'due_date' => $data['due_date'] ?? now()->addDays(30)->format('Y-m-d'),
-            'created_by_id' => Auth::id(),
+            'created_by_id' => $user->id,
             'items' => $data['items'] ?? null,
             'premium_breakdown' => $policy->coverage_details,
             'currency_code' => 'NGN',
@@ -40,7 +40,7 @@ class FinancialDocumentService
         return $debitNote;
     }
 
-    public function createCreditNoteFromPolicy(Policy $policy, array $data): CreditNote
+    public function createCreditNoteFromPolicy(Policy $policy, User $user, array $data): CreditNote
     {
         $tenantId = $policy->tenant_id;
         $sequenceNumber = $this->getNextSequenceNumber('credit', $tenantId);
@@ -59,7 +59,7 @@ class FinancialDocumentService
             'total_amount' => $data['amount'] + ($data['tax_amount'] ?? 0),
             'description' => $data['description'] ?? 'Credit Note for Policy #'.$policy->policy_number,
             'issue_date' => now()->format('Y-m-d'),
-            'created_by_id' => Auth::id(),
+            'created_by_id' => $user->id,
             'items' => $data['items'] ?? null,
             'currency_code' => 'NGN',
         ]);

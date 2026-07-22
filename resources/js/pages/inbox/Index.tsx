@@ -3,9 +3,29 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
+import type {
+    CommunicationMessage,
+    CommunicationParticipant,
+    CommunicationStats,
+    CommunicationThread,
+    CommunicationUser,
+} from '@/types/communication';
 import { Head, Link, router } from '@inertiajs/react';
-import type { CommunicationThread, CommunicationStats, CommunicationParticipant, CommunicationUser, CommunicationMessage } from '@/types/communication';
-import { Archive, Eye, Inbox, Mail, MailOpen, MessageSquare, MoreHorizontal, Paperclip, PlusCircle, Search, Send, Trash2, User as UserIcon } from 'lucide-react';
+import {
+    Archive,
+    Eye,
+    Inbox,
+    Mail,
+    MailOpen,
+    MessageSquare,
+    MoreHorizontal,
+    Paperclip,
+    PlusCircle,
+    Search,
+    Send,
+    Trash2,
+    User as UserIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 
 type User = CommunicationUser;
@@ -66,32 +86,20 @@ export default function InboxIndex({ threads, folder, stats, filters }: Props) {
     const markAsRead = () => {
         if (selectedThreads.length === 0) return;
 
-        router.post(
-            route('inbox.bulk-action'),
-            { thread_ids: selectedThreads, action: 'read' },
-            { onSuccess: () => setSelectedThreads([]) }
-        );
+        router.post(route('inbox.bulk-action'), { thread_ids: selectedThreads, action: 'read' }, { onSuccess: () => setSelectedThreads([]) });
     };
 
     const markAsUnread = () => {
         if (selectedThreads.length === 0) return;
 
-        router.post(
-            route('inbox.bulk-action'),
-            { thread_ids: selectedThreads, action: 'unread' },
-            { onSuccess: () => setSelectedThreads([]) }
-        );
+        router.post(route('inbox.bulk-action'), { thread_ids: selectedThreads, action: 'unread' }, { onSuccess: () => setSelectedThreads([]) });
     };
 
     const bulkDelete = () => {
         if (selectedThreads.length === 0) return;
 
         if (confirm('Are you sure you want to delete the selected messages?')) {
-            router.post(
-                route('inbox.bulk-action'),
-                { thread_ids: selectedThreads, action: 'delete' },
-                { onSuccess: () => setSelectedThreads([]) }
-            );
+            router.post(route('inbox.bulk-action'), { thread_ids: selectedThreads, action: 'delete' }, { onSuccess: () => setSelectedThreads([]) });
         }
     };
 
@@ -292,9 +300,7 @@ export default function InboxIndex({ threads, folder, stats, filters }: Props) {
                                                                 </Badge>
                                                                 {thread.latestMessage && <Paperclip className="h-4 w-4 text-gray-400" />}
                                                             </div>
-                                                            <p
-                                                                className={`text-sm ${unread ? 'font-medium' : 'font-normal'} truncate text-gray-600`}
-                                                            >
+                                                            <p className={`text-sm ${unread ? 'font-medium' : 'font-normal'} truncate text-gray-600`}>
                                                                 {thread.subject}
                                                             </p>
                                                             {thread.latestMessage && (

@@ -1,18 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from '@/components/ui/command';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import { Building2, ChevronsUpDown, Loader2 } from 'lucide-react';
@@ -103,24 +92,15 @@ export default function CompanySearchCombobox({
 
             setIsLoading(true);
             try {
-                const url =
-                    scope === 'tenant'
-                        ? `${getEndpoint()}`
-                        : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`;
-                const response = await fetch(
-                    scope === 'tenant'
-                        ? getEndpoint()
-                        : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`,
-                );
+                const url = scope === 'tenant' ? `${getEndpoint()}` : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`;
+                const response = await fetch(scope === 'tenant' ? getEndpoint() : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (scope === 'tenant' && searchTerm.length >= 1) {
                         const q = searchTerm.toLowerCase();
                         setResults(
                             data.filter(
-                                (item: InsuranceCompany) =>
-                                    item.name.toLowerCase().includes(q) ||
-                                    item.company_name?.toLowerCase().includes(q),
+                                (item: InsuranceCompany) => item.name.toLowerCase().includes(q) || item.company_name?.toLowerCase().includes(q),
                             ),
                         );
                     } else {
@@ -160,11 +140,7 @@ export default function CompanySearchCombobox({
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className={cn(
-                        'w-full justify-between font-normal',
-                        !value && 'text-muted-foreground',
-                        className,
-                    )}
+                    className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground', className)}
                     disabled={disabled}
                 >
                     <div className="flex items-center gap-2 truncate">
@@ -185,9 +161,7 @@ export default function CompanySearchCombobox({
                         {isLoading && (
                             <div className="flex items-center justify-center p-4">
                                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                <span className="ml-2 text-sm text-muted-foreground">
-                                    {scope === 'tenant' ? 'Loading...' : 'Searching...'}
-                                </span>
+                                <span className="ml-2 text-sm text-muted-foreground">{scope === 'tenant' ? 'Loading...' : 'Searching...'}</span>
                             </div>
                         )}
 
@@ -217,20 +191,15 @@ export default function CompanySearchCombobox({
                         {!isLoading && results.length === 0 && scope === 'tenant' && (
                             <CommandEmpty>
                                 <div className="p-4 text-center">
-                                    <p className="text-sm text-muted-foreground">
-                                        No companies found
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        Add companies in Settings &gt; Insurance Companies
-                                    </p>
+                                    <p className="text-sm text-muted-foreground">No companies found</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Add companies in Settings &gt; Insurance Companies</p>
                                 </div>
                             </CommandEmpty>
                         )}
 
                         {!isLoading && query.length < 2 && scope !== 'tenant' && !value && (
                             <div className="p-4 text-center text-sm text-muted-foreground">
-                                Start typing to search the{' '}
-                                {companyType === 'all' ? 'registry' : companyType + ' registry'}
+                                Start typing to search the {companyType === 'all' ? 'registry' : companyType + ' registry'}
                                 ...
                             </div>
                         )}
@@ -239,7 +208,7 @@ export default function CompanySearchCombobox({
                             {results.map((company) => (
                                 <div
                                     key={`${company.source}-${company.id}`}
-                                    className="flex items-center justify-between cursor-pointer rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent"
+                                    className="flex cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent"
                                     onClick={() => {
                                         onSelect(company);
                                         setOpen(false);
@@ -253,15 +222,9 @@ export default function CompanySearchCombobox({
                                                 : company.name}
                                         </span>
                                         {company.company_name && !company.branch && (
-                                            <span className="text-xs text-muted-foreground">
-                                                {company.company_name}
-                                            </span>
+                                            <span className="text-xs text-muted-foreground">{company.company_name}</span>
                                         )}
-                                        {company.rc_number && (
-                                            <span className="text-xs text-muted-foreground">
-                                                RC: {company.rc_number}
-                                            </span>
-                                        )}
+                                        {company.rc_number && <span className="text-xs text-muted-foreground">RC: {company.rc_number}</span>}
                                     </div>
                                     <div className="flex items-center gap-1">
                                         {company.branch && (
@@ -269,15 +232,8 @@ export default function CompanySearchCombobox({
                                                 {company.branch.name}
                                             </Badge>
                                         )}
-                                        <Badge
-                                            variant={
-                                                company.source === 'tenant' ? 'secondary' : 'outline'
-                                            }
-                                            className="ml-1 text-[10px]"
-                                        >
-                                            {company.source === 'tenant'
-                                                ? 'Registered'
-                                                : 'Registry'}
+                                        <Badge variant={company.source === 'tenant' ? 'secondary' : 'outline'} className="ml-1 text-[10px]">
+                                            {company.source === 'tenant' ? 'Registered' : 'Registry'}
                                         </Badge>
                                     </div>
                                 </div>

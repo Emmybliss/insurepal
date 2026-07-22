@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\SuperAdminRequest;
 use App\Models\Customer;
 use App\Models\Deployment;
 use App\Models\Payment;
+use App\Models\PlatformSetting;
 use App\Models\Policy;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\PlatformSettingsService;
 use App\Services\TenantService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,7 +19,8 @@ use Inertia\Inertia;
 class SuperAdminController extends Controller
 {
     public function __construct(
-        private TenantService $tenantService
+        private TenantService $tenantService,
+        private PlatformSettingsService $platformSettings,
     ) {}
 
     /**
@@ -47,12 +51,8 @@ class SuperAdminController extends Controller
     /**
      * Suspend Tenant
      */
-    public function suspendTenant(Request $request, Tenant $tenant)
+    public function suspendTenant(SuperAdminRequest $request, Tenant $tenant)
     {
-        $request->validate([
-            'reason' => 'required|string|max:500',
-        ]);
-
         $this->tenantService->suspend($tenant, $request->reason);
 
         return back()->with('success', 'Tenant suspended successfully.');
@@ -206,8 +206,7 @@ class SuperAdminController extends Controller
      */
     public function settings()
     {
-        // Get system-wide settings stored in cache/config
-        $settings = \Illuminate\Support\Facades\Cache::get('platform_settings', []);
+        $settings = $this->buildSettings();
 
         $systemHealth = [
             'database' => $this->checkDatabaseHealth(),
@@ -218,7 +217,7 @@ class SuperAdminController extends Controller
         ];
 
         return Inertia::render('Admin/Settings', [
-            'settings' => $settings ?: null,
+            'settings' => $settings,
             'systemHealth' => $systemHealth,
             'deployments' => Deployment::latest()->take(10)->with('user')->get(),
         ]);
@@ -231,25 +230,161 @@ class SuperAdminController extends Controller
     {
         $section = $request->input('section');
 
-        $allowed = ['general', 'security', 'email', 'notifications', 'billing', 'system'];
+        $allowed = ['general', 'security', 'email', 'notifications', 'billing', 'system', 'ai', 'email_oauth'];
 
         if (! in_array($section, $allowed)) {
             return back()->withErrors(['section' => 'Invalid settings section.']);
         }
 
-        // Extract only the data for the requested section (Inertia sends the whole form)
         $sectionData = $request->input($section);
 
         if (! is_array($sectionData)) {
             return back()->withErrors(['section' => 'No data found for section: '.$section]);
         }
 
-        // Merge just this section's data into the persisted settings
-        $stored = \Illuminate\Support\Facades\Cache::get('platform_settings', []);
-        $stored[$section] = $sectionData;
-        \Illuminate\Support\Facades\Cache::put('platform_settings', $stored, now()->addYears(10));
+        $this->saveSectionSettings($section, $sectionData);
 
         return back()->with('success', ucfirst($section).' settings saved successfully.');
+    }
+
+    private function buildSettings(): array
+    {
+        $keys = $this->getAllSettingKeys();
+        $dbSettings = PlatformSetting::whereIn('setting_key', collect($keys)->flatten()->all())->get()->keyBy('setting_key');
+
+        $settings = [];
+
+        foreach ($keys as $section => $sectionKeys) {
+            $settings[$section] = [];
+            foreach ($sectionKeys as $key) {
+                $setting = $dbSettings->get($key);
+                $settings[$section][$key] = $setting
+                    ? ($setting->is_encrypted ? $setting->value : $setting->setting_value)
+                    : null;
+            }
+        }
+
+        return $settings;
+    }
+
+    private function saveSectionSettings(string $section, array $data): void
+    {
+        $encryptedKeys = $this->getEncryptedKeys();
+
+        foreach ($data as $key => $value) {
+            if (isset($encryptedKeys[$key])) {
+                PlatformSetting::set($key, $value, $section, true, $encryptedKeys[$key]);
+            } else {
+                PlatformSetting::set($key, $value, $section);
+            }
+        }
+    }
+
+    private function getAllSettingKeys(): array
+    {
+        return [
+            'general' => [
+                'platform_name',
+                'platform_description',
+                'support_email',
+                'support_phone',
+                'timezone',
+                'date_format',
+                'currency',
+                'language',
+                'maintenance_mode',
+                'registration_enabled',
+                'logo_url',
+                'favicon_url',
+            ],
+            'security' => [
+                'password_min_length',
+                'password_require_symbols',
+                'password_require_numbers',
+                'password_require_uppercase',
+                'session_timeout',
+                'max_login_attempts',
+                'two_factor_required',
+                'api_rate_limit',
+                'enable_audit_logs',
+                'failed_login_lockout_duration',
+            ],
+            'email' => [
+                'mail_driver',
+                'mail_host',
+                'mail_port',
+                'mail_username',
+                'mail_password',
+                'mail_encryption',
+                'mail_from_address',
+                'mail_from_name',
+                'mail_test_mode',
+            ],
+            'notifications' => [
+                'welcome_emails',
+                'policy_reminders',
+                'payment_notifications',
+                'system_alerts',
+                'slack_webhook',
+                'discord_webhook',
+                'email_notifications',
+                'sms_notifications',
+                'push_notifications',
+                'notification_frequency',
+            ],
+            'billing' => [
+                'paystack_public_key',
+                'paystack_secret_key',
+                'paystack_webhook_secret',
+                'paystack_test_mode',
+                'trial_period_days',
+                'grace_period_days',
+                'auto_suspend_overdue',
+                'invoice_prefix',
+                'tax_rate',
+            ],
+            'system' => [
+                'backup_frequency',
+                'log_retention_days',
+                'cache_driver',
+                'queue_driver',
+                'storage_driver',
+                'max_upload_size',
+                'enable_debug_mode',
+                'maintenance_message',
+                'auto_updates',
+                'performance_monitoring',
+            ],
+            'ai' => [
+                'ai_provider',
+                'openai_api_key',
+                'openai_base_url',
+                'openai_model',
+                'anthropic_api_key',
+                'anthropic_base_url',
+                'anthropic_model',
+            ],
+            'email_oauth' => [
+                'gmail_client_id',
+                'gmail_client_secret',
+                'gmail_redirect_uri',
+                'microsoft_client_id',
+                'microsoft_client_secret',
+                'microsoft_redirect_uri',
+            ],
+        ];
+    }
+
+    private function getEncryptedKeys(): array
+    {
+        return [
+            'mail_password' => 'SMTP password for platform emails',
+            'paystack_secret_key' => 'Paystack secret key',
+            'openai_api_key' => 'OpenAI API key',
+            'anthropic_api_key' => 'Anthropic API key',
+            'gmail_client_secret' => 'Gmail OAuth client secret',
+            'microsoft_client_secret' => 'Microsoft 365 OAuth client secret',
+        ];
     }
 
     private function checkDatabaseHealth(): string

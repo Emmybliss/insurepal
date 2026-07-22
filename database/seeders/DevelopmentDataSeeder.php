@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Hash;
 
 class DevelopmentDataSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $this->command->info('Creating development test data...');
@@ -172,7 +169,7 @@ class DevelopmentDataSeeder extends Seeder
             'email' => 'customer@test.com',
             'email_verified_at' => now(),
             'password' => Hash::make('password'),
-            'tenant_id' => null, // Customers don't belong to tenants directly
+            'tenant_id' => $brokerTenant->id, // Align with customer record tenant
         ]);
         $customerUser->assignRole('customer');
 
@@ -314,6 +311,20 @@ class DevelopmentDataSeeder extends Seeder
         $this->command->info('📋 Seeding tenant-specific roles and permissions...');
         $this->call(TenantRolesAndPermissionsSeeder::class);
 
+        // Seed AI assistant data
+        $this->command->info('🤖 Seeding AI assistant data...');
+        $this->call(AiDataSeeder::class, false, [
+            'brokerAdmin' => $brokerAdmin,
+            'underwriterAdmin' => $underwriterAdmin,
+        ]);
+
+        // Seed email data
+        $this->command->info('📧 Seeding email data...');
+        $this->call(EmailDataSeeder::class, false, [
+            'brokerAdmin' => $brokerAdmin,
+            'underwriterAdmin' => $underwriterAdmin,
+        ]);
+
         $this->command->info('✅ Development test data created successfully!');
         $this->command->line('📊 Created:');
         $this->command->line('  • 2 test tenants (1 broker, 1 underwriter)');
@@ -321,5 +332,7 @@ class DevelopmentDataSeeder extends Seeder
         $this->command->line('  • 5 test customers (3 broker, 2 underwriter)');
         $this->command->line('  • 4 sample quotes in different statuses');
         $this->command->line('  • 1 customer portal user account');
+        $this->command->line('  • AI conversations, messages, and tool executions');
+        $this->command->line('  • Email templates and signatures');
     }
 }

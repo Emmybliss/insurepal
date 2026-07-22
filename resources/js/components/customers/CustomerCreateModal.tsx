@@ -154,7 +154,7 @@ export default function CustomerCreateModal({ open, onOpenChange, onCustomerCrea
                 headers: {
                     'X-CSRF-TOKEN': getCsrfToken(),
                     'X-Quick-Create': 'true',
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                 },
                 body: formData,
             });
@@ -191,8 +191,14 @@ export default function CustomerCreateModal({ open, onOpenChange, onCustomerCrea
     };
 
     return (
-        <Dialog open={open} onOpenChange={(val) => { if (!val) handleClose(); else onOpenChange(true); }}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <Dialog
+            open={open}
+            onOpenChange={(val) => {
+                if (!val) handleClose();
+                else onOpenChange(true);
+            }}
+        >
+            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Add Customer</DialogTitle>
                     <DialogDescription>Create a new individual or corporate customer</DialogDescription>
@@ -207,10 +213,7 @@ export default function CustomerCreateModal({ open, onOpenChange, onCustomerCrea
                         <CardContent>
                             <div className="space-y-2">
                                 <Label htmlFor="modal-type">Customer Type</Label>
-                                <Select
-                                    value={data.type}
-                                    onValueChange={(value: 'individual' | 'corporate') => setFormValue('type', value)}
-                                >
+                                <Select value={data.type} onValueChange={(value: 'individual' | 'corporate') => setFormValue('type', value)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select customer type" />
                                     </SelectTrigger>
@@ -304,11 +307,7 @@ export default function CustomerCreateModal({ open, onOpenChange, onCustomerCrea
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="modal-phone">Phone Number</Label>
-                                            <Input
-                                                id="modal-phone"
-                                                value={data.phone}
-                                                onChange={(e) => setFormValue('phone', e.target.value)}
-                                            />
+                                            <Input id="modal-phone" value={data.phone} onChange={(e) => setFormValue('phone', e.target.value)} />
                                             <InputError message={errors.phone} />
                                         </div>
                                     </div>

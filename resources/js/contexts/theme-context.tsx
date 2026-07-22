@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 import { getThemePreset, themePresets } from '@/config/theme-presets';
 import type { Theme, ThemeContextType } from '@/types/theme';
@@ -11,41 +11,61 @@ const THEME_STORAGE_KEY = 'theme-preset';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [currentPreset, setCurrentPreset] = useState<string>('ocean');
+    const [customTheme, setCustomTheme] = useState<Theme | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Use refs so MutationObserver callbacks always read the latest values
+    const customThemeRef = useRef<Theme | null>(null);
+    const currentPresetRef = useRef<string>('ocean');
+
+    // Keep refs in sync with state
+    const syncRefs = (preset: string, theme: Theme | null) => {
+        currentPresetRef.current = preset;
+        customThemeRef.current = theme;
+    };
 
     // Get page props at component level (now safe because we're inside Inertia context)
     const page = usePage<{ theme?: Theme }>();
     const pageTheme = page.props.theme;
 
-    // Initialize theme from localStorage or page props
+    // Initialize theme from backend page props first, falling back to localStorage
     useEffect(() => {
-        const savedPreset = localStorage.getItem(THEME_STORAGE_KEY);
-        if (savedPreset && themePresets[savedPreset]) {
-            setCurrentPreset(savedPreset);
-            applyPresetToCSS(savedPreset);
-        } else if (pageTheme) {
-            // Convert backend theme to preset if possible
+        if (pageTheme) {
             const matchingPreset = findMatchingPreset(pageTheme);
             if (matchingPreset) {
                 setCurrentPreset(matchingPreset);
+                setCustomTheme(null);
+                syncRefs(matchingPreset, null);
                 applyPresetToCSS(matchingPreset);
             } else {
+                setCustomTheme(pageTheme);
+                syncRefs('ocean', pageTheme);
                 applyThemeToCSSVariables(pageTheme);
+                localStorage.removeItem(THEME_STORAGE_KEY);
             }
         } else {
-            applyPresetToCSS('ocean');
+            const savedPreset = localStorage.getItem(THEME_STORAGE_KEY);
+            if (savedPreset && themePresets[savedPreset]) {
+                setCurrentPreset(savedPreset);
+                setCustomTheme(null);
+                syncRefs(savedPreset, null);
+                applyPresetToCSS(savedPreset);
+            } else {
+                setCustomTheme(null);
+                syncRefs('ocean', null);
+                applyPresetToCSS('ocean');
+            }
         }
     }, [pageTheme]);
 
-    // Listen for dark mode changes
+    // Listen for dark mode changes — reads from refs to avoid stale closures
     useEffect(() => {
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    // Reapply current preset with new dark mode state
-                    applyPresetToCSS(currentPreset);
-                }
-            });
+        const observer = new MutationObserver(() => {
+            if (customThemeRef.current) {
+                applyThemeToCSSVariables(customThemeRef.current);
+            } else {
+                applyPresetToCSS(currentPresetRef.current);
+            }
         });
 
         observer.observe(document.documentElement, {
@@ -54,7 +74,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         });
 
         return () => observer.disconnect();
-    }, [currentPreset]);
+    }, []);
 
     const applyPresetToCSS = (presetKey: string) => {
         const preset = getThemePreset(presetKey);
@@ -102,12 +122,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
 
     const applyTheme = (newTheme: Theme) => {
+        setCustomTheme(newTheme);
+        syncRefs('ocean', newTheme);
         applyThemeToCSSVariables(newTheme);
     };
 
     const applyPreset = async (presetKey: string) => {
         setIsLoading(true);
         setCurrentPreset(presetKey);
+        setCustomTheme(null);
+        syncRefs(presetKey, null);
         applyPresetToCSS(presetKey);
 
         // Also update backend if possible
@@ -136,6 +160,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const resetTheme = async () => {
         setIsLoading(true);
         setCurrentPreset('ocean');
+        setCustomTheme(null);
+        syncRefs('ocean', null);
         applyPresetToCSS('ocean');
 
         try {
@@ -160,8 +186,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Convert current preset to theme format for compatibility
-    const theme: Theme = {
+    // Convert current theme to the expected format
+    const theme: Theme = customTheme ?? {
         primary_color: getThemePreset(currentPreset).colors.primary,
         secondary_color: getThemePreset(currentPreset).colors.secondary,
         accent_color: getThemePreset(currentPreset).colors.accent,
@@ -187,103 +213,46 @@ export function useTheme() {
 }
 
 /**
- * Apply theme colors to CSS variables (legacy support)
+ * Apply theme colors to CSS variables
  */
 function applyThemeToCSSVariables(theme: Theme) {
     const root = document.documentElement;
 
-    // Convert hex colors to oklch format for Tailwind compatibility
-    const primaryOklch = hexToOklch(theme.primary_color);
-    const secondaryOklch = hexToOklch(theme.secondary_color);
-    const accentOklch = hexToOklch(theme.accent_color);
+    root.style.setProperty('--primary', theme.primary_color);
+    root.style.setProperty('--secondary', theme.secondary_color);
+    root.style.setProperty('--accent', theme.accent_color);
 
-    // Set standard Tailwind color variables
-    root.style.setProperty('--primary', primaryOklch);
-    root.style.setProperty('--secondary', secondaryOklch);
-    root.style.setProperty('--accent', accentOklch);
-
-    // Set primary foreground (white or black based on primary color brightness)
     const primaryForeground = getContrastColor(theme.primary_color);
     root.style.setProperty('--primary-foreground', primaryForeground);
 
-    // Set secondary foreground
     const secondaryForeground = getContrastColor(theme.secondary_color);
     root.style.setProperty('--secondary-foreground', secondaryForeground);
 
-    // Set accent foreground
     const accentForeground = getContrastColor(theme.accent_color);
     root.style.setProperty('--accent-foreground', accentForeground);
 
-    // Update sidebar colors to use the new primary color
-    root.style.setProperty('--sidebar-primary', primaryOklch);
+    root.style.setProperty('--sidebar-primary', theme.primary_color);
     root.style.setProperty('--sidebar-primary-foreground', primaryForeground);
 
-    if (theme.gradient && theme.gradient.from && theme.gradient.to) {
+    if (theme.sidebar_style === 'gradient' && theme.gradient?.from && theme.gradient?.to) {
         const via = theme.gradient.via || theme.gradient.to;
-        if (theme.sidebar_style === 'gradient') {
-            const gradient = `linear-gradient(135deg, ${theme.gradient.from}, ${via}, ${theme.gradient.to})`;
-            root.style.setProperty('--sidebar', gradient);
-        }
+        const gradient = `linear-gradient(135deg, ${theme.gradient.from}, ${via}, ${theme.gradient.to})`;
+        root.style.setProperty('--sidebar', gradient);
+    } else if (theme.sidebar_style === 'transparent') {
+        root.style.setProperty('--sidebar', 'transparent');
+    } else {
+        root.style.setProperty('--sidebar', theme.primary_color);
+    }
 
+    if (theme.gradient?.from && theme.gradient?.to) {
+        const via = theme.gradient.via || theme.gradient.to;
         root.style.setProperty('--gradient-from', theme.gradient.from);
         root.style.setProperty('--gradient-via', via);
         root.style.setProperty('--gradient-to', theme.gradient.to);
-    } else {
-        if (theme.sidebar_style !== 'gradient') {
-            root.style.setProperty('--sidebar', primaryOklch);
-        }
     }
 
-    root.style.setProperty('--ring', primaryOklch);
-    root.style.setProperty('--sidebar-ring', primaryOklch);
-}
-
-/**
- * Convert hex color to oklch format
- */
-function hexToOklch(hex: string): string {
-    // Validate and clean the hex string
-    const cleanedHex = hex.startsWith('#') ? hex.substring(1) : hex;
-    if (!/^[0-9a-fA-F]{6}$/.test(cleanedHex)) {
-        console.warn(`Invalid hex color: ${hex}. Using fallback.`);
-        return 'oklch(0.5 0.1 200)'; // A neutral fallback color
-    }
-
-    // Convert hex to RGB
-    const r = parseInt(cleanedHex.substring(0, 2), 16) / 255;
-    const g = parseInt(cleanedHex.substring(2, 4), 16) / 255;
-    const b = parseInt(cleanedHex.substring(4, 6), 16) / 255;
-
-    // A more standard RGB to sRGB conversion before XYZ
-    const sR = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-    const sG = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-    const sB = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
-
-    // Convert sRGB to XYZ
-    const x = sR * 0.4124564 + sG * 0.3575761 + sB * 0.1804375;
-    const y = sR * 0.2126729 + sG * 0.7151522 + sB * 0.072175;
-    const z = sR * 0.0193339 + sG * 0.119192 + sB * 0.9503041;
-
-    // Convert XYZ to Lab
-    const fx = (v: number) => (v > 0.008856 ? Math.cbrt(v) : (v * 903.3 + 16) / 116);
-    const fX = fx(x / 0.95047);
-    const fY = fx(y / 1.0);
-    const fZ = fx(z / 1.08883);
-
-    const L = 116 * fY - 16;
-    const a = 500 * (fX - fY);
-    const b_lab = 200 * (fY - fZ);
-
-    // Convert Lab to LCH, then to OKLCH
-    const C = Math.sqrt(a * a + b_lab * b_lab);
-    const H = Math.atan2(b_lab, a) * (180 / Math.PI);
-
-    // OKLCH conversion (simplified from LCH)
-    const l_ok = L / 100;
-    const c_ok = C / 100;
-    const h_ok = H < 0 ? H + 360 : H;
-
-    return `oklch(${l_ok.toFixed(3)} ${c_ok.toFixed(3)} ${h_ok.toFixed(1)})`;
+    root.style.setProperty('--ring', theme.primary_color);
+    root.style.setProperty('--sidebar-ring', theme.primary_color);
 }
 
 /**

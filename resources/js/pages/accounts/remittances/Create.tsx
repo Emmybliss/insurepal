@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -98,11 +98,13 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
     };
 
     return (
-        <AppLayout breadcrumbs={[
-            { title: 'Accounts', href: route('client-bank-accounts.index') },
-            { title: 'Remittances', href: route('remittances.index') },
-            { title: 'Create' },
-        ]}>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Accounts', href: route('client-bank-accounts.index') },
+                { title: 'Remittances', href: route('remittances.index') },
+                { title: 'Create' },
+            ]}
+        >
             <Head title="Create Remittance" />
 
             <div className="flex flex-col gap-6 p-6">
@@ -114,9 +116,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">Create Remittance</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Record a premium remittance to an insurer. Ref: {nextRemittanceNumber}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Record a premium remittance to an insurer. Ref: {nextRemittanceNumber}</p>
                     </div>
                 </div>
 
@@ -129,10 +129,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="client_bank_account_id">Client Bank Account</Label>
-                                    <Select
-                                        value={form.client_bank_account_id}
-                                        onValueChange={(v) => update('client_bank_account_id', v)}
-                                    >
+                                    <Select value={form.client_bank_account_id} onValueChange={(v) => update('client_bank_account_id', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select bank account" />
                                         </SelectTrigger>
@@ -144,17 +141,12 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {errors.client_bank_account_id && (
-                                        <p className="text-sm text-destructive">{errors.client_bank_account_id}</p>
-                                    )}
+                                    {errors.client_bank_account_id && <p className="text-sm text-destructive">{errors.client_bank_account_id}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="insurer_id">Insurer</Label>
-                                    <Select
-                                        value={form.insurer_id}
-                                        onValueChange={(v) => update('insurer_id', v)}
-                                    >
+                                    <Select value={form.insurer_id} onValueChange={(v) => update('insurer_id', v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select insurer" />
                                         </SelectTrigger>
@@ -166,9 +158,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {errors.insurer_id && (
-                                        <p className="text-sm text-destructive">{errors.insurer_id}</p>
-                                    )}
+                                    {errors.insurer_id && <p className="text-sm text-destructive">{errors.insurer_id}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -177,9 +167,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                                         value={form.remittance_date ? new Date(form.remittance_date) : undefined}
                                         onSelect={(date) => update('remittance_date', date ? date.toISOString().split('T')[0] : null)}
                                     />
-                                    {errors.remittance_date && (
-                                        <p className="text-sm text-destructive">{errors.remittance_date}</p>
-                                    )}
+                                    {errors.remittance_date && <p className="text-sm text-destructive">{errors.remittance_date}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -192,9 +180,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                                         onChange={(e) => update('total_amount', e.target.value)}
                                         placeholder="0.00"
                                     />
-                                    {errors.total_amount && (
-                                        <p className="text-sm text-destructive">{errors.total_amount}</p>
-                                    )}
+                                    {errors.total_amount && <p className="text-sm text-destructive">{errors.total_amount}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -228,9 +214,7 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {errors.payment_method && (
-                                        <p className="text-sm text-destructive">{errors.payment_method}</p>
-                                    )}
+                                    {errors.payment_method && <p className="text-sm text-destructive">{errors.payment_method}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -259,7 +243,9 @@ export default function Create({ bankAccounts, insurers, nextRemittanceNumber }:
 
                             <div className="flex justify-end gap-4 pt-4">
                                 <Link href={route('remittances.index')}>
-                                    <Button type="button" variant="outline">Cancel</Button>
+                                    <Button type="button" variant="outline">
+                                        Cancel
+                                    </Button>
                                 </Link>
                                 <Button type="submit" disabled={processing}>
                                     <Save className="mr-2 h-4 w-4" />

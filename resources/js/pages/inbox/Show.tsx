@@ -95,10 +95,7 @@ export default function InboxShow({ thread }: Props) {
                         <h3 className="mb-2 text-sm font-medium text-gray-500">Participants</h3>
                         <div className="flex flex-wrap gap-2">
                             {thread.participants?.map((participant) => (
-                                <div
-                                    key={participant.id}
-                                    className="flex items-center gap-2 rounded-full bg-gray-100  dark:bg-gray-800 px-3 py-1"
-                                >
+                                <div key={participant.id} className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800">
                                     <User className="h-4 w-4 text-gray-400" />
                                     <span className="text-sm">{participant.user.name}</span>
                                     <Badge variant="secondary" className="text-xs">
@@ -112,10 +109,7 @@ export default function InboxShow({ thread }: Props) {
 
                 <div className="space-y-4">
                     {thread.messages?.map((message) => (
-                        <div
-                            key={message.id}
-                            className="rounded-lg border  p-6"
-                        >
+                        <div key={message.id} className="rounded-lg border p-6">
                             <div className="mb-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full">
@@ -123,14 +117,10 @@ export default function InboxShow({ thread }: Props) {
                                     </div>
                                     <div>
                                         <p className="font-medium">{message.sender.name}</p>
-                                        <p className="text-sm text-gray-500">
-                                            {message.sender.email}
-                                        </p>
+                                        <p className="text-sm text-gray-500">{message.sender.email}</p>
                                     </div>
                                 </div>
-                                <p className="text-sm text-gray-500">
-                                    {formatDate(message.created_at)}
-                                </p>
+                                <p className="text-sm text-gray-500">{formatDate(message.created_at)}</p>
                             </div>
 
                             <div className="prose max-w-none">
@@ -151,9 +141,7 @@ export default function InboxShow({ thread }: Props) {
                                                 className="flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-gray-50"
                                             >
                                                 <Paperclip className="h-4 w-4 text-gray-400" />
-                                                <span className="text-sm">
-                                                    {attachment.original_name}
-                                                </span>
+                                                <span className="text-sm">{attachment.original_name}</span>
                                             </a>
                                         ))}
                                     </div>

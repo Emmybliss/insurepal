@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSubscriptionRequest;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Services\PaystackService;
@@ -20,12 +21,9 @@ class SubscriptionController extends Controller
     /**
      * Initialize subscription payment
      */
-    public function initializeSubscription(Request $request)
+    public function initializeSubscription(StoreSubscriptionRequest $request)
     {
-        $validated = $request->validate([
-            'plan_id' => 'required|exists:subscription_plans,id',
-            'billing_cycle' => 'sometimes|in:monthly,annual',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $tenant = $user->tenant;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreRemittanceRequest;
 use App\Models\ClientBankAccount;
 use App\Models\InsuranceCompany;
 use App\Models\Remittance;
@@ -43,26 +44,11 @@ class RemittanceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreRemittanceRequest $request)
     {
         $this->authorize('naicom-reports.generate');
 
-        $validated = $request->validate([
-            'client_bank_account_id' => 'nullable|exists:client_bank_accounts,id',
-            'insurer_id' => 'nullable|exists:insurance_companies,id',
-            'remittance_date' => 'required|date',
-            'total_amount' => 'required|numeric|min:0.01',
-            'currency' => 'required|string|size:3',
-            'payment_method' => 'required|string|max:50',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'allocations' => 'nullable|array',
-            'allocations.*.allocatable_type' => 'nullable|string',
-            'allocations.*.allocatable_id' => 'nullable|integer',
-            'allocations.*.allocation_type' => 'required|in:premium,commission,vat,claim,return_premium,deposit',
-            'allocations.*.amount' => 'required|numeric|min:0.01',
-            'allocations.*.notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $validated['tenant_id'] = auth()->user()->tenant_id;
         $validated['created_by'] = auth()->id();
@@ -100,7 +86,7 @@ class RemittanceController extends Controller
 
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
-        ]);
+        ]); // single field — leave inline
 
         try {
             $this->remittanceService->reverse($remittance, auth()->id(), $validated['reason']);

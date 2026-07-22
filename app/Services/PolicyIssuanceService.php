@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\PolicyCreated;
+use App\Events\PolicyIssued;
 use App\Models\Customer;
 use App\Models\Policy;
 use App\Models\PolicyApproval;
@@ -9,10 +11,8 @@ use App\Models\PolicyDocument;
 use App\Models\Quote;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class PolicyIssuanceService
 {
@@ -49,7 +49,26 @@ class PolicyIssuanceService
                 $policyData['issued_at'] = now(); // Set issued timestamp
             }
 
+            $risks = $policyData['risks'] ?? null;
+            unset($policyData['risks']);
+
             $policy = Policy::create($policyData);
+
+            if (! empty($risks)) {
+                $this->syncRisks($policy, $risks);
+            } elseif (($policyData['sum_insured'] ?? 0) > 0) {
+                $this->syncRisks($policy, [[
+                    'description' => 'Primary coverage',
+                    'coverage_amount' => $policyData['sum_insured'] ?? 0,
+                    'rate' => null,
+                    'rate_basis' => 'percentage',
+                    'premium' => $policyData['premium_amount'] ?? 0,
+                    'dynamic_fields' => null,
+                    'sort_order' => 0,
+                ]]);
+            }
+
+            PolicyCreated::dispatch($policy, (float) $policy->commission_amount, $creator);
 
             // Create approval record if needed
             if ($policy->requiresApproval()) {
@@ -57,7 +76,7 @@ class PolicyIssuanceService
             }
 
             // Generate initial documents
-            $this->generatePolicyDocuments($policy);
+            $this->generatePolicyDocuments($policy, $creator);
 
             Log::info('Direct policy created', [
                 'policy_id' => $policy->id,
@@ -65,6 +84,10 @@ class PolicyIssuanceService
                 'created_by' => $creator->id,
                 'tenant_id' => $creator->tenant_id,
             ]);
+
+            if ($policy->status === Policy::STATUS_ACTIVE) {
+                PolicyIssued::dispatch($policy);
+            }
 
             return $policy;
         });
@@ -95,7 +118,16 @@ class PolicyIssuanceService
                 $policyData['broker_slip_file_path'] = $path;
             }
 
+            $risks = $policyData['risks'] ?? null;
+            unset($policyData['risks']);
+
             $policy = Policy::create($policyData);
+
+            if (! empty($risks)) {
+                $this->syncRisks($policy, $risks);
+            }
+
+            PolicyCreated::dispatch($policy, (float) $policy->commission_amount, $recorder);
 
             Log::info('Placed policy recorded by broker', [
                 'policy_id' => $policy->id,
@@ -103,6 +135,8 @@ class PolicyIssuanceService
                 'broker_slip_number' => $policy->broker_slip_number,
                 'broker_id' => $recorder->tenant_id,
             ]);
+
+            PolicyIssued::dispatch($policy);
 
             return $policy;
         });
@@ -115,7 +149,7 @@ class PolicyIssuanceService
     {
         return DB::transaction(function () use ($quote, $converter, $additionalData) {
             // Validate quote can be converted
-            if (! $quote->canBeConverted()) {
+            if (! $quote->canConvertToPolicy()) {
                 throw new \Exception('Quote cannot be converted to policy in current status');
             }
 
@@ -154,8 +188,9 @@ class PolicyIssuanceService
 
             $policy = Policy::create($policyData);
 
-            // Update quote status
-            $quote->update(['status' => Quote::STATUS_CONVERTED]);
+            PolicyCreated::dispatch($policy, (float) $policy->commission_amount, $converter);
+
+            // Quote is already accepted; the linked policy serves as the conversion record
 
             // Create approval record if needed
             if ($policy->requiresApproval()) {
@@ -163,7 +198,11 @@ class PolicyIssuanceService
             }
 
             // Generate policy documents
-            $this->generatePolicyDocuments($policy);
+            $this->generatePolicyDocuments($policy, $converter);
+
+            if ($policy->status === Policy::STATUS_APPROVED) {
+                PolicyIssued::dispatch($policy);
+            }
 
             Log::info('Quote converted to policy', [
                 'policy_id' => $policy->id,
@@ -229,10 +268,12 @@ class PolicyIssuanceService
             }
 
             // Generate final policy documents
-            $this->generatePolicyDocuments($policy);
+            $this->generatePolicyDocuments($policy, $approver);
 
             // Notify requestor
             $this->notifyPolicyApproved($policy);
+
+            PolicyIssued::dispatch($policy);
 
             Log::info('Policy approved', [
                 'policy_id' => $policy->id,
@@ -297,7 +338,34 @@ class PolicyIssuanceService
                 'policy_id' => $policy->id,
                 'policy_number' => $policy->policy_number,
             ]);
+
+            PolicyIssued::dispatch($policy);
         });
+    }
+
+    /**
+     * Bulk approve multiple policies
+     */
+    public function bulkApprove(array $policyIds, User $approver, ?string $notes = null): array
+    {
+        $results = [];
+
+        foreach ($policyIds as $policyId) {
+            try {
+                $policy = Policy::forTenant($approver->tenant_id)->findOrFail($policyId);
+
+                $this->approvePolicy($policy, $approver, $notes);
+                $results[$policyId] = ['status' => 'success', 'message' => 'Approved successfully'];
+            } catch (\Exception $e) {
+                $results[$policyId] = ['status' => 'error', 'message' => $e->getMessage()];
+                Log::error('Bulk policy approval failed', [
+                    'policy_id' => $policyId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $results;
     }
 
     /**
@@ -385,7 +453,7 @@ class PolicyIssuanceService
     /**
      * Generate policy documents
      */
-    protected function generatePolicyDocuments(Policy $policy): void
+    protected function generatePolicyDocuments(Policy $policy, User $user): void
     {
         $documentTypes = [
             PolicyDocument::TYPE_POLICY_CERTIFICATE,
@@ -404,7 +472,7 @@ class PolicyIssuanceService
                 'file_type' => 'pdf',
                 'status' => PolicyDocument::STATUS_GENERATING,
                 'is_customer_facing' => $this->isCustomerFacingDocument($type),
-                'generated_by' => Auth::id(),
+                'generated_by' => $user->id,
                 'generation_data' => $policy->toArray(),
             ]);
         }
@@ -499,6 +567,27 @@ class PolicyIssuanceService
         $prefix = strtolower(str_replace('_', '-', $type));
 
         return "{$prefix}-{$policy->policy_number}.pdf";
+    }
+
+    public function syncRisks(Policy $policy, array $risksData): void
+    {
+        $policy->risks()->delete();
+
+        $sortOrder = 0;
+        foreach ($risksData as $riskData) {
+            $policy->risks()->create([
+                'tenant_id' => $policy->tenant_id,
+                'description' => $riskData['description'] ?? null,
+                'coverage_amount' => $riskData['coverage_amount'] ?? 0,
+                'rate' => $riskData['rate'] ?? null,
+                'rate_basis' => $riskData['rate_basis'] ?? 'percentage',
+                'premium' => $riskData['premium'] ?? ($riskData['premium_amount'] ?? 0),
+                'dynamic_fields' => $riskData['dynamic_fields'] ?? null,
+                'sort_order' => $sortOrder++,
+            ]);
+        }
+
+        $policy->syncRiskTotals();
     }
 
     protected function isCustomerFacingDocument(string $type): bool

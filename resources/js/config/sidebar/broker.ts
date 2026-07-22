@@ -13,22 +13,16 @@ import {
     ImageOff,
     Key,
     LayoutGrid,
-    MessageCircle,
     NotebookText,
     Shield,
     ShieldCheck,
-    Ticket,
     Trash2,
     UserCog,
     Users,
 } from 'lucide-react';
 import type { AuthHelpers, PlanHelpers, TranslateFn } from './index';
 
-export function getBrokerNavItems(
-    auth: AuthHelpers,
-    plan: PlanHelpers,
-    t: TranslateFn,
-): NavItem[] {
+export function getBrokerNavItems(auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
     const { can, hasAnyRole } = auth;
     const items: NavItem[] = [];
 
@@ -38,6 +32,12 @@ export function getBrokerNavItems(
         icon: LayoutGrid,
     });
 
+    // items.push({
+    //     title: t('AI Assistant'),
+    //     href: route('ai-assistant.index'),
+    //     icon: Bot,
+    // });
+
     if (can('view_customers')) {
         items.push({
             title: t('Customers'),
@@ -46,21 +46,13 @@ export function getBrokerNavItems(
         });
     }
 
-    if (can('view_policies')) {
-        items.push({
-            title: t('Insurance Products'),
-            href: route('policies.index'),
-            icon: Shield,
-        });
-    }
-
-    if (can('view_quotes')) {
-        items.push({
-            title: t('Quotations'),
-            href: route('quotes.index'),
-            icon: FileText,
-        });
-    }
+    // if (can('view_quotes')) {
+    //     items.push({
+    //         title: t('Quotations'),
+    //         href: route('quotes.index'),
+    //         icon: FileText,
+    //     });
+    // }
 
     const placementSubItems: NavItem[] = [];
 
@@ -86,6 +78,12 @@ export function getBrokerNavItems(
         const policySubItems: NavItem[] = [];
 
         policySubItems.push({
+            title: t('Products'),
+            href: route('policies.index'),
+            icon: Shield,
+        });
+
+        policySubItems.push({
             title: t('Policies'),
             href: route('policy-management.recorded-policies'),
             icon: FileCheck,
@@ -93,7 +91,7 @@ export function getBrokerNavItems(
 
         if (can('create_policies')) {
             policySubItems.push({
-                title: t('Record Placed Policy'),
+                title: t('Record Policy'),
                 href: route('policy-management.record-placed'),
                 icon: FilePlus,
             });
@@ -142,13 +140,13 @@ export function getBrokerNavItems(
         });
     }
 
-    if (can('view_claims')) {
-        items.push({
-            title: t('Claims Management'),
-            href: route('claims.index'),
-            icon: ClipboardList,
-        });
-    }
+    // if (can('view_claims')) {
+    //     items.push({
+    //         title: t('Claims Management'),
+    //         href: route('claims.index'),
+    //         icon: ClipboardList,
+    //     });
+    // }
 
     if (can('renew_policies')) {
         items.push({
@@ -166,21 +164,27 @@ export function getBrokerNavItems(
         });
     }
 
-    if (can('view_messages')) {
-        items.push({
-            title: t('Inbox'),
-            href: route('inbox.index'),
-            icon: MessageCircle,
-        });
-    }
+    // if (can('view_messages')) {
+    //     items.push({
+    //         title: t('Inbox'),
+    //         href: route('inbox.index'),
+    //         icon: MessageCircle,
+    //     });
+    // }
 
-    if (can('view_support_tickets')) {
-        items.push({
-            title: t('Support Tickets'),
-            href: route('support-tickets.index'),
-            icon: Ticket,
-        });
-    }
+    // items.push({
+    //     title: t('Email'),
+    //     href: '/email/inbox',
+    //     icon: Mail,
+    // });
+
+    // if (can('view_support_tickets')) {
+    //     items.push({
+    //         title: t('Support Tickets'),
+    //         href: route('support-tickets.index'),
+    //         icon: Ticket,
+    //     });
+    // }
 
     if (hasAnyRole(['underwriter', 'broker'])) {
         items.push({
@@ -247,21 +251,21 @@ export function getBrokerNavItems(
             items: [
                 ...(can('manage_roles')
                     ? [
-                          {
-                              title: t('Roles'),
-                              href: route('role-management.index'),
-                              icon: ShieldCheck,
-                          },
-                      ]
+                        {
+                            title: t('Roles'),
+                            href: route('role-management.index'),
+                            icon: ShieldCheck,
+                        },
+                    ]
                     : []),
                 ...(can('view_users')
                     ? [
-                          {
-                              title: t('Permissions'),
-                              href: route('permission-management.index'),
-                              icon: Key,
-                          },
-                      ]
+                        {
+                            title: t('Permissions'),
+                            href: route('permission-management.index'),
+                            icon: Key,
+                        },
+                    ]
                     : []),
             ],
         });

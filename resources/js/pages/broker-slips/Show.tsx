@@ -16,6 +16,7 @@ import {
     Eye,
     FileText,
     Globe,
+    Loader2,
     Shield,
     User,
     Users,
@@ -51,18 +52,26 @@ interface User {
     email: string;
 }
 
-interface BrokerSlipItem {
+interface BrokerSlipRisk {
     id: number;
-    item_type: string;
     description: string;
     identifier?: string;
     location?: string;
     quantity?: number;
-    sum_insured: number;
+    coverage_amount: number;
     rate: number;
     rate_basis: 'percentage' | 'per_mille' | 'fixed';
     premium: number;
+    commission_amount: number;
+    net_premium: number;
+    taxes: number;
+    fees: number;
+    dynamic_fields: Record<string, any>;
     metadata: Record<string, any>;
+    policy_class_id?: number;
+    policy_product_id?: number;
+    inception_date?: string;
+    expiry_date?: string;
     sort_order: number;
 }
 
@@ -107,18 +116,6 @@ interface BrokerSlip {
     version: number;
     status: string;
     currency: string;
-    sum_insured: number;
-    rate: number;
-    rate_basis: string;
-    gross_premium: number;
-    commission_rate: number;
-    commission_amount: number;
-    co_broker_commission: number;
-    reporting_broker_commission: number;
-    fees: number;
-    taxes: number;
-    discount: number;
-    net_premium: number;
     period_start: string;
     period_end: string;
     claim_payment_condition?: string;
@@ -126,12 +123,20 @@ interface BrokerSlip {
     pdf_path?: string;
     created_at: string;
     updated_at: string;
+    gross_premium?: number | string;
+    commission_rate?: number | string;
+    commission_amount?: number | string;
+    fees?: number | string;
+    tax_rate?: number | string;
+    taxes?: number | string;
+    net_premium?: number | string;
 
     placement: {
         id: number;
         placement_number: string;
         customer: Customer;
         insured: Insured;
+        policy_class?: { id: number; name: string; code: string };
         policy_product: { id: number; name: string; code: string; policy_class: { id: number; name: string; code: string } };
     };
     placement_market?: {
@@ -139,7 +144,7 @@ interface BrokerSlip {
         insurance_company: InsuranceCompany;
         participation_percentage: string | null;
     };
-    items: BrokerSlipItem[];
+    items: BrokerSlipRisk[];
     clauses: BrokerSlipClause[];
     versions: BrokerSlipVersion[];
     approvals: BrokerSlipApproval[];
@@ -185,6 +190,8 @@ const approvalStatusStyles: Record<string, string> = {
 
 export default function Show({ brokerSlip, canUpdate }: Props) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [expandedClauses, setExpandedClauses] = useState<Set<number>>(new Set());
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
@@ -194,11 +201,39 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
     const [showChangesDialog, setShowChangesDialog] = useState(false);
     const [showSubmitDialog, setShowSubmitDialog] = useState(false);
     const [submitNotes, setSubmitNotes] = useState('');
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+    const handleDownload = async () => {
+        setIsDownloading(true);
+        try {
+            const response = await fetch(route('broker-slips.download', brokerSlip.id));
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${brokerSlip.slip_number}-v${brokerSlip.version}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const handlePreviewClick = () => {
+        setIsPreviewLoading(true);
+        setShowPreviewModal(true);
+    };
 
     const formatCurrency = (amount: number | string | null | undefined) => {
         const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-        if (numericAmount === null || numericAmount === undefined || isNaN(numericAmount)) return '₦0.00';
-        return `₦${numericAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const cur = brokerSlip.currency || 'NGN';
+        if (numericAmount === null || numericAmount === undefined || isNaN(numericAmount)) return `${cur} 0.00`;
+        return `${cur} ${numericAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
     const formatDate = (dateString: string) => {
@@ -228,70 +263,94 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
 
     const handleSubmitForReview = () => {
         setIsSubmitting(true);
-        router.post(route('broker-slips.submit-for-review', brokerSlip.id), {
-            notes: submitNotes,
-        }, {
-            onFinish: () => {
-                setIsSubmitting(false);
-                setShowSubmitDialog(false);
-                setSubmitNotes('');
+        router.post(
+            route('broker-slips.submit-for-review', brokerSlip.id),
+            {
+                notes: submitNotes,
             },
-        });
+            {
+                onFinish: () => {
+                    setIsSubmitting(false);
+                    setShowSubmitDialog(false);
+                    setSubmitNotes('');
+                },
+            },
+        );
     };
 
     const handleApprove = () => {
         setIsSubmitting(true);
-        router.post(route('broker-slips.approve', brokerSlip.id), {
-            notes: approvalNotes,
-        }, {
-            onFinish: () => {
-                setIsSubmitting(false);
-                setShowApproveDialog(false);
-                setApprovalNotes('');
+        router.post(
+            route('broker-slips.approve', brokerSlip.id),
+            {
+                notes: approvalNotes,
             },
-        });
+            {
+                onFinish: () => {
+                    setIsSubmitting(false);
+                    setShowApproveDialog(false);
+                    setApprovalNotes('');
+                },
+            },
+        );
     };
 
     const handleReject = () => {
         setIsSubmitting(true);
-        router.post(route('broker-slips.request-changes', brokerSlip.id), {
-            changes: rejectionReason,
-        }, {
-            onFinish: () => {
-                setIsSubmitting(false);
-                setShowRejectDialog(false);
-                setRejectionReason('');
+        router.post(
+            route('broker-slips.request-changes', brokerSlip.id),
+            {
+                changes: rejectionReason,
             },
-        });
+            {
+                onFinish: () => {
+                    setIsSubmitting(false);
+                    setShowRejectDialog(false);
+                    setRejectionReason('');
+                },
+            },
+        );
     };
 
     const handleRequestChanges = () => {
         setIsSubmitting(true);
-        router.post(route('broker-slips.request-changes', brokerSlip.id), {
-            changes: changeRequests,
-        }, {
-            onFinish: () => {
-                setIsSubmitting(false);
-                setShowChangesDialog(false);
-                setChangeRequests('');
+        router.post(
+            route('broker-slips.request-changes', brokerSlip.id),
+            {
+                changes: changeRequests,
             },
-        });
+            {
+                onFinish: () => {
+                    setIsSubmitting(false);
+                    setShowChangesDialog(false);
+                    setChangeRequests('');
+                },
+            },
+        );
     };
 
     const handleIssue = () => {
         if (!confirm('Are you sure you want to issue this broker slip?')) return;
         setIsSubmitting(true);
-        router.post(route('broker-slips.issue', brokerSlip.id), {}, {
-            onFinish: () => setIsSubmitting(false),
-        });
+        router.post(
+            route('broker-slips.issue', brokerSlip.id),
+            {},
+            {
+                onFinish: () => setIsSubmitting(false),
+            },
+        );
     };
 
     const handleWithdraw = () => {
         if (!confirm('Are you sure you want to withdraw this broker slip?')) return;
         setIsSubmitting(true);
-        router.post(route('broker-slips.withdraw', brokerSlip.id), {}, {
-            onFinish: () => setIsSubmitting(false),
-        });
+        router.post(
+            route('broker-slips.withdraw', brokerSlip.id),
+            {},
+            {
+                onFinish: () => setIsSubmitting(false),
+            },
+        );
     };
 
     const handleCreateNewVersion = () => {
@@ -314,10 +373,14 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
 
     const rateBasisLabel = (basis: string) => {
         switch (basis) {
-            case 'percentage': return '%';
-            case 'per_mille': return '‰';
-            case 'fixed': return 'Fixed';
-            default: return basis;
+            case 'percentage':
+                return '%';
+            case 'per_mille':
+                return '‰';
+            case 'fixed':
+                return 'Fixed';
+            default:
+                return basis;
         }
     };
 
@@ -333,15 +396,11 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                             <h1 className="text-2xl font-bold tracking-tight">{brokerSlip.slip_number}</h1>
                             <Badge className={`flex items-center gap-1 ${statusStyles[brokerSlip.status] || 'bg-gray-100 text-gray-800'}`}>
                                 {statusIcons[brokerSlip.status]}
-                                {brokerSlip.status.replace(/_/g, ' ').toUpperCase()}
+                                {brokerSlip?.status?.replace(/_/g, ' ').toUpperCase() || ''}
                             </Badge>
-                            <Badge variant="outline">
-                                v{brokerSlip.version}
-                            </Badge>
+                            <Badge variant="outline">v{brokerSlip.version}</Badge>
                             {(brokerSlip.placement as any)?.is_system_generated && (
-                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                                    Direct Slip
-                                </Badge>
+                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Direct Slip</Badge>
                             )}
                         </div>
 
@@ -374,7 +433,11 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
 
                         {brokerSlip.status === 'pending_review' && (
                             <>
-                                <Button onClick={() => setShowApproveDialog(true)} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
+                                <Button
+                                    onClick={() => setShowApproveDialog(true)}
+                                    disabled={isSubmitting}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                >
                                     <CheckCircle className="mr-2 h-4 w-4" />
                                     Approve
                                 </Button>
@@ -419,19 +482,16 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                             </Link>
                         )}
 
-                        {brokerSlip.pdf_path && (
-                            <Button variant="outline" onClick={() => window.open(route('broker-slips.download', brokerSlip.id), '_blank')}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download PDF
-                            </Button>
-                        )}
+                        <Button variant="outline" onClick={handleDownload} disabled={isDownloading || isPreviewLoading}>
+                            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                            {isDownloading ? 'Downloading...' : 'Download PDF'}
+                        </Button>
 
-                        <Button variant="outline" onClick={() => window.open(route('broker-slips.preview', brokerSlip.id), '_blank')}>
-                            <Eye className="mr-2 h-4 w-4" />
+                        <Button variant="outline" onClick={handlePreviewClick} disabled={isDownloading || isPreviewLoading}>
+                            {isPreviewLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
                             Preview PDF
                         </Button>
                     </div>
-
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-3">
@@ -472,7 +532,9 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                             <div>
                                 <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Coverage Period</h4>
                                 <div className="flex items-center gap-2 text-sm">
-                                    <span>{formatDate(brokerSlip.period_start)} - {formatDate(brokerSlip.period_end)}</span>
+                                    <span>
+                                        {formatDate(brokerSlip.period_start)} - {formatDate(brokerSlip.period_end)}
+                                    </span>
                                 </div>
                             </div>
 
@@ -494,78 +556,62 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                     </Card>
 
                     {/* Financial Summary */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <CreditCard className="h-5 w-5" />
-                                Financial Summary
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-3">
-                                <div className="flex justify-between">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">Sum Insured</span>
-                                    <span className="font-medium">{formatCurrency(brokerSlip.sum_insured)}</span>
-                                </div>
-                                {brokerSlip.rate && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Rate</span>
-                                        <span className="font-medium">
-                                            {brokerSlip.rate}{rateBasisLabel(brokerSlip.rate_basis)}
-                                        </span>
-                                    </div>
-                                )}
-                                <Separator />
-                                <div className="flex justify-between">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">Gross Premium</span>
-                                    <span className="font-medium">{formatCurrency(brokerSlip.gross_premium)}</span>
-                                </div>
-                                {brokerSlip.commission_amount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                                            Commission{brokerSlip.commission_rate ? ` (${brokerSlip.commission_rate}%)` : ''}
-                                        </span>
-                                        <span className="font-medium text-red-600">-{formatCurrency(brokerSlip.commission_amount)}</span>
-                                    </div>
-                                )}
-                                {brokerSlip.co_broker_commission > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Co-Broker Commission</span>
-                                        <span className="font-medium text-red-600">-{formatCurrency(brokerSlip.co_broker_commission)}</span>
-                                    </div>
-                                )}
-                                {brokerSlip.reporting_broker_commission > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Reporting Broker Commission</span>
-                                        <span className="font-medium text-red-600">-{formatCurrency(brokerSlip.reporting_broker_commission)}</span>
-                                    </div>
-                                )}
-                                {brokerSlip.fees > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Fees</span>
-                                        <span className="font-medium">{formatCurrency(brokerSlip.fees)}</span>
-                                    </div>
-                                )}
-                                {brokerSlip.taxes > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Taxes</span>
-                                        <span className="font-medium">{formatCurrency(brokerSlip.taxes)}</span>
-                                    </div>
-                                )}
-                                {brokerSlip.discount > 0 && (
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">Discount</span>
-                                        <span className="font-medium text-green-600">-{formatCurrency(brokerSlip.discount)}</span>
-                                    </div>
-                                )}
-                                <Separator />
-                                <div className="flex justify-between text-lg font-semibold">
-                                    <span>Net Premium</span>
-                                    <span className="text-green-600">{formatCurrency(brokerSlip.net_premium)}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {brokerSlip.items.length > 0 &&
+                        (() => {
+                            const totalCoverage = brokerSlip.items.reduce((sum, item) => sum + (Number(item.coverage_amount) || 0), 0);
+                            const grossPremium = Number(brokerSlip.gross_premium) || 0;
+                            const commissionRate = Number(brokerSlip.commission_rate) || 0;
+                            const commissionAmount = Number(brokerSlip.commission_amount) || 0;
+                            const taxRate = Number(brokerSlip.tax_rate) || 0;
+                            const taxAmount = Number(brokerSlip.taxes) || 0;
+                            const fees = Number(brokerSlip.fees) || 0;
+                            const netPremium = Number(brokerSlip.net_premium) || 0;
+
+                            return (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <CreditCard className="h-5 w-5" />
+                                            Financial Summary
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                    Total Sum Insured / Coverage Amount ({brokerSlip.items.length} risk
+                                                    {brokerSlip.items.length > 1 ? 's' : ''})
+                                                </span>
+                                                <span className="font-medium">{formatCurrency(totalCoverage)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Gross Premium</span>
+                                                <span className="font-medium">{formatCurrency(grossPremium)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                    Commission Rate ({commissionRate.toFixed(2)}%)
+                                                </span>
+                                                <span className="font-medium text-red-600">-{formatCurrency(commissionAmount)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Tax Rate ({taxRate.toFixed(2)}%)</span>
+                                                <span className="font-medium text-red-600">-{formatCurrency(taxAmount)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">Additional Fee</span>
+                                                <span className="font-medium text-red-600">-{formatCurrency(fees)}</span>
+                                            </div>
+                                            <Separator />
+                                            <div className="flex justify-between text-lg font-semibold">
+                                                <span>Net Premium</span>
+                                                <span className="text-green-600">{formatCurrency(netPremium)}</span>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })()}
 
                     {/* Placement Reference */}
                     <Card>
@@ -583,11 +629,9 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
 
                             {brokerSlip.placement.policy_product && (
                                 <div>
-                                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Product</h4>
-                                    <p className="font-medium">{brokerSlip.placement.policy_product.name}</p>
-                                    {brokerSlip.placement.policy_product.policy_class && (
-                                        <p className="text-sm text-gray-500">{brokerSlip.placement.policy_product.policy_class.name}</p>
-                                    )}
+                                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Class of Business</h4>
+                                    <p className="font-medium">{brokerSlip.placement.policy_class?.name || 'N/A'}</p>
+                                    <p className="text-sm text-gray-500">Product: {brokerSlip.placement.policy_product.name}</p>
                                 </div>
                             )}
 
@@ -595,9 +639,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                 <div>
                                     <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Issued By</h4>
                                     <p className="font-medium">{brokerSlip.issuedBy.name}</p>
-                                    {brokerSlip.issued_at && (
-                                        <p className="text-sm text-gray-500">{formatDateTime(brokerSlip.issued_at)}</p>
-                                    )}
+                                    {brokerSlip.issued_at && <p className="text-sm text-gray-500">{formatDateTime(brokerSlip.issued_at)}</p>}
                                 </div>
                             )}
 
@@ -610,13 +652,13 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                     </Card>
                 </div>
 
-                {/* Items Table */}
-                {brokerSlip.items && brokerSlip.items.length > 0 && (
+                {/* Risk Schedule Table */}
+                {brokerSlip.items.length > 0 && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <FileText className="h-5 w-5" />
-                                Items
+                                Risk Schedule
                                 <Badge variant="outline">{brokerSlip.items.length}</Badge>
                             </CardTitle>
                         </CardHeader>
@@ -627,10 +669,9 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                         <tr className="border-b text-left text-gray-500 dark:text-gray-400">
                                             <th className="px-6 pb-3 font-medium">#</th>
                                             <th className="px-6 pb-3 font-medium">Description</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Sum Insured</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Rate</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Basis</th>
-                                            <th className="px-6 pb-3 font-medium text-right">Premium</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Coverage Amount</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Rate</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Premium</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -640,14 +681,14 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                                 <td className="px-6 py-3">
                                                     <div>
                                                         <p className="font-medium">{item.description}</p>
-                                                        {item.item_type && (
-                                                            <p className="text-xs text-gray-500 capitalize">{item.item_type.replace(/_/g, ' ')}</p>
-                                                        )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-3 text-right">{formatCurrency(item.sum_insured)}</td>
-                                                <td className="px-6 py-3 text-right">{item.rate ?? '—'}</td>
-                                                <td className="px-6 py-3 text-right capitalize">{item.rate_basis?.replace(/_/g, ' ') || '—'}</td>
+                                                <td className="px-6 py-3 text-right">{formatCurrency(item.coverage_amount)}</td>
+                                                <td className="px-6 py-3 text-right">
+                                                    {item.rate
+                                                        ? `${Number(item.rate)}${item.rate_basis === 'percentage' ? '%' : item.rate_basis === 'per_mille' ? '‰' : ''}`
+                                                        : '—'}
+                                                </td>
                                                 <td className="px-6 py-3 text-right font-medium">{formatCurrency(item.premium)}</td>
                                             </tr>
                                         ))}
@@ -677,15 +718,13 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                         className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                     >
                                         <div className="flex items-center gap-2">
-                                            <span className="font-medium text-sm">{clause.title}</span>
+                                            <span className="text-sm font-medium">{clause.title}</span>
                                             {clause.clause_type && (
                                                 <Badge variant="outline" className="text-xs capitalize">
-                                                    {clause.clause_type.replace(/_/g, ' ')}
+                                                    {clause?.clause_type?.replace(/_/g, ' ') || ''}
                                                 </Badge>
                                             )}
-                                            {clause.is_standard && (
-                                                <span className="text-xs text-gray-400">Standard</span>
-                                            )}
+                                            {clause.is_standard && <span className="text-xs text-gray-400">Standard</span>}
                                         </div>
                                         {expandedClauses.has(clause.id) ? (
                                             <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -720,11 +759,9 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                     {brokerSlip.versions.map((ver) => (
                                         <div key={ver.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                                             <div>
-                                                <p className="font-medium text-sm">Version {ver.version}</p>
+                                                <p className="text-sm font-medium">Version {ver.version}</p>
                                                 <p className="text-xs text-gray-500">{formatDateTime(ver.created_at)}</p>
-                                                {ver.createdBy && (
-                                                    <p className="text-xs text-gray-400">by {ver.createdBy.name}</p>
-                                                )}
+                                                {ver.createdBy && <p className="text-xs text-gray-400">by {ver.createdBy.name}</p>}
                                             </div>
                                             <Badge variant="secondary" className="text-xs">
                                                 v{ver.version}
@@ -753,9 +790,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                                 <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-sm font-medium">
-                                                    Submitted by {latestApproval.requestedBy.name}
-                                                </p>
+                                                <p className="text-sm font-medium">Submitted by {latestApproval.requestedBy.name}</p>
                                                 <p className="text-xs text-gray-500">{formatDateTime(latestApproval.requested_at)}</p>
                                                 {latestApproval.request_notes && (
                                                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{latestApproval.request_notes}</p>
@@ -770,9 +805,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                                 <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-sm font-medium">
-                                                    Under review by {latestApproval.reviewedBy.name}
-                                                </p>
+                                                <p className="text-sm font-medium">Under review by {latestApproval.reviewedBy.name}</p>
                                                 <p className="text-xs text-gray-500">{formatDateTime(latestApproval.reviewed_at!)}</p>
                                             </div>
                                         </div>
@@ -819,15 +852,19 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                                 <p className="text-sm font-medium">Changes Requested</p>
                                                 <p className="text-xs text-gray-500">{formatDateTime(latestApproval.rejected_at!)}</p>
                                                 {latestApproval.changes_requested && (
-                                                    <p className="mt-1 text-sm text-orange-600 dark:text-orange-400">{latestApproval.changes_requested}</p>
+                                                    <p className="mt-1 text-sm text-orange-600 dark:text-orange-400">
+                                                        {latestApproval.changes_requested}
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>
                                     )}
 
                                     <div className="mt-2">
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${approvalStatusStyles[latestApproval.status]}`}>
-                                            {latestApproval.status.replace(/_/g, ' ').toUpperCase()}
+                                        <span
+                                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${approvalStatusStyles[latestApproval.status]}`}
+                                        >
+                                            {latestApproval?.status?.replace(/_/g, ' ').toUpperCase() || ''}
                                         </span>
                                     </div>
                                 </div>
@@ -844,14 +881,20 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                         <h2 className="text-lg font-semibold">Submit for Review</h2>
                         <p className="mt-1 text-sm text-gray-500">Add any notes for the reviewer (optional).</p>
                         <textarea
-                            className="mt-4 w-full rounded-md border p-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                            className="mt-4 w-full rounded-md border p-2 text-sm dark:border-gray-700 dark:bg-gray-800"
                             rows={3}
                             value={submitNotes}
                             onChange={(e) => setSubmitNotes(e.target.value)}
                             placeholder="Notes for reviewer..."
                         />
                         <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setShowSubmitDialog(false); setSubmitNotes(''); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowSubmitDialog(false);
+                                    setSubmitNotes('');
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button onClick={handleSubmitForReview} disabled={isSubmitting}>
@@ -869,14 +912,20 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                         <h2 className="text-lg font-semibold">Approve Slip</h2>
                         <p className="mt-1 text-sm text-gray-500">Add approval notes (optional).</p>
                         <textarea
-                            className="mt-4 w-full rounded-md border p-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                            className="mt-4 w-full rounded-md border p-2 text-sm dark:border-gray-700 dark:bg-gray-800"
                             rows={3}
                             value={approvalNotes}
                             onChange={(e) => setApprovalNotes(e.target.value)}
                             placeholder="Approval notes..."
                         />
                         <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setShowApproveDialog(false); setApprovalNotes(''); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowApproveDialog(false);
+                                    setApprovalNotes('');
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button onClick={handleApprove} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
@@ -894,14 +943,20 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                         <h2 className="text-lg font-semibold text-red-600">Reject Slip</h2>
                         <p className="mt-1 text-sm text-gray-500">Provide a reason for rejection.</p>
                         <textarea
-                            className="mt-4 w-full rounded-md border p-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                            className="mt-4 w-full rounded-md border p-2 text-sm dark:border-gray-700 dark:bg-gray-800"
                             rows={3}
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
                             placeholder="Reason for rejection..."
                         />
                         <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setShowRejectDialog(false); setRejectionReason(''); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowRejectDialog(false);
+                                    setRejectionReason('');
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button variant="destructive" onClick={handleReject} disabled={isSubmitting || !rejectionReason}>
@@ -919,19 +974,76 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                         <h2 className="text-lg font-semibold text-orange-600">Request Changes</h2>
                         <p className="mt-1 text-sm text-gray-500">Describe what changes are needed.</p>
                         <textarea
-                            className="mt-4 w-full rounded-md border p-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+                            className="mt-4 w-full rounded-md border p-2 text-sm dark:border-gray-700 dark:bg-gray-800"
                             rows={3}
                             value={changeRequests}
                             onChange={(e) => setChangeRequests(e.target.value)}
                             placeholder="Describe the changes needed..."
                         />
                         <div className="mt-4 flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => { setShowChangesDialog(false); setChangeRequests(''); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowChangesDialog(false);
+                                    setChangeRequests('');
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button onClick={handleRequestChanges} disabled={isSubmitting || !changeRequests}>
                                 {isSubmitting ? 'Submitting...' : 'Request Changes'}
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* PDF Preview Modal */}
+            {showPreviewModal && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs duration-200 animate-in fade-in"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget && !isPreviewLoading) setShowPreviewModal(false);
+                    }}
+                >
+                    <div className="flex h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl duration-200 animate-in zoom-in-95 dark:bg-gray-900">
+                        <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+                            <span className="text-sm font-semibold text-white">
+                                Preview: {brokerSlip.slip_number} — v{brokerSlip.version}
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleDownload}
+                                    disabled={isDownloading || isPreviewLoading}
+                                    className="flex items-center gap-1 text-xs text-white hover:bg-white/10"
+                                >
+                                    {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                    Download
+                                </Button>
+                                <button
+                                    id="close-preview-modal"
+                                    onClick={() => setShowPreviewModal(false)}
+                                    disabled={isPreviewLoading}
+                                    className="rounded px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                                >
+                                    ✕ Close
+                                </button>
+                            </div>
+                        </div>
+                        <div className="relative flex flex-1 items-center justify-center bg-gray-100 dark:bg-gray-950">
+                            {isPreviewLoading && (
+                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gray-900/60 text-white backdrop-blur-xs">
+                                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                    <span className="text-sm font-medium">Generating PDF Preview...</span>
+                                </div>
+                            )}
+                            <iframe
+                                src={route('broker-slips.preview', brokerSlip.id)}
+                                className="h-full w-full border-0"
+                                title={`Preview ${brokerSlip.slip_number}`}
+                                onLoad={() => setIsPreviewLoading(false)}
+                            />
                         </div>
                     </div>
                 </div>

@@ -99,7 +99,7 @@ export default function BankReconciliationsIndex({ reconciliations, filters }: P
                         <CardTitle>All Reconciliations</CardTitle>
                         <div className="flex items-center gap-4">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder="Search by bank or account name..."
                                     className="pl-10"
@@ -119,7 +119,9 @@ export default function BankReconciliationsIndex({ reconciliations, filters }: P
                                     <SelectItem value="difference_identified">Difference Identified</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button variant="secondary" onClick={handleSearch}>Search</Button>
+                            <Button variant="secondary" onClick={handleSearch}>
+                                Search
+                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -153,7 +155,9 @@ export default function BankReconciliationsIndex({ reconciliations, filters }: P
                                                     <span className={rec.difference !== 0 ? 'text-destructive' : ''}>
                                                         {formatCurrency(rec.difference)}
                                                     </span>
-                                                ) : '—'}
+                                                ) : (
+                                                    '—'
+                                                )}
                                             </td>
                                             <td className="px-4 py-3">{rec.reconciled_by ?? '—'}</td>
                                             <td className="px-4 py-3 text-center">
@@ -199,7 +203,13 @@ export default function BankReconciliationsIndex({ reconciliations, filters }: P
                                 <PaginationContent>
                                     {reconciliations.current_page > 1 && (
                                         <PaginationItem>
-                                            <PaginationPrevious href={route('bank-reconciliations.index', { page: reconciliations.current_page - 1, search, status: statusFilter || undefined })} />
+                                            <PaginationPrevious
+                                                href={route('bank-reconciliations.index', {
+                                                    page: reconciliations.current_page - 1,
+                                                    search,
+                                                    status: statusFilter || undefined,
+                                                })}
+                                            />
                                         </PaginationItem>
                                     )}
                                     {Array.from({ length: reconciliations.last_page }, (_, i) => i + 1).map((page) => (
@@ -214,7 +224,13 @@ export default function BankReconciliationsIndex({ reconciliations, filters }: P
                                     ))}
                                     {reconciliations.current_page < reconciliations.last_page && (
                                         <PaginationItem>
-                                            <PaginationNext href={route('bank-reconciliations.index', { page: reconciliations.current_page + 1, search, status: statusFilter || undefined })} />
+                                            <PaginationNext
+                                                href={route('bank-reconciliations.index', {
+                                                    page: reconciliations.current_page + 1,
+                                                    search,
+                                                    status: statusFilter || undefined,
+                                                })}
+                                            />
                                         </PaginationItem>
                                     )}
                                 </PaginationContent>

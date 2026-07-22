@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ExportReportRequest;
 use App\Models\Claim;
+use App\Models\CommissionEntry;
 use App\Models\CreditNote;
 use App\Models\Customer;
 use App\Models\DebitNote;
@@ -10,8 +12,8 @@ use App\Models\Policy;
 use App\Services\Analytics\AnalyticsEngine;
 use App\Services\Exports\ExcelExportService;
 use App\Services\Exports\PDFExportService;
+use App\Services\Pdf\PdfService;
 use App\Services\ReportService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,16 +30,20 @@ class ReportsController extends Controller
 
     protected PDFExportService $pdfExportService;
 
+    protected PdfService $pdfService;
+
     public function __construct(
         ReportService $reportService,
         AnalyticsEngine $analyticsEngine,
         ExcelExportService $excelExportService,
-        PDFExportService $pdfExportService
+        PDFExportService $pdfExportService,
+        PdfService $pdfService
     ) {
         $this->reportService = $reportService;
         $this->analyticsEngine = $analyticsEngine;
         $this->excelExportService = $excelExportService;
         $this->pdfExportService = $pdfExportService;
+        $this->pdfService = $pdfService;
     }
 
     public function index()
@@ -85,7 +91,9 @@ class ReportsController extends Controller
     {
         $period = $request->input('period', 'last_30_days');
 
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         // Get overview metrics
         $data = [
@@ -123,7 +131,9 @@ class ReportsController extends Controller
     public function customerAnalytics(Request $request)
     {
         $period = $request->input('period', 'last_30_days');
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         // Customer metrics
         $data = [
@@ -166,7 +176,9 @@ class ReportsController extends Controller
     public function productPerformance(Request $request)
     {
         $period = $request->input('period', 'last_30_days');
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         // Product performance data
         $productData = DB::table('policy_products')
@@ -210,6 +222,7 @@ class ReportsController extends Controller
     {
         $user = Auth::user();
         $tenant = $user?->tenant ?? null;
+        $tenantId = $user?->tenant_id;
 
         $naicomLogoPath = public_path('/images/naicom_logo.png');
         $naicomLogoData = null;
@@ -240,16 +253,20 @@ class ReportsController extends Controller
             'website' => $tenant?->settings['website'] ?? 'N/A',
         ];
 
-        // Financial summary
+        // Financial summary - scoped by tenant_id and valid policy statuses
+        $policyQuery = Policy::where('tenant_id', $tenantId)
+            ->whereIn('status', ['active', 'expired', 'cancelled', 'approved', 'recorded', 'issued', 'suspended'])
+            ->whereBetween('effective_date', [$startDate, $endDate]);
+
         $financialSummary = [
-            'gross_premium_written' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('premium_amount'),
-            'net_premium_written' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('premium_amount'), // Assuming no reinsurance for now
-            'commission_paid' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('commission_amount'),
-            'premium_refunded' => CreditNote::whereBetween('issue_date', [$startDate, $endDate])->sum('amount'),
-            'outstanding_premiums' => DebitNote::where('status', 'issued')->sum('amount'),
+            'gross_premium_written' => (float) (clone $policyQuery)->sum('premium_amount'),
+            'net_premium_written' => (float) (clone $policyQuery)->sum('net_premium'),
+            'commission_paid' => (float) (clone $policyQuery)->sum('commission_amount'),
+            'premium_refunded' => (float) CreditNote::where('tenant_id', $tenantId)->whereBetween('issue_date', [$startDate, $endDate])->sum('amount'),
+            'outstanding_premiums' => (float) DebitNote::where('tenant_id', $tenantId)->where('status', 'issued')->sum('amount'),
         ];
 
-        // Policy statistics by class of business
+        // Policy statistics by class of business - scoped by tenant_id
         $policyStats = DB::table('policies')
             ->join('policy_products', 'policies.policy_product_id', '=', 'policy_products.id')
             ->join('policy_types', 'policy_products.policy_type_id', '=', 'policy_types.id')
@@ -260,26 +277,28 @@ class ReportsController extends Controller
                 DB::raw('SUM(policies.premium_amount) as total_premium'),
                 DB::raw('AVG(policies.premium_amount) as average_premium')
             )
+            ->where('policies.tenant_id', $tenantId)
+            ->whereIn('policies.status', ['active', 'expired', 'cancelled', 'approved', 'recorded', 'issued', 'suspended'])
             ->whereBetween('policies.effective_date', [$startDate, $endDate])
             ->groupBy('policy_types.name', 'policy_products.name')
             ->get();
 
-        // Claims data - now using actual data
+        // Claims data - scoped by tenant_id
         $claimsData = [
-            'total_claims_reported' => Claim::whereBetween('submitted_at', [$startDate, $endDate])->count(),
-            'total_claims_paid' => Claim::settled()->whereBetween('settled_at', [$startDate, $endDate])->sum('approved_amount'),
-            'total_claims_outstanding' => Claim::pending()->sum('claim_amount'),
+            'total_claims_reported' => Claim::where('tenant_id', $tenantId)->whereBetween('submitted_at', [$startDate, $endDate])->count(),
+            'total_claims_paid' => Claim::where('tenant_id', $tenantId)->settled()->whereBetween('settled_at', [$startDate, $endDate])->sum('approved_amount'),
+            'total_claims_outstanding' => Claim::where('tenant_id', $tenantId)->pending()->sum('claim_amount'),
             'claims_ratio' => $financialSummary['gross_premium_written'] > 0
-                ? (Claim::settled()->whereBetween('settled_at', [$startDate, $endDate])->sum('approved_amount') / $financialSummary['gross_premium_written']) * 100
+                ? (Claim::where('tenant_id', $tenantId)->settled()->whereBetween('settled_at', [$startDate, $endDate])->sum('approved_amount') / $financialSummary['gross_premium_written']) * 100
                 : 0,
         ];
 
-        // Customer demographics
+        // Customer demographics - scoped by tenant_id
         $customerDemographics = [
-            'individual_customers' => Customer::where('type', 'individual')->count(),
-            'corporate_customers' => Customer::where('type', 'corporate')->count(),
-            'new_customers_period' => Customer::whereBetween('created_at', [$startDate, $endDate])->count(),
-            'total_active_customers' => Customer::active()->count(),
+            'individual_customers' => Customer::where('tenant_id', $tenantId)->where('type', 'individual')->count(),
+            'corporate_customers' => Customer::where('tenant_id', $tenantId)->where('type', 'corporate')->count(),
+            'new_customers_period' => Customer::where('tenant_id', $tenantId)->whereBetween('created_at', [$startDate, $endDate])->count(),
+            'total_active_customers' => Customer::where('tenant_id', $tenantId)->active()->count(),
         ];
 
         // Reinsurance information - enhanced with actual data
@@ -316,11 +335,14 @@ class ReportsController extends Controller
 
     protected function downloadNaicomPdf(array $data, string $period, Carbon $startDate, Carbon $endDate)
     {
-        $pdf = Pdf::loadView('reports.naicom-pdf', compact('data', 'period', 'startDate', 'endDate'));
+        $pdfContent = $this->pdfService->renderView('reports.naicom-pdf', compact('data', 'period', 'startDate', 'endDate'));
 
         $filename = "naicom-report-{$period}-{$startDate->format('Y-m')}.pdf";
 
-        return $pdf->download($filename);
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     protected function getDateRange(string $period): array
@@ -339,7 +361,7 @@ class ReportsController extends Controller
             default => $endDate->copy()->subDays(30),
         };
 
-        return [$startDate, $endDate];
+        return ['start' => $startDate, 'end' => $endDate];
     }
 
     protected function getBusinessTrends(Carbon $startDate, Carbon $endDate): array
@@ -380,11 +402,60 @@ class ReportsController extends Controller
         return $customersAtStart > 0 ? ($retainedCustomers / $customersAtStart) * 100 : 0;
     }
 
+    public function commissions(Request $request)
+    {
+        $period = $request->input('period', 'last_30_days');
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
+
+        $user = Auth::user();
+        $tenantId = $user->tenant_id;
+
+        $entries = CommissionEntry::query()
+            ->with('policy:id,policy_number,premium_amount,tenant_id')
+            ->where('tenant_id', $tenantId)
+            ->whereBetween('posting_date', [$startDate, $endDate])
+            ->orderBy('posting_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $breakdown = CommissionEntry::query()
+            ->select('transaction_type', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
+            ->where('tenant_id', $tenantId)
+            ->whereBetween('posting_date', [$startDate, $endDate])
+            ->groupBy('transaction_type')
+            ->orderBy('transaction_type')
+            ->get();
+
+        $grouped = $entries->groupBy(fn ($e) => $e->transaction_type?->value);
+
+        $summary = [
+            'gross_commission' => (float) $entries->sum(fn ($e) => $e->transaction_type?->isPositive() ? $e->amount : 0),
+            'net_commission' => (float) $entries->sum('amount'),
+            'total_entries' => $entries->count(),
+            'cancellations' => (float) ($grouped->get('cancellation')?->sum('amount') ?? 0),
+            'credit_notes' => (float) ($grouped->get('credit_note')?->sum('amount') ?? 0),
+            'debit_notes' => (float) ($grouped->get('debit_note')?->sum('amount') ?? 0),
+        ];
+
+        return Inertia::render('reports/commissions', [
+            'entries' => $entries,
+            'breakdown' => $breakdown,
+            'summary' => $summary,
+            'period' => $period,
+            'startDate' => $startDate->format('Y-m-d'),
+            'endDate' => $endDate->format('Y-m-d'),
+        ]);
+    }
+
     // New report endpoints
     public function claimsAnalytics(Request $request)
     {
         $period = $request->input('period', 'last_30_days');
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         $claimsMetrics = $this->reportService->getClaimsMetrics($startDate, $endDate);
         $claimsByType = $this->reportService->getClaimsByType($startDate, $endDate);
@@ -403,7 +474,9 @@ class ReportsController extends Controller
     public function financialAnalytics(Request $request)
     {
         $period = $request->input('period', 'last_30_days');
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         $financialMetrics = $this->reportService->getFinancialMetrics($startDate, $endDate);
         $trends = $this->reportService->getTrendsData($startDate, $endDate);
@@ -420,7 +493,9 @@ class ReportsController extends Controller
     public function complianceDashboard(Request $request)
     {
         $period = $request->input('period', 'last_30_days');
-        [$startDate, $endDate] = $this->getDateRange($period);
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
 
         // Get compliance data
         $data = $this->getComplianceData($startDate, $endDate);
@@ -437,13 +512,9 @@ class ReportsController extends Controller
         ]);
     }
 
-    public function export(Request $request)
+    public function export(ExportReportRequest $request)
     {
-        $request->validate([
-            'report_type' => 'required|string',
-            'format' => 'required|in:pdf,excel',
-            'period' => 'required|string',
-        ]);
+        $request->validated();
 
         $reportType = $request->input('report_type');
         $format = $request->input('format');
@@ -455,11 +526,11 @@ class ReportsController extends Controller
         if ($format === 'excel') {
             $filepath = $this->excelExportService->exportReport($reportType, $data, $period);
 
-            return response()->download($filepath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($filepath);
         } else {
             $filepath = $this->pdfExportService->exportReport($reportType, $data, $period);
 
-            return response()->download($filepath)->deleteFileAfterSend(true);
+            return $this->safeDownloadAndDelete($filepath);
         }
     }
 
@@ -586,5 +657,70 @@ class ReportsController extends Controller
                 'deadline' => '2024-03-31',
             ],
         ];
+    }
+
+    protected function generateBusinessOverviewData(Carbon $startDate, Carbon $endDate): array
+    {
+        return [
+            'total_customers' => Customer::whereBetween('created_at', [$startDate, $endDate])->count(),
+            'active_policies' => Policy::active()->whereBetween('effective_date', [$startDate, $endDate])->count(),
+            'total_premium' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('premium_amount'),
+            'total_commission' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('commission_amount'),
+            'policy_renewals' => Policy::whereNotNull('renewed_at')->whereBetween('renewed_at', [$startDate, $endDate])->count(),
+            'policy_cancellations' => Policy::where('status', 'cancelled')->whereBetween('updated_at', [$startDate, $endDate])->count(),
+            'debit_notes_issued' => DebitNote::where('status', 'issued')->whereBetween('issue_date', [$startDate, $endDate])->count(),
+            'credit_notes_issued' => CreditNote::where('status', 'issued')->whereBetween('issue_date', [$startDate, $endDate])->count(),
+            'outstanding_premiums' => DebitNote::where('status', 'issued')->sum('amount'),
+        ];
+    }
+
+    protected function generateCustomerAnalyticsData(Carbon $startDate, Carbon $endDate): array
+    {
+        return [
+            'total_customers' => Customer::count(),
+            'new_customers' => Customer::whereBetween('created_at', [$startDate, $endDate])->count(),
+            'individual_customers' => Customer::where('type', 'individual')->count(),
+            'corporate_customers' => Customer::where('type', 'corporate')->count(),
+            'customers_with_policies' => Customer::has('policies')->count(),
+            'customers_without_policies' => Customer::doesntHave('policies')->count(),
+            'avg_policies_per_customer' => Policy::count() / max(Customer::count(), 1),
+            'customer_retention_rate' => $this->calculateCustomerRetentionRate($startDate, $endDate),
+        ];
+    }
+
+    protected function generateProductPerformanceData(Carbon $startDate, Carbon $endDate): array
+    {
+        return DB::table('policy_products')
+            ->leftJoin('policies', function ($join) use ($startDate, $endDate) {
+                $join->on('policy_products.id', '=', 'policies.policy_product_id')
+                    ->whereBetween('policies.effective_date', [$startDate, $endDate]);
+            })
+            ->select(
+                'policy_products.name',
+                'policy_products.base_premium',
+                DB::raw('COUNT(policies.id) as policy_count'),
+                DB::raw('SUM(policies.premium_amount) as total_premium'),
+                DB::raw('AVG(policies.premium_amount) as avg_premium'),
+                DB::raw('SUM(policies.commission_amount) as total_commission')
+            )
+            ->groupBy('policy_products.id', 'policy_products.name', 'policy_products.base_premium')
+            ->orderBy('total_premium', 'desc')
+            ->get()
+            ->toArray();
+    }
+
+    protected function generateClaimsAnalyticsData(Carbon $startDate, Carbon $endDate): array
+    {
+        return $this->reportService->getClaimsMetrics($startDate, $endDate);
+    }
+
+    protected function generateFinancialAnalyticsData(Carbon $startDate, Carbon $endDate): array
+    {
+        return $this->reportService->getFinancialMetrics($startDate, $endDate);
+    }
+
+    protected function generateComplianceDashboardData(Carbon $startDate, Carbon $endDate): array
+    {
+        return $this->getComplianceData($startDate, $endDate);
     }
 }

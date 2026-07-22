@@ -221,10 +221,10 @@ export default function Index({ policies, policyTypes, policyClasses, filters }:
                                                     <code className="rounded bg-gray-100 px-2 py-1 text-sm">{policy.code}</code>
                                                 </TableCell>
                                                 <TableCell>
-                                                <div className="text-xs text-gray-600">
-                                                    <div>{policy.policy_type.name}</div>
-                                                    <div>→ {policy.policy_class.name}</div>
-                                                </div>
+                                                    <div className="text-xs text-gray-600">
+                                                        <div>{policy.policy_type.name}</div>
+                                                        <div>→ {policy.policy_class.name}</div>
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>{formatCurrency(policy.base_premium, policy.currency)}</TableCell>
                                                 <TableCell>{policy.commission_rate}%</TableCell>
