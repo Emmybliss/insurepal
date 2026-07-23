@@ -18,12 +18,14 @@ class InsuranceCompanyTenantController extends Controller
     {
         $tenant = app('tenant');
 
-        $companies = $tenant->insuranceCompanies()
-            ->withPivot(['id', 'insurance_company_branch_id', 'reference_code', 'is_preferred'])
+        $companies = DB::table('insurance_company_tenant')
+            ->join('insurance_companies', 'insurance_company_tenant.insurance_company_id', '=', 'insurance_companies.id')
             ->leftJoin('insurance_company_branches', 'insurance_company_tenant.insurance_company_branch_id', '=', 'insurance_company_branches.id')
+            ->where('insurance_company_tenant.tenant_id', $tenant->id)
             ->where('insurance_companies.is_active', true)
             ->select([
-                'insurance_companies.id',
+                'insurance_company_tenant.id as pivot_id',
+                'insurance_companies.id as company_id',
                 'insurance_companies.name as company_name',
                 'insurance_companies.company_type',
                 'insurance_companies.email',
@@ -32,7 +34,6 @@ class InsuranceCompanyTenantController extends Controller
                 'insurance_companies.rc_number',
                 'insurance_company_branches.name as branch_name',
                 'insurance_company_branches.id as branch_id',
-                'insurance_company_tenant.id as pivot_id',
                 'insurance_company_tenant.reference_code',
                 'insurance_company_tenant.is_preferred',
             ])
@@ -47,7 +48,7 @@ class InsuranceCompanyTenantController extends Controller
                     'name' => $item->branch_name ? $item->company_name.' — '.$item->branch_name : $item->company_name,
                     'company_name' => $item->company_name,
                     'branch_name' => $branchName,
-                    'company_id' => (string) $item->id,
+                    'company_id' => (string) $item->company_id,
                     'branch_id' => $item->branch_id ? (string) $item->branch_id : null,
                     'email' => $item->email,
                     'phone' => $item->phone,

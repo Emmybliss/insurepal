@@ -7,7 +7,7 @@
         <div>
             <h1 class="text-2xl font-bold text-primary uppercase">{{ $labels['title_label'] ?? 'Debit Note' }}</h1>
             <h2 class="text-base font-semibold text-secondary mt-1"># {{ $payload['note_number'] ?? '' }}</h2>
-            <p class="text-xs text-muted mt-2">Date: <span class="font-bold text-base text-primary">{{ $payload['created_at'] }}</span></p>
+            <p class="text-xs text-muted mt-2">Date: <span class="font-bold text-base text-primary">{{ $payload['created_at'] ?? $payload['issue_date'] ?? '' }}</span></p>
             <p class="text-xs text-muted mt-1">Coverage Period: <span class="font-bold text-base text-primary">{{ !empty($payload['issue_date']) && !empty($payload['due_date']) ? $payload['issue_date'] . ' — ' . $payload['due_date'] : 'To Be Advised' }}</span></p>
         </div>
         @if(!empty($qr_base64))

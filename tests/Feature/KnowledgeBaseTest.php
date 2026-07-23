@@ -255,36 +255,22 @@ it('only shows public articles to non-authenticated users', function () {
     );
 });
 
-<<<<<<< HEAD
-it('prevents guests from creating articles', function () {
-=======
 it('allows guests to submit feedback on articles', function () {
->>>>>>> 4b443a0 (Added The Naicom report and Various broker slip)
     auth()->logout();
 
     $category = KnowledgeBaseCategory::factory()->create([
         'tenant_id' => $this->tenant->id,
     ]);
 
-<<<<<<< HEAD
-    $response = $this->post(route('kb.feedback', KnowledgeBaseArticle::factory()->create([
-=======
     $article = KnowledgeBaseArticle::factory()->create([
->>>>>>> 4b443a0 (Added The Naicom report and Various broker slip)
         'tenant_id' => $this->tenant->id,
         'category_id' => $category->id,
         'author_id' => $this->user->id,
         'status' => 'published',
         'is_public' => true,
-<<<<<<< HEAD
-    ])), []);
-
-    $response->assertRedirect(route('login'));
-=======
     ]);
 
     $response = $this->post(route('kb.feedback', $article->slug), []);
 
     $response->assertSuccessful();
->>>>>>> 4b443a0 (Added The Naicom report and Various broker slip)
 });

@@ -8,6 +8,7 @@ git push origin main
 
 ## Server deployment
 
+
 ssh root@184.94.215.54
 
 cd /var/www/insurepal
@@ -25,9 +26,30 @@ php artisan optimize
 
 php artisan queue:restart
 
+## Permission commands
+
+cd /var/www/insurepal
+
+# Make www-data the owner
+sudo chown -R www-data:www-data /var/www/insurepal
+
+# Directories: rwxr-xr-x
+sudo find /var/www/insurepal -type d -exec chmod 755 {} \;
+
+# Files: rw-r--r--
+sudo find /var/www/insurepal -type f -exec chmod 644 {} \;
+
+# Laravel writable directories
+sudo chmod -R 775 storage bootstrap/cache
+sudo chown -R www-data:www-data storage bootstrap/cache
+
 ## Run migrations only when you've added new migration files:
 
 php artisan migrate --force
+
+## restart the services
+sudo systemctl restart php8.4-fpm
+sudo systemctl restart nginx
 
 ## Delete Files from github
 git rm .github/workflows/deploy.yml

@@ -135,8 +135,9 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
     };
 
     const handleRemove = (company: SavedCompany) => {
+        if (!company.id) return;
         if (!confirm(`Remove "${company.name}" from your companies?`)) return;
-        router.delete(route('settings.insurance-companies.destroy', company.id), {
+        router.delete(route('settings.insurance-companies.destroy', { pivot: company.id }), {
             onSuccess: () => {
                 toast.success('Company removed');
                 fetchSaved();
@@ -146,11 +147,12 @@ export default function InsuranceCompaniesSettings({ companies: initialCompanies
     };
 
     const handleTogglePreferred = (company: SavedCompany) => {
+        if (!company.id) return;
         router.put(
-            route('settings.insurance-companies.update', company.id),
+            route('settings.insurance-companies.update', { pivot: company.id }),
             {
                 is_preferred: !company.is_preferred,
-            } as any,
+            },
             {
                 onSuccess: () => {
                     toast.success(company.is_preferred ? 'Preferred status removed' : 'Set as preferred');

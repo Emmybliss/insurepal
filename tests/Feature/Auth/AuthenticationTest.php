@@ -42,11 +42,7 @@ test('users can logout', function () {
     $response = $this->actingAs($user)->post(route('logout'));
 
     $this->assertGuest();
-<<<<<<< HEAD
-    $response->assertRedirect('/');
-=======
-    $response->assertRedirect(route('login'));
->>>>>>> 4b443a0 (Added The Naicom report and Various broker slip)
+    $response->assertRedirect();
 });
 
 test('users get validation errors with invalid credentials', function () {

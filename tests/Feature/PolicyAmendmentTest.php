@@ -6,7 +6,6 @@ use App\Models\PolicyAmendment;
 use App\Models\PolicyProduct;
 use App\Models\Tenant;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 
