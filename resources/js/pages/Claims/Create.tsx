@@ -1,19 +1,17 @@
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
 import { Customer, PageProps, Policy } from '@/types';
 import { ClaimType, DocumentType } from '@/types/claim';
 import { Head, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { ArrowLeft, CalendarIcon, Upload, X } from 'lucide-react';
-import { FormEventHandler, useEffect, useState } from 'react';
+import { ArrowLeft, Upload, X } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
 
 interface Props extends PageProps {
     policies: Policy[];
@@ -26,8 +24,6 @@ export default function Create({ policies, claimTypes, documentTypes }: Props) {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileDocTypes, setFileDocTypes] = useState<DocumentType[]>([]);
     const [fileDescriptions, setFileDescriptions] = useState<string[]>([]);
-    const [incidentDateOpen, setIncidentDateOpen] = useState(false);
-    const [incidentDateObj, setIncidentDateObj] = useState<Date | undefined>(undefined);
 
     const { data, setData, post, processing, transform } = useForm({
         policy_id: '',
@@ -156,35 +152,12 @@ export default function Create({ policies, claimTypes, documentTypes }: Props) {
                                 {/* Incident Date */}
                                 <div className="space-y-2">
                                     <Label htmlFor="incident_date">Incident Date *</Label>
-                                    <Popover open={incidentDateOpen} onOpenChange={setIncidentDateOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant={'outline'}
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.incident_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.incident_date ? dayjs(data.incident_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={incidentDateObj}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        setIncidentDateObj(date);
-                                                        setData('incident_date', dayjs(date).format('YYYY-MM-DD'));
-                                                    }
-                                                    setIncidentDateOpen(false);
-                                                }}
-                                                disabled={(date) => date > new Date()}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.incident_date ? new Date(data.incident_date) : undefined}
+                                        onSelect={(date) => setData('incident_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick incident date"
+                                        disabledDate={(date) => date > new Date()}
+                                    />
                                     {errors.incident_date && <p className="text-sm text-destructive">{errors.incident_date}</p>}
                                 </div>
 

@@ -2,8 +2,8 @@ import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -350,76 +350,27 @@ export default function IssuePolicy({ customers, policyProducts }: Props) {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="effective_date">Effective Date *</Label>
-                                    <Popover open={effectiveOpen} onOpenChange={setEffectiveOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.effective_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.effective_date ? dayjs(data.effective_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={effectiveDateObj}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        const today = dayjs().startOf('day');
-                                                        const picked = dayjs(date).startOf('day');
-                                                        const toUse = picked.isBefore(today) ? today : picked;
-                                                        setEffectiveDateObj(toUse.toDate());
-                                                        setData('effective_date', toUse.format('YYYY-MM-DD'));
-                                                    }
-                                                    setEffectiveOpen(false);
-                                                }}
-                                                disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.effective_date ? new Date(data.effective_date) : undefined}
+                                        onSelect={(date) => setData('effective_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick effective date"
+                                        disabledDate={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))}
+                                    />
                                     {errors.effective_date && <p className="text-sm text-red-600">{errors.effective_date}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="expiry_date">Expiry Date *</Label>
-                                    <Popover open={expiryOpen} onOpenChange={setExpiryOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.expiry_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.expiry_date ? dayjs(data.expiry_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={expiryDateObj}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        setExpiryDateObj(date);
-                                                        setData('expiry_date', dayjs(date).format('YYYY-MM-DD'));
-                                                    }
-                                                    setExpiryOpen(false);
-                                                }}
-                                                disabled={(date) =>
-                                                    data.effective_date
-                                                        ? date < dayjs(data.effective_date).toDate()
-                                                        : date < new Date(new Date().setDate(new Date().getDate() - 1))
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.expiry_date ? new Date(data.expiry_date) : undefined}
+                                        onSelect={(date) => setData('expiry_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick expiry date"
+                                        disabledDate={(date) =>
+                                            data.effective_date
+                                                ? date < dayjs(data.effective_date).toDate()
+                                                : date < new Date(new Date().setDate(new Date().getDate() - 1))
+                                        }
+                                    />
                                     {errors.expiry_date && <p className="text-sm text-red-600">{errors.expiry_date}</p>}
                                 </div>
 

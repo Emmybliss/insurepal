@@ -27,7 +27,9 @@ interface PolicyApproval {
     approval_type_label: string;
     policy: {
         id: number;
-        policy_number: string;
+        policy_number?: string;
+        internal_reference?: string;
+        policy_number_display?: string;
         customer: {
             name: string;
             email: string;
@@ -314,7 +316,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                                                 href={route('policy-management.show', approval.policy.id)}
                                                 className="text-blue-600 hover:text-blue-800"
                                             >
-                                                {approval.policy.policy_number}
+                                                {approval.policy.policy_number_display || approval.policy.policy_number || approval.policy.internal_reference}
                                             </Link>
                                         </TableCell>
                                         <TableCell>
@@ -408,7 +410,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                                 <h4 className="mb-2 font-medium">Policy Details</h4>
                                 <div className="space-y-1 text-sm">
                                     <p>
-                                        <strong>Policy Number:</strong> {selectedApproval.policy.policy_number}
+                                        <strong>Policy Number:</strong> {selectedApproval.policy.policy_number_display || selectedApproval.policy.policy_number || selectedApproval.policy.internal_reference}
                                     </p>
                                     <p>
                                         <strong>Customer:</strong> {selectedApproval.policy.customer.name}
@@ -458,7 +460,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                                 <h4 className="mb-2 font-medium">Policy Details</h4>
                                 <div className="space-y-1 text-sm">
                                     <p>
-                                        <strong>Policy Number:</strong> {selectedApproval.policy.policy_number}
+                                        <strong>Policy Number:</strong> {selectedApproval.policy.policy_number_display || selectedApproval.policy.policy_number || selectedApproval.policy.internal_reference}
                                     </p>
                                     <p>
                                         <strong>Customer:</strong> {selectedApproval.policy.customer.name}

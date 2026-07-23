@@ -14,7 +14,9 @@ import { useState } from 'react';
 
 interface Policy {
     id: number;
-    policy_number: string;
+    policy_number?: string;
+    internal_reference?: string;
+    policy_number_display?: string;
     status: string;
     effective_date: string;
     expiry_date: string;
@@ -229,7 +231,7 @@ export default function AmendForm({ policy }: Props) {
 
     return (
         <AppLayout>
-            <Head title={`Amend Policy: ${policy.policy_number}`} />
+            <Head title={`Amend Policy: ${policy.policy_number_display || policy.policy_number || policy.internal_reference}`} />
 
             <div className="space-y-6">
                 {/* Header */}
@@ -237,7 +239,7 @@ export default function AmendForm({ policy }: Props) {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Amend Policy</h1>
                         <p className="text-gray-600">
-                            Policy: <span className="font-medium">{policy.policy_number}</span> - {getCustomerDisplayName()}
+                            Policy: <span className="font-medium">{policy.policy_number_display || policy.policy_number || policy.internal_reference}</span> - {getCustomerDisplayName()}
                         </p>
                     </div>
                 </div>

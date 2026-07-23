@@ -62,6 +62,7 @@ class RenewalController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('policy_number', 'like', "%{$search}%")
+                    ->orWhere('internal_reference', 'like', "%{$search}%")
                     ->orWhereHas('customer', function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%")
@@ -239,9 +240,10 @@ class RenewalController extends Controller
         if ($request->channel === 'portal') {
             $title = $noticeType === 'expired' ? 'Policy Expired' : 'Policy Expiring Soon';
             $expiryFormatted = $policy->expiry_date ? \Carbon\Carbon::parse($policy->expiry_date)->format('M d, Y') : 'N/A';
+            $number = $policy->policy_number_display;
             $message = $noticeType === 'expired'
-                ? "Your policy {$policy->policy_number} expired on {$expiryFormatted}."
-                : "Your policy {$policy->policy_number} expires on {$expiryFormatted}.";
+                ? "Your policy {$number} expired on {$expiryFormatted}."
+                : "Your policy {$number} expires on {$expiryFormatted}.";
 
             \App\Models\Notification::createForUser(
                 $policy->customer->user,
@@ -250,7 +252,7 @@ class RenewalController extends Controller
                 $message,
                 [
                     'policy_id' => $policy->id,
-                    'policy_number' => $policy->policy_number,
+                    'policy_number' => $number,
                     'channel' => 'portal',
                     'url' => route('renewals.show', $policy->id),
                 ],
@@ -371,11 +373,12 @@ class RenewalController extends Controller
         }
 
         // Portal
+        $number = $policy->policy_number_display;
         $expiryFormatted = $policy->expiry_date ? \Carbon\Carbon::parse($policy->expiry_date)->format('M d, Y') : 'N/A';
         $title = $noticeType === 'expired' ? 'Policy Expired' : 'Policy Expiring Soon';
         $message = $noticeType === 'expired'
-            ? "Your policy {$policy->policy_number} expired on {$expiryFormatted}."
-            : "Your policy {$policy->policy_number} expires on {$expiryFormatted}.";
+            ? "Your policy {$number} expired on {$expiryFormatted}."
+            : "Your policy {$number} expires on {$expiryFormatted}.";
 
         \App\Models\Notification::createForUser(
             $policy->customer->user,
@@ -384,7 +387,7 @@ class RenewalController extends Controller
             $message,
             [
                 'policy_id' => $policy->id,
-                'policy_number' => $policy->policy_number,
+                'policy_number' => $number,
                 'channel' => 'portal',
                 'url' => route('renewals.show', $policy->id),
             ],

@@ -193,6 +193,11 @@ interface Policy {
     placement_date?: string;
     schedule_file_path?: string;
     broker_slip_file_path?: string;
+    sum_insured?: number;
+    currency?: string;
+    payment_method?: string;
+    payment_date?: string;
+    is_direct_to_insurer?: boolean;
 
     // Relationships
     customer: Customer;
@@ -471,14 +476,14 @@ export default function Show({ policy }: Props) {
 
     return (
         <AppLayout>
-            <Head title={`Policy: ${policy.policy_number}`} />
+            <Head title={`Policy: ${policy.policy_number_display || policy.policy_number || policy.internal_reference}`} />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="mb-2 flex items-center gap-3">
-                            <h1 className="text-2xl font-bold tracking-tight">{policy.policy_number}</h1>
+                            <h1 className="text-2xl font-bold tracking-tight">{policy.policy_number_display || policy.policy_number || policy.internal_reference}</h1>
                             {(() => {
                                 const derivedStatus = getPolicyStatus(policy);
                                 return (
@@ -831,19 +836,46 @@ export default function Show({ policy }: Props) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-3">
+                                {policy.sum_insured != null && (
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-gray-600">Sum Insured</span>
+                                        <span className="font-medium">
+                                            {policy.currency || 'NGN'} {Number(policy.sum_insured).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-gray-600">Premium Amount</span>
+                                    <span className="text-sm text-gray-600">Gross Premium</span>
                                     <span className="font-medium">{formatCurrency(policy.premium_amount)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-gray-600">Commission</span>
+                                    <span className="text-sm text-gray-600">
+                                        Commission {policy.commission_rate != null ? `(${policy.commission_rate}%)` : ''}
+                                    </span>
                                     <span className="font-medium">{formatCurrency(policy.commission_amount)}</span>
                                 </div>
                                 <Separator />
                                 <div className="flex justify-between text-lg font-semibold">
-                                    <span>Total Amount</span>
+                                    <span>Total Amount ({policy.currency || 'NGN'})</span>
                                     <span className="text-green-600">{formatCurrency(policy.total_amount)}</span>
                                 </div>
+                                {policy.payment_method && (
+                                    <div className="flex justify-between text-xs text-gray-600 pt-1">
+                                        <span>Payment Method</span>
+                                        <span className="font-medium capitalize">{policy.payment_method.replace('_', ' ')}</span>
+                                    </div>
+                                )}
+                                {policy.payment_date && (
+                                    <div className="flex justify-between text-xs text-gray-600">
+                                        <span>Payment Date</span>
+                                        <span className="font-medium">{formatDate(policy.payment_date)}</span>
+                                    </div>
+                                )}
+                                {policy.is_direct_to_insurer && (
+                                    <div className="rounded bg-blue-50 p-2 text-center text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                                        Paid Direct to Insurer (By-passing broker)
+                                    </div>
+                                )}
                             </div>
                             <div className="mt-2 text-center text-xs text-gray-500">
                                 See <span className="font-medium">Financial Notes</span> section below to create & download notes

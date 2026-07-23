@@ -334,7 +334,7 @@
                         @foreach ($customer->policies as $policy)
                             <tr>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">
-                                    {{ $policy->policy_number }}</td>
+                                    {{ $policy->policy_number_display }}</td>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">
                                     {{ $policy->policyProduct?->name ?? 'N/A' }}</td>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">

@@ -80,7 +80,7 @@ class DebitNoteService
                 'amount' => $data['amount'],
                 'tax_amount' => $data['tax_amount'] ?? 0,
                 'total_amount' => ($data['amount'] + ($data['tax_amount'] ?? 0)),
-                'description' => $data['description'] ?? 'Debit Note for Policy #'.$policy->policy_number,
+                'description' => $data['description'] ?? 'Debit Note for Policy #'.$policy->policy_number_display,
                 'issue_date' => now()->format('Y-m-d'),
                 'due_date' => $data['due_date'] ?? now()->addDays(30)->format('Y-m-d'),
                 'created_by_id' => $userId,
@@ -330,9 +330,9 @@ class DebitNoteService
             'defaultTemplate' => $defaultTemplate,
             'existingDebitNotes' => $existingNotes,
             'qrBarcodeData' => [
-                'qr_code_policy' => url('/media/qrcode/'.urlencode($debitNote->policy?->policy_number ?? 'N/A')),
+                'qr_code_policy' => url('/media/qrcode/'.urlencode($debitNote->policy?->policy_number_display ?? 'N/A')),
                 'qr_code_debit_note' => url('/media/qrcode/'.urlencode($tempNoteNumber)),
-                'barcode_policy' => url('/media/barcode/'.urlencode($debitNote->policy?->policy_number ?? 'N/A')),
+                'barcode_policy' => url('/media/barcode/'.urlencode($debitNote->policy?->policy_number_display ?? 'N/A')),
                 'barcode_debit_note' => url('/media/barcode/'.urlencode($tempNoteNumber)),
             ],
         ];
@@ -473,7 +473,7 @@ class DebitNoteService
 
         $policies = Policy::where('customer_id', $request->customer_id)
             ->with('policyProduct:id,name')
-            ->select('id', 'policy_number', 'policy_product_id', 'premium_amount')
+            ->select('id', 'policy_number', 'internal_reference', 'policy_product_id', 'premium_amount')
             ->get();
 
         return $policies;

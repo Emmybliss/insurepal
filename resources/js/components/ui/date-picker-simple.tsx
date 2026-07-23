@@ -23,6 +23,7 @@ interface DatePickerSimpleProps {
   disabled?: boolean
   fromYear?: number
   toYear?: number
+  disabledDate?: (date: Date) => boolean
 }
 
 export function DatePickerSimple({
@@ -35,6 +36,7 @@ export function DatePickerSimple({
   disabled = false,
   fromYear = 1900,
   toYear,
+  disabledDate,
 }: DatePickerSimpleProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -68,6 +70,7 @@ export function DatePickerSimple({
             fromYear={fromYear}
             toYear={effectiveToYear}
             captionLayout="dropdown"
+            disabled={disabledDate}
             onSelect={(selectedDate) => {
               onSelect(selectedDate)
               setOpen(false)
@@ -79,3 +82,4 @@ export function DatePickerSimple({
     </Field>
   )
 }
+

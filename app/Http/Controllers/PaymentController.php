@@ -454,7 +454,7 @@ class PaymentController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('receipt_number', 'like', "%{$search}%")
                         ->orWhere('payment_reference', 'like', "%{$search}%")
-                        ->orWhereHas('policy', fn ($p) => $p->where('policy_number', 'like', "%{$search}%"));
+                        ->orWhereHas('policy', fn ($p) => $p->where('policy_number', 'like', "%{$search}%")->orWhere('internal_reference', 'like', "%{$search}%"));
                 });
             }
 

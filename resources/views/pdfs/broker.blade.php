@@ -285,7 +285,7 @@
                     <tbody>
                         @foreach($broker->policies as $policy)
                             <tr>
-                                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">{{ $policy->policy_number }}</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">{{ $policy->policy_number_display }}</td>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">{{ $policy->customer?->display_name ?? 'N/A' }}</td>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">&#8358;{{ number_format($policy->premium_amount, 2) }}</td>
                                 <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">

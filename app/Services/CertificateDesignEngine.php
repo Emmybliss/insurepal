@@ -30,10 +30,12 @@ class CertificateDesignEngine
 
     public function generateQrBarcodeData(Policy $policy, string $certificateNumber): array
     {
+        $number = $policy->policy_number_display;
+
         return [
-            'qr_code_policy' => url('/media/qrcode/'.urlencode($policy->policy_number)),
+            'qr_code_policy' => url('/media/qrcode/'.urlencode($number)),
             'qr_code_certificate' => url('/media/qrcode/'.urlencode($certificateNumber)),
-            'barcode_policy' => url('/media/barcode/'.urlencode($policy->policy_number)),
+            'barcode_policy' => url('/media/barcode/'.urlencode($number)),
             'barcode_certificate' => url('/media/barcode/'.urlencode($certificateNumber)),
         ];
     }
@@ -48,12 +50,13 @@ class CertificateDesignEngine
         );
 
         $template = $this->resolveTemplate($templateKey) ?? [];
+        $number = $policy->policy_number_display;
 
         return [
             'certificate_number' => $certificateNumber,
             'generation_date' => now()->format('d/m/Y'),
             'generation_time' => now()->format('H:i:s'),
-            'policy_number' => $policy->policy_number,
+            'policy_number' => $number,
             'policy_status' => $policy->status,
             'effective_date' => $policy->effective_date,
             'expiry_date' => $policy->expiry_date,
@@ -74,9 +77,9 @@ class CertificateDesignEngine
             'company_address' => $policy->tenant->address,
             'company_phone' => $policy->tenant->phone,
             'company_email' => $policy->tenant->email,
-            'qr_code_policy' => url('/media/qrcode/'.urlencode($policy->policy_number)),
+            'qr_code_policy' => url('/media/qrcode/'.urlencode($number)),
             'qr_code_certificate' => url('/media/qrcode/'.urlencode($certificateNumber)),
-            'barcode_policy' => url('/media/barcode/'.urlencode($policy->policy_number)),
+            'barcode_policy' => url('/media/barcode/'.urlencode($number)),
             'barcode_certificate' => url('/media/barcode/'.urlencode($certificateNumber)),
             'template_name' => $template['name'] ?? $templateKey,
             'template_type' => $template['type'] ?? 'certificate',

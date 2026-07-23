@@ -23,6 +23,7 @@ class Policy extends Model
         'policy_class_id',
         'policy_type_id',
         'policy_number',
+        'internal_reference',
         'source_type',
         'status',
         'approval_status',
@@ -88,6 +89,7 @@ class Policy extends Model
 
     protected $appends = [
         'financial_notes',
+        'policy_number_display',
     ];
 
     // Status constants
@@ -447,9 +449,14 @@ class Policy extends Model
         return now()->diffInDays($this->expiry_date, false);
     }
 
+    public function getPolicyNumberDisplayAttribute(): string
+    {
+        return ! empty($this->policy_number) ? $this->policy_number : ($this->internal_reference ?? '');
+    }
+
     public function getPolicyDisplayNameAttribute(): string
     {
-        return $this->policy_number.' - '.($this->policyProduct->name ?? 'Unknown Product');
+        return $this->policy_number_display.' - '.($this->policyProduct->name ?? 'Unknown Product');
     }
 
     /**
@@ -639,13 +646,81 @@ class Policy extends Model
         return $candidate;
     }
 
+    /**
+     * Generate unique immutable internal reference
+     */
+    public static function generateInternalReference(?int $tenantId = null, string $prefix = 'IP-BRK'): string
+    {
+        $year = now()->year;
+        $pattern = "{$prefix}-{$year}-%";
+
+        $lastPolicy = static::withoutGlobalScopes()
+            ->withTrashed()
+            ->where('internal_reference', 'like', $pattern)
+            ->orderByRaw('LENGTH(internal_reference) DESC')
+            ->orderBy('internal_reference', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextNumber = 1;
+        if ($lastPolicy && preg_match('/-(\d+)$/', $lastPolicy->internal_reference, $matches)) {
+            $nextNumber = intval($matches[1]) + 1;
+        }
+
+        do {
+            $candidate = sprintf('%s-%s-%06d', $prefix, $year, $nextNumber);
+            $exists = static::withoutGlobalScopes()
+                ->withTrashed()
+                ->where('internal_reference', $candidate)
+                ->exists();
+            if ($exists) {
+                $nextNumber++;
+            }
+        } while ($exists);
+
+        return $candidate;
+    }
+
+    public static function normalizePolicyNumber(?string $value): ?string
+    {
+        if (is_null($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $placeholders = ['tba', 'n/a', 'to be advised', 'pending', 't.b.a', 't.b.a.', 'n.a', 'n.a.'];
+        if (in_array(strtolower($trimmed), $placeholders, true)) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
     public function getRecycleBinDisplayName(): string
     {
-        return $this->policy_number ?? "Policy #{$this->id}";
+        return $this->policy_number_display ?: "Policy #{$this->id}";
     }
 
     protected static function booted(): void
     {
+        static::creating(function (Policy $policy) {
+            $policy->policy_number = static::normalizePolicyNumber($policy->policy_number);
+            if (empty($policy->internal_reference)) {
+                $policy->internal_reference = static::generateInternalReference($policy->tenant_id);
+            }
+        });
+
+        static::updating(function (Policy $policy) {
+            $policy->policy_number = static::normalizePolicyNumber($policy->policy_number);
+            if ($policy->isDirty('internal_reference') && $policy->getOriginal('internal_reference')) {
+                $policy->internal_reference = $policy->getOriginal('internal_reference');
+            }
+        });
+
         static::saving(function (Policy $policy) {
             $policy->net_premium = ($policy->premium_amount ?? 0) - ($policy->commission_amount ?? 0);
         });

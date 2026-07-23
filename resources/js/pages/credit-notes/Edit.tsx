@@ -1,7 +1,7 @@
 import { InputError } from '@/components/InputError';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -494,6 +494,7 @@ export default function EditCreditNote({ note, debit_notes = [], customers = [] 
                                             id="tax_rate"
                                             name="tax_rate"
                                             type="number"
+                                            step="any"
                                             value={data.tax_rate}
                                             onChange={(e) => setData('tax_rate', e.target.value)}
                                             placeholder="e.g. 7.5"
@@ -549,7 +550,7 @@ export default function EditCreditNote({ note, debit_notes = [], customers = [] 
                                             id="commission_rate"
                                             name="commission_rate"
                                             type="number"
-                                            step="0.01"
+                                            step="any"
                                             min="0"
                                             max="100"
                                             value={data.commission_rate}
@@ -590,28 +591,13 @@ export default function EditCreditNote({ note, debit_notes = [], customers = [] 
                                     <div className="space-y-2">
                                         <Label htmlFor="issue_date">Issue Date</Label>
                                         <div className="flex gap-2">
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant={'outline'}
-                                                        className={cn(
-                                                            'flex-1 justify-start text-left font-normal',
-                                                            !data.issue_date && 'text-muted-foreground',
-                                                        )}
-                                                    >
-                                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                                        {data.issue_date ? dayjs(data.issue_date).format('MMMM D, YYYY') : <span>To be advised</span>}
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={data.issue_date}
-                                                        onSelect={(date) => setData('issue_date', date ?? undefined)}
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
+                                            <div className="flex-1">
+                                                <DatePickerSimple
+                                                    date={data.issue_date}
+                                                    onSelect={(date) => setData('issue_date', date ?? undefined)}
+                                                    placeholder="To be advised"
+                                                />
+                                            </div>
                                             {data.issue_date && (
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => clearDate('issue_date')}>
                                                     <X className="h-4 w-4" />
@@ -625,27 +611,13 @@ export default function EditCreditNote({ note, debit_notes = [], customers = [] 
                                     <div className="space-y-2">
                                         <Label htmlFor="due_date">Due Date</Label>
                                         <div className="flex gap-2">
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant={'outline'}
-                                                        className={cn(
-                                                            'flex-1 justify-start text-left font-normal',
-                                                            !data.due_date && 'text-muted-foreground',
-                                                        )}
-                                                    >
-                                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                                        {data.due_date ? dayjs(data.due_date).format('MMMM D, YYYY') : <span>To be advised</span>}
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={data.due_date}
-                                                        onSelect={(date) => setData('due_date', date ?? undefined)}
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
+                                            <div className="flex-1">
+                                                <DatePickerSimple
+                                                    date={data.due_date}
+                                                    onSelect={(date) => setData('due_date', date ?? undefined)}
+                                                    placeholder="To be advised"
+                                                />
+                                            </div>
                                             {data.due_date && (
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => clearDate('due_date')}>
                                                     <X className="h-4 w-4" />

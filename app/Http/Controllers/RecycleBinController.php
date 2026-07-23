@@ -47,6 +47,7 @@ class RecycleBinController extends Controller
                         ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%")
                         ->orWhere('policy_number', 'like', "%{$search}%")
+                        ->orWhere('internal_reference', 'like', "%{$search}%")
                         ->orWhere('quote_number', 'like', "%{$search}%")
                         ->orWhere('claim_reference', 'like', "%{$search}%")
                         ->orWhere('note_number', 'like', "%{$search}%")

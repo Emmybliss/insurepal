@@ -275,7 +275,7 @@ export default function CreateDirect({ customers, policyTypes, policyClasses, po
                             <Input
                                 id="commission_rate"
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 min="0"
                                 max="100"
                                 value={data.commission_rate}
@@ -289,7 +289,7 @@ export default function CreateDirect({ customers, policyTypes, policyClasses, po
                             <Input
                                 id="fees"
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 min="0"
                                 value={data.fees}
                                 onChange={(e) => setData((prev) => ({ ...prev, fees: e.target.value }))}
@@ -302,7 +302,7 @@ export default function CreateDirect({ customers, policyTypes, policyClasses, po
                             <Input
                                 id="tax_rate"
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 min="0"
                                 max="100"
                                 value={data.tax_rate}

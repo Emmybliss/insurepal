@@ -59,7 +59,8 @@ class CertificateController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('certificate_number', 'like', "%{$search}%")
                     ->orWhereHas('policy', function ($pq) use ($search) {
-                        $pq->where('policy_number', 'like', "%{$search}%");
+                        $pq->where('policy_number', 'like', "%{$search}%")
+                            ->orWhere('internal_reference', 'like', "%{$search}%");
                     })
                     ->orWhereHas('policy.customer', function ($cq) use ($search) {
                         $cq->where('first_name', 'like', "%{$search}%")
@@ -299,7 +300,7 @@ class CertificateController extends Controller
             'issued_at' => $certificate->issued_at,
             'expires_at' => $certificate->expires_at,
             'policy' => [
-                'policy_number' => $certificate->policy->policy_number,
+                'policy_number' => $certificate->policy->policy_number_display,
                 'effective_date' => $certificate->policy->effective_date,
                 'expiry_date' => $certificate->policy->expiry_date,
                 'status' => $certificate->policy->status,

@@ -19,7 +19,7 @@ class RecordPlacedPolicyRequest extends FormRequest
             'policy_type_id' => 'nullable|exists:policy_types,id',
             'policy_class_id' => 'nullable|exists:policy_classes,id',
             'policy_product_id' => 'required|exists:policy_products,id',
-            'policy_number' => ['required', 'string', 'max:100', Rule::unique('policies', 'policy_number')->where('tenant_id', $this->user()->tenant_id)],
+            'policy_number' => ['nullable', 'string', 'max:100', Rule::unique('policies', 'policy_number')->where(fn ($query) => $query->where('tenant_id', $this->user()->tenant_id)->whereNotNull('policy_number'))],
             'broker_slip_number' => 'nullable|string|max:100',
             'placement_date' => 'required|date',
             'insurer_id' => 'nullable|integer',

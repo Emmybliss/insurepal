@@ -1,8 +1,8 @@
 import { InputError } from '@/components/InputError';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -332,31 +332,11 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                         {/* Payment Date */}
                         <div className="space-y-2">
                             <Label htmlFor="payment_date">Payment Date</Label>
-                            <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn('w-full justify-start text-left font-normal', !data.payment_date && 'text-muted-foreground')}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {data.payment_date ? dayjs(data.payment_date).format('DD MMMM YYYY') : 'Pick a date'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={dateObj}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                setDateObj(date);
-                                                setData('payment_date', dayjs(date).format('YYYY-MM-DD'));
-                                            }
-                                            setDateOpen(false);
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                            <DatePickerSimple
+                                date={data.payment_date ? new Date(data.payment_date) : undefined}
+                                onSelect={(date) => setData('payment_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                placeholder="Pick payment date"
+                            />
                             <InputError message={errors.payment_date} />
                         </div>
 

@@ -82,7 +82,7 @@ class CreditNoteService
             'amount' => $data['amount'],
             'tax_amount' => $data['tax_amount'] ?? 0,
             'total_amount' => $data['amount'] + ($data['tax_amount'] ?? 0),
-            'description' => $data['description'] ?? 'Credit Note for Policy #'.$policy->policy_number,
+            'description' => $data['description'] ?? 'Credit Note for Policy #'.$policy->policy_number_display,
             'issue_date' => now()->format('Y-m-d'),
             'created_by_id' => $user->id,
             'items' => $data['items'] ?? null,
@@ -216,9 +216,9 @@ class CreditNoteService
             'defaultTemplate' => $defaultTemplate,
             'existingCreditNotes' => $existingNotes,
             'qrBarcodeData' => [
-                'qr_code_policy' => url('/media/qrcode/'.urlencode($creditNote->policy?->policy_number ?? 'N/A')),
+                'qr_code_policy' => url('/media/qrcode/'.urlencode($creditNote->policy?->policy_number_display ?? 'N/A')),
                 'qr_code_credit_note' => url('/media/qrcode/'.urlencode($tempNoteNumber)),
-                'barcode_policy' => url('/media/barcode/'.urlencode($creditNote->policy?->policy_number ?? 'N/A')),
+                'barcode_policy' => url('/media/barcode/'.urlencode($creditNote->policy?->policy_number_display ?? 'N/A')),
                 'barcode_credit_note' => url('/media/barcode/'.urlencode($tempNoteNumber)),
             ],
         ];
@@ -478,7 +478,7 @@ class CreditNoteService
 
         $policies = Policy::where('customer_id', $request->customer_id)
             ->with('policyProduct:id,name')
-            ->select('id', 'policy_number', 'policy_product_id', 'premium_amount')
+            ->select('id', 'policy_number', 'internal_reference', 'policy_product_id', 'premium_amount')
             ->get();
 
         return $policies;

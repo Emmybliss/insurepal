@@ -383,11 +383,11 @@ export default function RiskScheduleItem({
                     <Label>Rate</Label>
                     <Input
                         type="number"
-                        step="0.0001"
+                        step="any"
                         min={0}
                         value={risk.rate}
                         onChange={(e) => handleFieldChangeWithPremium('rate', e.target.value)}
-                        placeholder="0.0000"
+                        placeholder="0.00"
                     />
                 </div>
 

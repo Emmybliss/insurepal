@@ -27,7 +27,7 @@ class SmsService
         $customer = $policy->customer;
 
         if (! $customer || ! $customer->phone) {
-            Log::warning("[SMS] No phone number for customer {$customer->id} on policy {$policy->policy_number}");
+            Log::warning("[SMS] No phone number for customer {$customer->id} on policy {$policy->policy_number_display}");
 
             return false;
         }
@@ -43,9 +43,10 @@ class SmsService
         $expiryFormatted = $policy->expiry_date
             ? \Carbon\Carbon::parse($policy->expiry_date)->format('M d, Y')
             : 'N/A';
+        $number = $policy->policy_number_display;
 
         if ($noticeType === 'expired') {
-            return "[{$tenantName}] Your policy {$policy->policy_number} expired on {$expiryFormatted}. Please renew immediately.";
+            return "[{$tenantName}] Your policy {$number} expired on {$expiryFormatted}. Please renew immediately.";
         }
 
         $days = $policy->expiry_date
@@ -53,10 +54,10 @@ class SmsService
             : 0;
 
         if ($days <= 0) {
-            return "[{$tenantName}] Your policy {$policy->policy_number} expires today ({$expiryFormatted}). Please renew now to avoid lapse.";
+            return "[{$tenantName}] Your policy {$number} expires today ({$expiryFormatted}). Please renew now to avoid lapse.";
         }
 
-        return "[{$tenantName}] Reminder: Your policy {$policy->policy_number} expires on {$expiryFormatted} ({$days} days). Renew now to stay covered.";
+        return "[{$tenantName}] Reminder: Your policy {$number} expires on {$expiryFormatted} ({$days} days). Renew now to stay covered.";
     }
 
     public function send(string $phone, string $message, ?Policy $policy = null): bool

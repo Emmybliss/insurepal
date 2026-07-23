@@ -40,7 +40,7 @@ export default function CreateFinancialNoteModal({ policy, type, isOpen, onClose
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        Create {type === 'debit' ? 'Debit' : 'Credit'} Note for {policy.policy_number}
+                        Create {type === 'debit' ? 'Debit' : 'Credit'} Note for {policy.policy_number_display || policy.policy_number || policy.internal_reference}
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">

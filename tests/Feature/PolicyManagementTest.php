@@ -232,7 +232,7 @@ it('broker can store a placed policy with schedule and broker slip', function ()
 it('validates required fields for placed policy', function () {
     $this->actingAs($this->broker)
         ->post(route('policy-management.store-placed'), [])
-        ->assertSessionHasErrors(['customer_id', 'policy_product_id', 'policy_number', 'placement_date', 'insurer_name', 'effective_date', 'expiry_date', 'premium_amount']);
+        ->assertSessionHasErrors(['customer_id', 'policy_product_id', 'placement_date', 'insurer_name', 'effective_date', 'expiry_date', 'premium_amount']);
 });
 
 it('can store placed policy without broker_slip_number and schedule_file', function () {

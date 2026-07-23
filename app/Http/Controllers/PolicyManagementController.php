@@ -75,14 +75,16 @@ class PolicyManagementController extends Controller
             ->where('tenant_id', $tenantId)
             ->when($customerScope, fn ($q) => $q->where('customer_id', $customerScope))
             ->with(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy'])
-            ->when($request->search, fn ($query, $search) => $query->where('policy_number', 'like', "%{$search}%")
-                ->orWhereHas('customer', fn ($q) => $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('company_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                )
-                ->orWhereHas('policyProduct', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            )
+            ->when($request->search, fn ($query, $search) => $query->where(function ($q) use ($search) {
+                $q->where('policy_number', 'like', "%{$search}%")
+                    ->orWhere('internal_reference', 'like', "%{$search}%")
+                    ->orWhereHas('customer', fn ($c) => $c->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('policyProduct', fn ($p) => $p->where('name', 'like', "%{$search}%"));
+            }))
             ->when($request->status, function ($query, $status) {
                 if ($status === \App\Models\Policy::STATUS_ACTIVE) {
                     $query->active();
@@ -128,14 +130,16 @@ class PolicyManagementController extends Controller
             ->where('tenant_id', $tenantId)
             ->where('source_type', Policy::SOURCE_BROKER_RECORDED)
             ->with(['customer', 'policyProduct', 'policyType', 'policyClass', 'createdBy'])
-            ->when($request->search, fn ($query, $search) => $query->where('policy_number', 'like', "%{$search}%")
-                ->orWhereHas('customer', fn ($q) => $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('company_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                )
-                ->orWhereHas('policyProduct', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            )
+            ->when($request->search, fn ($query, $search) => $query->where(function ($q) use ($search) {
+                $q->where('policy_number', 'like', "%{$search}%")
+                    ->orWhere('internal_reference', 'like', "%{$search}%")
+                    ->orWhereHas('customer', fn ($c) => $c->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('policyProduct', fn ($p) => $p->where('name', 'like', "%{$search}%"));
+            }))
             ->when($request->status, function ($query, $status) {
                 if ($status === 'active') {
                     $query->active();

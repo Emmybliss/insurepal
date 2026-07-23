@@ -261,7 +261,9 @@ export interface Policy {
     id: number;
     customer_id: number;
     policy_product: PolicyProduct;
-    policy_number: string;
+    policy_number?: string | null;
+    internal_reference?: string | null;
+    policy_number_display?: string;
     customer: Customer;
     name: string;
     code: string;

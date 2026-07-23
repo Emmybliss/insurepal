@@ -445,7 +445,7 @@ export default function Edit({
                             <Input
                                 id="commission_rate"
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 min="0"
                                 max="100"
                                 value={data.commission_rate}
@@ -479,7 +479,7 @@ export default function Edit({
                             <Input
                                 id="tax_rate"
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 min="0"
                                 max="100"
                                 value={data.tax_rate}

@@ -1,7 +1,7 @@
 import { InputError } from '@/components/InputError';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -229,62 +229,22 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
                         {/* Issue Date */}
                         <div>
                             <Label htmlFor="created_at">Issue Date</Label>
-                            <Popover open={issueDateOpen} onOpenChange={setIssueDateOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={'outline'}
-                                        className={cn('w-full justify-start text-left font-normal', !data.created_at && 'text-muted-foreground')}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {data.created_at ? dayjs(data.created_at).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={issueDateObj}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                setIssueDateObj(date);
-                                                setData('created_at', dayjs(date).format('YYYY-MM-DD'));
-                                            }
-                                            setIssueDateOpen(false);
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                            <DatePickerSimple
+                                date={data.created_at ? new Date(data.created_at) : undefined}
+                                onSelect={(date) => setData('created_at', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                placeholder="Pick issue date"
+                            />
                             {errors.created_at && <p className="mt-2 text-sm text-red-600">{errors.created_at}</p>}
                         </div>
-                        {/*  */}
+                        {/* Due Date */}
                         <div className="space-y-2">
                             <Label htmlFor="due_date">Due Date</Label>
-                            <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={'outline'}
-                                        className={cn('w-full justify-start text-left font-normal', !data.due_date && 'text-muted-foreground')}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {data.due_date ? dayjs(data.due_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={dueDateObj}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                setDueDateObj(date);
-                                                setData('due_date', dayjs(date).format('YYYY-MM-DD'));
-                                            }
-                                            setDueDateOpen(false);
-                                        }}
-                                        disabled={(date) => (data.created_at ? date < dayjs(data.created_at).toDate() : false)}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                            <DatePickerSimple
+                                date={data.due_date ? new Date(data.due_date) : undefined}
+                                onSelect={(date) => setData('due_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                placeholder="Pick due date"
+                                disabledDate={(date) => (data.created_at ? date < dayjs(data.created_at).toDate() : false)}
+                            />
                             {errors.due_date && <p className="mt-2 text-sm text-red-600">{errors.due_date}</p>}
                         </div>
                         {/* Notes */}

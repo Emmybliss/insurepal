@@ -309,7 +309,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                     <TableRow key={policy.id}>
                                         <TableCell className="font-medium">
                                             <Link href={route('policy-management.show', policy.id)} className="text-blue-600 hover:text-blue-800">
-                                                {policy.policy_number}
+                                                {policy.policy_number_display || policy.policy_number || policy.internal_reference}
                                             </Link>
                                         </TableCell>
                                         <TableCell>

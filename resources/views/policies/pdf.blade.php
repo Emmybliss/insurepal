@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Policy Certificate - {{ $policy->policy_number }}</title>
+    <title>Policy Certificate - {{ $policy->policy_number_display }}</title>
     <style>
         body {
             font-family: 'DejaVu Sans', sans-serif;
@@ -104,7 +104,7 @@
     <div class="header">
         <div class="company-name">{{ $policy->tenant->name }}</div>
         <div class="policy-title">INSURANCE POLICY CERTIFICATE</div>
-        <div class="policy-number">Policy No: {{ $policy->policy_number }}</div>
+        <div class="policy-number">Policy No: {{ $policy->policy_number_display }}</div>
     </div>
 
     <div class="section">

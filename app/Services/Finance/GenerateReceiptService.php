@@ -155,7 +155,7 @@ class GenerateReceiptService
                 'amount_paid' => $policy->premium_amount,
                 'currency' => 'NGN',
                 'payment_status' => 'pending',
-                'notes' => "Quick receipt generated for policy #{$policy->policy_number}",
+                'notes' => "Quick receipt generated for policy #{$policy->policy_number_display}",
             ]);
         });
     }

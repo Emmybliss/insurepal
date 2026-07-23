@@ -1,7 +1,7 @@
 import { InputError } from '@/components/InputError';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -419,6 +419,7 @@ export default function CreateCreditNote({ debit_notes = [], customers = [], sel
                                             id="tax_rate"
                                             name="tax_rate"
                                             type="number"
+                                            step="any"
                                             value={data.tax_rate}
                                             onChange={(e) => setData('tax_rate', e.target.value)}
                                             placeholder="e.g. 7.5"
@@ -449,7 +450,7 @@ export default function CreateCreditNote({ debit_notes = [], customers = [], sel
                                             id="commission_rate"
                                             name="commission_rate"
                                             type="number"
-                                            step="0.01"
+                                            step="any"
                                             min="0"
                                             max="100"
                                             value={data.commission_rate}

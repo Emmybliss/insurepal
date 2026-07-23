@@ -74,7 +74,7 @@ class NaicomForm72CService
                 'serial_number' => $serialNumber,
                 'customer_name' => $policy->customer?->display_name ?? 'N/A',
                 'customer_id' => $policy->customer_id,
-                'policy_number' => $policy->policy_number,
+                'policy_number' => $policy->policy_number_display,
                 'insurer_name' => $insurerName,
                 'insurer_id' => $policy->insurer_id,
                 'cover_start' => $policy->effective_date?->toDateString(),

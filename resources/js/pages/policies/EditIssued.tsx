@@ -1,7 +1,6 @@
 import BrokerSlipSearchCombobox from '@/components/insurance/BrokerSlipSearchCombobox';
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandGroup, CommandInput, CommandList } from '@/components/ui/command';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
@@ -42,7 +41,9 @@ interface PolicyProduct {
 
 interface Policy {
     id: number;
-    policy_number: string;
+    policy_number?: string;
+    internal_reference?: string;
+    policy_number_display?: string;
     status: string;
     source_type: string;
     effective_date: string;
@@ -62,6 +63,12 @@ interface Policy {
     insurer_phone?: string;
     schedule_file_path?: string;
     broker_slip_file_path?: string;
+    sum_insured?: number;
+    currency?: string;
+    payment_method?: string;
+    payment_date?: string;
+    is_direct_to_insurer?: boolean;
+    coverage_details?: Record<string, any>;
     policy_type_id?: number;
     policy_class_id?: number;
     policy_product_id?: number;
@@ -92,7 +99,6 @@ interface Props {
 const storageUrl = (path: string) => `/storage/${path}`;
 
 export default function EditIssued({ policy, policyTypes, policyClasses, policyProducts }: Props) {
-    const [placementOpen, setPlacementOpen] = useState(false);
     const [scheduleFileName, setScheduleFileName] = useState('');
     const [brokerSlipFileName, setBrokerSlipFileName] = useState('');
     const [selectedTypeId, setSelectedTypeId] = useState(policy.policy_product?.policy_type?.id?.toString() || '');
@@ -116,15 +122,22 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
           : policyProducts;
 
     const { data, setData, put, processing, errors } = useForm({
+        policy_number: policy.policy_number || '',
         status: policy.status,
         policy_type_id: String(policy.policy_type_id || policy.policy_product?.policy_type?.id || ''),
         policy_class_id: String(policy.policy_class_id || policy.policy_product?.policy_class?.id || ''),
         policy_product_id: String(policy.policy_product_id || policy.policy_product?.id || ''),
-        effective_date: policy.effective_date.split('T')[0],
-        expiry_date: policy.expiry_date.split('T')[0],
+        effective_date: policy.effective_date ? policy.effective_date.split('T')[0] : '',
+        expiry_date: policy.expiry_date ? policy.expiry_date.split('T')[0] : '',
         premium_amount: String(policy.premium_amount ?? ''),
         commission_amount: String(policy.commission_amount ?? ''),
         commission_rate: String(policy.commission_rate ?? ''),
+        sum_insured: String(policy.sum_insured ?? ''),
+        currency: policy.currency || 'NGN',
+        payment_method: policy.payment_method || '',
+        payment_date: policy.payment_date ? policy.payment_date.split('T')[0] : '',
+        is_direct_to_insurer: !!policy.is_direct_to_insurer,
+        coverage_details: policy.coverage_details || { sum_assured: '', deductible: '' },
         payment_frequency: policy.payment_frequency || '',
         notes: policy.notes || '',
         internal_notes: policy.internal_notes || '',
@@ -197,9 +210,27 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Policy Number</Label>
-                                    <Input value={policy.policy_number} disabled />
+                                    <Label htmlFor="policy_number">
+                                        Official Insurer Policy Number{' '}
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            (Optional — fill when provided by insurer)
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="policy_number"
+                                        value={data.policy_number}
+                                        onChange={(e) => setData('policy_number', e.target.value)}
+                                        placeholder="e.g. POL-2026-00123"
+                                    />
+                                    {errors.policy_number && <p className="text-sm text-red-600">{errors.policy_number}</p>}
                                 </div>
+
+                                {policy.internal_reference && (
+                                    <div className="space-y-2">
+                                        <Label>System Internal Reference (Immutable)</Label>
+                                        <Input value={policy.internal_reference} disabled className="bg-muted text-muted-foreground font-mono" />
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label>Policy Type</Label>
@@ -462,37 +493,11 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
 
                                         <div className="space-y-2">
                                             <Label htmlFor="placement_date">Placement Date</Label>
-                                            <Popover open={placementOpen} onOpenChange={setPlacementOpen}>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        className={cn(
-                                                            'w-full justify-start text-left font-normal',
-                                                            !data.placement_date && 'text-muted-foreground',
-                                                        )}
-                                                    >
-                                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                                        {data.placement_date ? (
-                                                            dayjs(data.placement_date).format('MMMM D, YYYY')
-                                                        ) : (
-                                                            <span>Pick a date</span>
-                                                        )}
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={data.placement_date ? dayjs(data.placement_date).toDate() : undefined}
-                                                        onSelect={(date) => {
-                                                            if (date) {
-                                                                setData('placement_date', dayjs(date).format('YYYY-MM-DD'));
-                                                            }
-                                                            setPlacementOpen(false);
-                                                        }}
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
+                                            <DatePickerSimple
+                                                date={data.placement_date ? new Date(data.placement_date) : undefined}
+                                                onSelect={(date) => setData('placement_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                                placeholder="Pick placement date"
+                                            />
                                             {errors.placement_date && <p className="text-sm text-red-600">{errors.placement_date}</p>}
                                         </div>
                                     </>
@@ -586,29 +591,62 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                             </CardContent>
                         </Card>
 
-                        {/* Financial Details */}
+                        {/* Premium & Financial Details */}
                         <Card>
                             <CardHeader>
-                                <CardTitle>Financial Details</CardTitle>
+                                <CardTitle>Financial & Payment Details</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="premium_amount">Premium Amount (₦)</Label>
+                                    <Label htmlFor="sum_insured">Sum Insured (Total Coverage Amount)</Label>
                                     <Input
-                                        id="premium_amount"
+                                        id="sum_insured"
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        value={data.premium_amount}
-                                        onChange={(e) => {
-                                            setData('premium_amount', e.target.value);
-                                            const rate = parseFloat(data.commission_rate || '0');
-                                            const commission = parseFloat(e.target.value || '0') * (rate / 100);
-                                            setData('commission_amount', commission.toFixed(2));
-                                        }}
-                                        placeholder="Enter premium amount"
+                                        value={data.sum_insured}
+                                        onChange={(e) => setData('sum_insured', e.target.value)}
+                                        placeholder="e.g. 50000000.00"
                                     />
-                                    {errors.premium_amount && <p className="text-sm text-red-600">{errors.premium_amount}</p>}
+                                    {errors.sum_insured && <p className="text-sm text-red-600">{errors.sum_insured}</p>}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="premium_amount">Gross Premium Amount (₦)</Label>
+                                        <Input
+                                            id="premium_amount"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={data.premium_amount}
+                                            onChange={(e) => {
+                                                setData('premium_amount', e.target.value);
+                                                const rate = parseFloat(data.commission_rate || '0');
+                                                const commission = parseFloat(e.target.value || '0') * (rate / 100);
+                                                setData('commission_amount', commission.toFixed(2));
+                                            }}
+                                            placeholder="Enter premium amount"
+                                        />
+                                        {errors.premium_amount && <p className="text-sm text-red-600">{errors.premium_amount}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="currency">Currency</Label>
+                                        <Select value={data.currency} onValueChange={(value) => setData('currency', value)}>
+                                            <SelectTrigger id="currency">
+                                                <SelectValue placeholder="Select currency" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="NGN">NGN (Nigerian Naira - Local)</SelectItem>
+                                                <SelectItem value="USD">USD (US Dollar - Foreign)</SelectItem>
+                                                <SelectItem value="EUR">EUR (Euro - Foreign)</SelectItem>
+                                                <SelectItem value="GBP">GBP (British Pound - Foreign)</SelectItem>
+                                                <SelectItem value="CAD">CAD (Canadian Dollar - Foreign)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.currency && <p className="text-sm text-red-600">{errors.currency}</p>}
+                                    </div>
                                 </div>
 
                                 {isBrokerRecorded && (
@@ -619,7 +657,7 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                             type="number"
                                             min="0"
                                             max="100"
-                                            step="0.01"
+                                            step="any"
                                             value={data.commission_rate}
                                             onChange={(e) => {
                                                 setData('commission_rate', e.target.value);
@@ -634,7 +672,7 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                 )}
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="commission_amount">Commission Amount (₦)</Label>
+                                    <Label htmlFor="commission_amount">Commission Amount</Label>
                                     <Input
                                         id="commission_amount"
                                         type="number"
@@ -644,6 +682,49 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                         onChange={(e) => setData('commission_amount', e.target.value)}
                                         placeholder="Enter commission amount"
                                     />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="payment_method">Payment Method</Label>
+                                        <Select value={data.payment_method} onValueChange={(value) => setData('payment_method', value)}>
+                                            <SelectTrigger id="payment_method">
+                                                <SelectValue placeholder="Select payment method" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                                                <SelectItem value="cheque">Cheque</SelectItem>
+                                                <SelectItem value="direct_deposit">Direct Deposit</SelectItem>
+                                                <SelectItem value="cash">Cash</SelectItem>
+                                                <SelectItem value="electronic_transfer">Electronic / Web</SelectItem>
+                                                <SelectItem value="card">Debit / Credit Card</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.payment_method && <p className="text-sm text-red-600">{errors.payment_method}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="payment_date">Payment Date / Date Received</Label>
+                                        <DatePickerSimple
+                                            date={data.payment_date ? new Date(data.payment_date) : undefined}
+                                            onSelect={(date) => setData('payment_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                            placeholder="Pick payment date"
+                                        />
+                                        {errors.payment_date && <p className="text-sm text-red-600">{errors.payment_date}</p>}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <input
+                                        id="is_direct_to_insurer"
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={data.is_direct_to_insurer}
+                                        onChange={(e) => setData('is_direct_to_insurer', e.target.checked)}
+                                    />
+                                    <Label htmlFor="is_direct_to_insurer" className="cursor-pointer text-sm font-medium leading-none">
+                                        Premium paid direct to insurer by insured (By-passing broker)
+                                    </Label>
                                 </div>
                             </CardContent>
                         </Card>

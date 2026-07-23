@@ -70,6 +70,10 @@ class DatabaseSeeder extends Seeder
         $this->command->info('📋 Seeding policy products...');
         $this->call(PolicyProductSeeder::class);
 
+        // 8. Seed Naicom Permissions
+        $this->command->info('Seeding NAICOM permissions...');
+        $this->call(NaicomPermissionsSeeder::class);
+
         // 7. Seed default document templates for all tenants
         $this->command->info('📄 Seeding default document templates...');
 

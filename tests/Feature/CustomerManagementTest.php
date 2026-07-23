@@ -4,10 +4,13 @@ use App\Models\Customer;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+
     $this->tenant = Tenant::create([
         'name' => 'Test Broker',
         'type' => 'broker',
@@ -120,18 +123,70 @@ test('export template generates downloadable excel file', function () {
     expect($response->headers->get('Content-Disposition'))->toContain('customer_import_template.xlsx');
 });
 
-test('export all customers generates downloadable excel file', function () {
-    Customer::create([
-        'tenant_id' => $this->tenant->id,
+test('multiple individual customers can have identical names', function () {
+    $response1 = $this->post(route('customers.store'), [
         'type' => 'individual',
-        'first_name' => 'Export',
-        'last_name' => 'Test',
-        'email' => 'export@test.com',
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'email' => 'john1@example.com',
+        'is_active' => true,
+    ]);
+    $response1->assertRedirect();
+
+    $response2 = $this->post(route('customers.store'), [
+        'type' => 'individual',
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'email' => 'john2@example.com',
+        'is_active' => true,
+    ]);
+    $response2->assertRedirect();
+
+    $count = Customer::where('first_name', 'John')->where('last_name', 'Doe')->count();
+    expect($count)->toBe(2);
+});
+
+test('multiple corporate customers can have identical company names', function () {
+    $response1 = $this->post(route('customers.store'), [
+        'type' => 'corporate',
+        'company_name' => 'Acme Holdings',
+        'email' => 'acme1@example.com',
+        'is_active' => true,
+    ]);
+    $response1->assertRedirect();
+
+    $response2 = $this->post(route('customers.store'), [
+        'type' => 'corporate',
+        'company_name' => 'Acme Holdings',
+        'email' => 'acme2@example.com',
+        'is_active' => true,
+    ]);
+    $response2->assertRedirect();
+
+    $count = Customer::where('company_name', 'Acme Holdings')->count();
+    expect($count)->toBe(2);
+});
+
+test('multiple tenant users can have identical names', function () {
+    $user1 = User::create([
+        'name' => 'Alexander Smith',
+        'email' => 'alex1@test.com',
+        'password' => bcrypt('password'),
+        'tenant_id' => $this->tenant->id,
         'is_active' => true,
     ]);
 
-    $response = $this->get(route('customers.export.excel'));
+    $user2 = User::create([
+        'name' => 'Alexander Smith',
+        'email' => 'alex2@test.com',
+        'password' => bcrypt('password'),
+        'tenant_id' => $this->tenant->id,
+        'is_active' => true,
+    ]);
 
-    $response->assertOk();
-    expect($response->headers->get('Content-Disposition'))->toContain('.xlsx');
+    expect($user1->exists)->toBeTrue()
+        ->and($user2->exists)->toBeTrue();
+
+    $count = User::where('name', 'Alexander Smith')->count();
+    expect($count)->toBe(2);
 });

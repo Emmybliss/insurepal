@@ -2,10 +2,10 @@ import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
 import BrokerSlipSearchCombobox from '@/components/insurance/BrokerSlipSearchCombobox';
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandGroup, CommandInput, CommandList } from '@/components/ui/command';
+import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -548,12 +548,17 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="policy_number">Policy Number (from Underwriter) *</Label>
+                                    <Label htmlFor="policy_number">
+                                        Policy Number (from Underwriter){' '}
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            (Optional — leave blank if not yet issued by insurer)
+                                        </span>
+                                    </Label>
                                     <Input
                                         id="policy_number"
                                         value={data.policy_number}
                                         onChange={(e) => setData('policy_number', e.target.value)}
-                                        placeholder="e.g. MTR-2026-00000001"
+                                        placeholder="e.g. MTR-2026-00000001 (Optional)"
                                     />
                                     {errors.policy_number && <p className="text-sm text-red-600">{errors.policy_number}</p>}
                                 </div>
@@ -571,33 +576,11 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
 
                                 <div className="space-y-2">
                                     <Label htmlFor="placement_date">Placement Date *</Label>
-                                    <Popover open={placementOpen} onOpenChange={setPlacementOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.placement_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.placement_date ? dayjs(data.placement_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={data.placement_date ? dayjs(data.placement_date).toDate() : undefined}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        setData('placement_date', dayjs(date).format('YYYY-MM-DD'));
-                                                    }
-                                                    setPlacementOpen(false);
-                                                }}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.placement_date ? new Date(data.placement_date) : undefined}
+                                        onSelect={(date) => setData('placement_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick placement date"
+                                    />
                                     {errors.placement_date && <p className="text-sm text-red-600">{errors.placement_date}</p>}
                                 </div>
 
@@ -630,70 +613,26 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="effective_date">Effective Date *</Label>
-                                    <Popover open={effectiveOpen} onOpenChange={setEffectiveOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.effective_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.effective_date ? dayjs(data.effective_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={data.effective_date ? dayjs(data.effective_date).toDate() : undefined}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        setData('effective_date', dayjs(date).format('YYYY-MM-DD'));
-                                                    }
-                                                    setEffectiveOpen(false);
-                                                }}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.effective_date ? new Date(data.effective_date) : undefined}
+                                        onSelect={(date) => setData('effective_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick effective date"
+                                    />
                                     {errors.effective_date && <p className="text-sm text-red-600">{errors.effective_date}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="expiry_date">Expiry Date *</Label>
-                                    <Popover open={expiryOpen} onOpenChange={setExpiryOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-full justify-start text-left font-normal',
-                                                    !data.expiry_date && 'text-muted-foreground',
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {data.expiry_date ? dayjs(data.expiry_date).format('MMMM D, YYYY') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={data.expiry_date ? dayjs(data.expiry_date).toDate() : undefined}
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        setData('expiry_date', dayjs(date).format('YYYY-MM-DD'));
-                                                    }
-                                                    setExpiryOpen(false);
-                                                }}
-                                                disabled={(date) =>
-                                                    data.effective_date
-                                                        ? date < dayjs(data.effective_date).toDate()
-                                                        : date < new Date(new Date().setDate(new Date().getDate() - 1))
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DatePickerSimple
+                                        date={data.expiry_date ? new Date(data.expiry_date) : undefined}
+                                        onSelect={(date) => setData('expiry_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                        placeholder="Pick expiry date"
+                                        disabledDate={(date) =>
+                                            data.effective_date
+                                                ? date < dayjs(data.effective_date).toDate()
+                                                : date < new Date(new Date().setDate(new Date().getDate() - 1))
+                                        }
+                                    />
                                     {errors.expiry_date && <p className="text-sm text-red-600">{errors.expiry_date}</p>}
                                 </div>
 
@@ -820,33 +759,11 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
 
                                     <div className="space-y-2">
                                         <Label htmlFor="payment_date">Payment Date / Date Received</Label>
-                                        <Popover open={paymentOpen} onOpenChange={setPaymentOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className={cn(
-                                                        'w-full justify-start text-left font-normal',
-                                                        !data.payment_date && 'text-muted-foreground',
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {data.payment_date ? dayjs(data.payment_date).format('MMMM D, YYYY') : <span>Pick payment date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={data.payment_date ? dayjs(data.payment_date).toDate() : undefined}
-                                                    onSelect={(date) => {
-                                                        if (date) {
-                                                            setData('payment_date', dayjs(date).format('YYYY-MM-DD'));
-                                                        }
-                                                        setPaymentOpen(false);
-                                                    }}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                        <DatePickerSimple
+                                            date={data.payment_date ? new Date(data.payment_date) : undefined}
+                                            onSelect={(date) => setData('payment_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
+                                            placeholder="Pick payment date"
+                                        />
                                         {errors.payment_date && <p className="text-sm text-red-600">{errors.payment_date}</p>}
                                     </div>
                                 </div>

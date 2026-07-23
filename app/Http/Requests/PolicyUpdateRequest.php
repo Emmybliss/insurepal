@@ -21,7 +21,16 @@ class PolicyUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $policy = $this->route('policy');
+        $policyId = $policy instanceof Policy ? $policy->id : $policy;
+
         return [
+            'policy_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('policies', 'policy_number')->ignore($policyId)->where(fn ($query) => $query->where('tenant_id', $this->user()?->tenant_id)->whereNotNull('policy_number')),
+            ],
             'status' => ['required', Rule::in([
                 Policy::STATUS_DRAFT,
                 Policy::STATUS_PENDING_APPROVAL,
@@ -48,9 +57,15 @@ class PolicyUpdateRequest extends FormRequest
             'placement_date' => ['nullable', 'date'],
             'premium_amount' => ['nullable', 'numeric', 'min:0'],
             'commission_amount' => ['nullable', 'numeric', 'min:0'],
-            'payment_frequency' => ['nullable', 'string', 'max:50'],
-            'schedule_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
-            'broker_slip_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
+            'policy_type_id' => ['nullable', 'exists:policy_types,id'],
+            'policy_class_id' => ['nullable', 'exists:policy_classes,id'],
+            'policy_product_id' => ['nullable', 'exists:policy_products,id'],
+            'sum_insured' => ['nullable', 'numeric', 'min:0'],
+            'currency' => ['nullable', 'string', 'max:3'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
+            'payment_date' => ['nullable', 'date'],
+            'is_direct_to_insurer' => ['nullable', 'boolean'],
+            'coverage_details' => ['nullable', 'array'],
             'risks' => ['nullable', 'array'],
             'risks.*.description' => ['nullable', 'string', 'max:1000'],
             'risks.*.coverage_amount' => ['required_with:risks', 'numeric', 'min:0'],

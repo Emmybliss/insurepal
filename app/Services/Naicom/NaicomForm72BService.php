@@ -80,7 +80,7 @@ class NaicomForm72BService
                 'commission_earned' => $commissionData['earned'],
                 'commission_deferred' => $commissionData['deferred'],
                 'policy_id' => $policy->id,
-                'policy_number' => $policy->policy_number,
+                'policy_number' => $policy->policy_number_display,
             ];
         }
 

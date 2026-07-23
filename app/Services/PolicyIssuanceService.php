@@ -554,19 +554,22 @@ class PolicyIssuanceService
 
     protected function getDocumentName(string $type, Policy $policy): string
     {
+        $number = $policy->policy_number_display;
+
         return match ($type) {
-            PolicyDocument::TYPE_POLICY_CERTIFICATE => 'Policy Certificate - '.$policy->policy_number,
-            PolicyDocument::TYPE_POLICY_SCHEDULE => 'Policy Schedule - '.$policy->policy_number,
-            PolicyDocument::TYPE_TERMS_CONDITIONS => 'Terms & Conditions - '.$policy->policy_number,
-            default => ucwords(str_replace('_', ' ', $type)).' - '.$policy->policy_number,
+            PolicyDocument::TYPE_POLICY_CERTIFICATE => 'Policy Certificate - '.$number,
+            PolicyDocument::TYPE_POLICY_SCHEDULE => 'Policy Schedule - '.$number,
+            PolicyDocument::TYPE_TERMS_CONDITIONS => 'Terms & Conditions - '.$number,
+            default => ucwords(str_replace('_', ' ', $type)).' - '.$number,
         };
     }
 
     protected function generateFileName(string $type, Policy $policy): string
     {
         $prefix = strtolower(str_replace('_', '-', $type));
+        $number = $policy->policy_number_display;
 
-        return "{$prefix}-{$policy->policy_number}.pdf";
+        return "{$prefix}-{$number}.pdf";
     }
 
     public function syncRisks(Policy $policy, array $risksData): void
