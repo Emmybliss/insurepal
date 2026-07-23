@@ -119,23 +119,37 @@ class Placement extends Model
         return $query->where('is_system_generated', true);
     }
 
-    public static function generatePlacementNumber(int $tenantId): string
+    public static function generatePlacementNumber(?int $tenantId = null): string
     {
         $prefix = 'PL';
         $year = now()->format('Y');
-        $last = static::where('tenant_id', $tenantId)
-            ->where('placement_number', 'like', "{$prefix}-{$year}-%")
+        $pattern = "{$prefix}-{$year}-%";
+
+        $last = static::withoutGlobalScopes()
+            ->withTrashed()
+            ->where('placement_number', 'like', $pattern)
+            ->orderByRaw('LENGTH(placement_number) DESC')
             ->orderBy('placement_number', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
-        if ($last) {
-            $lastNumber = intval(substr($last->placement_number, -6));
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        $nextNumber = 1;
+        if ($last && preg_match('/-(\d+)$/', $last->placement_number, $matches)) {
+            $nextNumber = intval($matches[1]) + 1;
         }
 
-        return sprintf('%s-%s-%06d', $prefix, $year, $nextNumber);
+        do {
+            $candidate = sprintf('%s-%s-%06d', $prefix, $year, $nextNumber);
+            $exists = static::withoutGlobalScopes()
+                ->withTrashed()
+                ->where('placement_number', $candidate)
+                ->exists();
+            if ($exists) {
+                $nextNumber++;
+            }
+        } while ($exists);
+
+        return $candidate;
     }
 
     protected static function booted(): void

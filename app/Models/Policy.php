@@ -606,25 +606,37 @@ class Policy extends Model
     /**
      * Generate policy number
      */
-    public static function generatePolicyNumber(int $tenantId, string $productCode = 'POL'): string
+    public static function generatePolicyNumber(?int $tenantId = null, string $productCode = 'POL'): string
     {
         $year = now()->year;
         $prefix = strtoupper($productCode);
+        $pattern = "{$prefix}-{$year}-%";
 
-        // Get the next sequence number for this tenant and year
-        $lastPolicy = static::where('tenant_id', $tenantId)
-            ->where('policy_number', 'like', "{$prefix}-{$year}-%")
+        $lastPolicy = static::withoutGlobalScopes()
+            ->withTrashed()
+            ->where('policy_number', 'like', $pattern)
+            ->orderByRaw('LENGTH(policy_number) DESC')
             ->orderBy('policy_number', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
-        if ($lastPolicy) {
-            $lastNumber = intval(substr($lastPolicy->policy_number, -8));
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        $nextNumber = 1;
+        if ($lastPolicy && preg_match('/-(\d+)$/', $lastPolicy->policy_number, $matches)) {
+            $nextNumber = intval($matches[1]) + 1;
         }
 
-        return sprintf('%s-%s-%08d', $prefix, $year, $nextNumber);
+        do {
+            $candidate = sprintf('%s-%s-%08d', $prefix, $year, $nextNumber);
+            $exists = static::withoutGlobalScopes()
+                ->withTrashed()
+                ->where('policy_number', $candidate)
+                ->exists();
+            if ($exists) {
+                $nextNumber++;
+            }
+        } while ($exists);
+
+        return $candidate;
     }
 
     public function getRecycleBinDisplayName(): string

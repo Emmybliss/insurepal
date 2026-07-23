@@ -246,31 +246,46 @@ class BrokerSlip extends Model
         return $this->status === BrokerSlipStatus::Draft->value;
     }
 
-    public static function generateSlipNumber(int $tenantId, ?string $format = null): string
+    public static function generateSlipNumber(?int $tenantId = null, ?string $format = null): string
     {
         $format = $format ?: 'BS/{YEAR}/{SEQUENCE}';
 
         $year = now()->format('Y');
 
-        $last = static::where('tenant_id', $tenantId)
+        $last = static::withoutGlobalScopes()
+            ->withTrashed()
             ->where('slip_number', 'like', "%{$year}%")
+            ->orderByRaw('LENGTH(slip_number) DESC')
+            ->orderBy('slip_number', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
+        $nextNumber = 1;
         if ($last) {
             $parts = explode('/', $last->slip_number);
-            $lastNumber = intval(end($parts));
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+            $lastStr = end($parts);
+            if (preg_match('/(\d+)$/', $lastStr, $matches)) {
+                $nextNumber = intval($matches[1]) + 1;
+            }
         }
 
-        $replacements = [
-            '{YEAR}' => $year,
-            '{SEQUENCE}' => str_pad($nextNumber, 6, '0', STR_PAD_LEFT),
-        ];
+        do {
+            $replacements = [
+                '{YEAR}' => $year,
+                '{SEQUENCE}' => str_pad((string) $nextNumber, 6, '0', STR_PAD_LEFT),
+            ];
+            $candidate = str_replace(array_keys($replacements), array_values($replacements), $format);
 
-        return str_replace(array_keys($replacements), array_values($replacements), $format);
+            $exists = static::withoutGlobalScopes()
+                ->withTrashed()
+                ->where('slip_number', $candidate)
+                ->exists();
+            if ($exists) {
+                $nextNumber++;
+            }
+        } while ($exists);
+
+        return $candidate;
     }
 
     protected static function booted(): void

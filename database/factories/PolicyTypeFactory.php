@@ -16,7 +16,7 @@ class PolicyTypeFactory extends Factory
             ['name' => 'Travel Insurance', 'code' => 'TRAVEL'],
         ];
 
-        $type = $this->faker->randomElement($types);
+        $type = $types[array_rand($types)];
 
         return [
             'name' => $type['name'],

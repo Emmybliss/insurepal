@@ -34,9 +34,13 @@ export function DatePickerSimple({
   className,
   disabled = false,
   fromYear = 1900,
-  toYear = new Date().getFullYear(),
+  toYear,
 }: DatePickerSimpleProps) {
   const [open, setOpen] = React.useState(false)
+
+  const currentYear = new Date().getFullYear()
+  const selectedYear = date instanceof Date ? date.getFullYear() : currentYear
+  const effectiveToYear = toYear ?? Math.max(currentYear + 50, selectedYear + 10)
 
   return (
     <Field className={cn("w-full", className)}>
@@ -62,7 +66,7 @@ export function DatePickerSimple({
             selected={date}
             defaultMonth={date}
             fromYear={fromYear}
-            toYear={toYear}
+            toYear={effectiveToYear}
             captionLayout="dropdown"
             onSelect={(selectedDate) => {
               onSelect(selectedDate)

@@ -11,9 +11,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+    const currentYear = new Date().getFullYear();
+    let maxYear = currentYear + 50;
+
+    if (props.selected instanceof Date) {
+        maxYear = Math.max(maxYear, props.selected.getFullYear() + 10);
+    } else if (props.defaultMonth instanceof Date) {
+        maxYear = Math.max(maxYear, props.defaultMonth.getFullYear() + 10);
+    } else if (props.month instanceof Date) {
+        maxYear = Math.max(maxYear, props.month.getFullYear() + 10);
+    }
+
+    const defaultFromYear = props.fromYear ?? 1900;
+    const defaultToYear = props.toYear ?? maxYear;
+
     return (
         <DayPicker
             showOutsideDays={showOutsideDays}
+            fromYear={defaultFromYear}
+            toYear={defaultToYear}
             className={cn('p-3', className)}
             classNames={{
                 months: 'flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0',
