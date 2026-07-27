@@ -22,7 +22,6 @@ npm ci
 NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 php artisan migrate --force
-
 php artisan optimize:clear
 php artisan optimize
 

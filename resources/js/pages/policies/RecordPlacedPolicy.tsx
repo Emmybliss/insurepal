@@ -18,7 +18,7 @@ import { cn, formatAmount } from '@/lib/utils';
 import { Head, Link, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { CalendarIcon, Check, ChevronsUpDown, Loader2, Plus, Save, Upload } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 interface Customer {
@@ -149,6 +149,15 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
         broker_slip_file: null,
     });
 
+    const mappedCustomers = useMemo(
+        () =>
+            customerList.map((c: any) => ({
+                ...c,
+                display_name: c.display_name || c.name,
+            })),
+        [customerList],
+    );
+
     const filteredClasses = selectedTypeId ? policyClasses.filter((c) => c.policy_type_id?.toString() === selectedTypeId) : [];
 
     const filteredProducts = selectedClassId
@@ -235,10 +244,7 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                     <Label htmlFor="customer_id">Customer (Insured) *</Label>
                                     <CustomerSearchSelect
                                         value={data.customer_id}
-                                        initialCustomers={customerList.map((c: any) => ({
-                                            ...c,
-                                            display_name: c.display_name || c.name,
-                                        }))}
+                                        initialCustomers={mappedCustomers}
                                         onChange={(customerId, newCust) => {
                                             setData('customer_id', customerId);
                                             if (newCust) {

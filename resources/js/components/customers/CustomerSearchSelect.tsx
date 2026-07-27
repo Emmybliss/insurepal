@@ -28,11 +28,14 @@ export function CustomerSearchSelect({
     const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    // Keep initial Customers synced
+    // Keep initial Customers synced (compare by IDs to avoid unnecessary re-renders)
     useEffect(() => {
-        if (initialCustomers.length > 0) {
-            setCustomers(initialCustomers);
-        }
+        if (initialCustomers.length === 0) return;
+        setCustomers((prev) => {
+            const prevIds = prev.map((c) => c.id).join(',');
+            const nextIds = initialCustomers.map((c) => c.id).join(',');
+            return prevIds === nextIds ? prev : initialCustomers;
+        });
     }, [initialCustomers]);
 
     // Find selected customer object when value changes

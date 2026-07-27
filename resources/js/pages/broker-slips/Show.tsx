@@ -88,9 +88,8 @@ interface BrokerSlipVersion {
     id: number;
     version: number;
     snapshot_json: Record<string, any>;
-    created_by: number;
+    created_by?: User;
     created_at: string;
-    createdBy?: User;
 }
 
 interface BrokerSlipApproval {
@@ -130,6 +129,7 @@ interface BrokerSlip {
     tax_rate?: number | string;
     taxes?: number | string;
     net_premium?: number | string;
+    created_by?: User;
 
     placement: {
         id: number;
@@ -384,6 +384,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
         }
     };
 
+    console.log(brokerSlip?.created_by?.name);
     return (
         <AppLayout>
             <Head title={`Broker Slip: ${brokerSlip.slip_number}`} />
@@ -416,7 +417,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                             <span>Created: {formatDate(brokerSlip.created_at)}</span>
                             <span>•</span>
                             <span>
-                                By: <span className="font-medium">{brokerSlip.createdBy?.name}</span>
+                                By: <span className="font-medium">{brokerSlip?.created_by?.name}</span>
                             </span>
                         </div>
                     </div>
@@ -645,7 +646,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
 
                             <div>
                                 <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Created By</h4>
-                                <p className="font-medium">{brokerSlip.createdBy?.name}</p>
+                                <p className="font-medium">{brokerSlip?.created_by?.name}</p>
                                 <p className="text-sm text-gray-500">{formatDateTime(brokerSlip.created_at)}</p>
                             </div>
                         </CardContent>
@@ -761,7 +762,7 @@ export default function Show({ brokerSlip, canUpdate }: Props) {
                                             <div>
                                                 <p className="text-sm font-medium">Version {ver.version}</p>
                                                 <p className="text-xs text-gray-500">{formatDateTime(ver.created_at)}</p>
-                                                {ver.createdBy && <p className="text-xs text-gray-400">by {ver.createdBy.name}</p>}
+                                                {ver.created_by && <p className="text-xs text-gray-400">by {ver.created_by.name}</p>}
                                             </div>
                                             <Badge variant="secondary" className="text-xs">
                                                 v{ver.version}

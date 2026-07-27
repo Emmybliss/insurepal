@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\UserRoleController;
-use App\Http\Controllers\API\ExchangeRateController;
+use App\Http\Controllers\Api\ExchangeRateController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use Illuminate\Http\Request;
@@ -245,28 +245,28 @@ Route::prefix('v1/ai')->middleware('auth:sanctum')->group(function () {
 // Public API V1 Routes (Server-to-Server, Protected by X-API-KEY) — Legacy compatibility
 Route::prefix('v1')->middleware(\App\Http\Middleware\VerifyTenantApiKey::class)->group(function () {
     // Products
-    Route::get('/products', [\App\Http\Controllers\API\V1\ProductController::class, 'index']);
-    Route::get('/products/{id}', [\App\Http\Controllers\API\V1\ProductController::class, 'show']);
+    Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
+    Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
 
     // Quotes & Policies
-    Route::post('/policies/quote', [\App\Http\Controllers\API\V1\PolicyController::class, 'quote']);
-    Route::post('/policies/issue', [\App\Http\Controllers\API\V1\PolicyController::class, 'issue']);
+    Route::post('/policies/quote', [\App\Http\Controllers\Api\V1\PolicyController::class, 'quote']);
+    Route::post('/policies/issue', [\App\Http\Controllers\Api\V1\PolicyController::class, 'issue']);
 
     // Payments
-    Route::post('/payments/initiate', [\App\Http\Controllers\API\V1\PaymentController::class, 'initiate']);
+    Route::post('/payments/initiate', [\App\Http\Controllers\Api\V1\PaymentController::class, 'initiate']);
 });
 
 // Widget API Routes (Client-side, Protected by X-Tenant-Key)
 Route::prefix('v1/widget')->middleware(\App\Http\Middleware\VerifyWidgetAccess::class)->group(function () {
     // Products (Public info)
-    Route::get('/products', [\App\Http\Controllers\API\V1\ProductController::class, 'index']);
-    Route::get('/products/{id}', [\App\Http\Controllers\API\V1\ProductController::class, 'show']);
+    Route::get('/products', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
+    Route::get('/products/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
 
     // Quotes (Public calculation)
-    Route::post('/policies/quote', [\App\Http\Controllers\API\V1\PolicyController::class, 'quote']);
+    Route::post('/policies/quote', [\App\Http\Controllers\Api\V1\PolicyController::class, 'quote']);
 
     // Payments
-    Route::post('/payments/initiate', [\App\Http\Controllers\API\V1\PaymentController::class, 'initiate']);
+    Route::post('/payments/initiate', [\App\Http\Controllers\Api\V1\PaymentController::class, 'initiate']);
 });
 
 // Email Platform Routes
@@ -318,7 +318,7 @@ Route::prefix('v1/email')->middleware('auth:sanctum')->group(function () {
 });
 
 // Webhooks (Paystack)
-Route::post('/v1/payments/webhook/paystack', [\App\Http\Controllers\API\V1\PaymentController::class, 'handleWebhook']);
+Route::post('/v1/payments/webhook/paystack', [\App\Http\Controllers\Api\V1\PaymentController::class, 'handleWebhook']);
 
 // Mobile API Routes
 Route::prefix('mobile')->group(function () {
