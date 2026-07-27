@@ -232,7 +232,7 @@ it('broker can store a placed policy with schedule and broker slip', function ()
 it('validates required fields for placed policy', function () {
     $this->actingAs($this->broker)
         ->post(route('policy-management.store-placed'), [])
-        ->assertSessionHasErrors(['customer_id', 'policy_product_id', 'placement_date', 'effective_date', 'expiry_date', 'premium_amount']);
+        ->assertSessionHasErrors(['customer_id', 'policy_product_id', 'placement_date', 'effective_date', 'expiry_date']);
 });
 
 it('can store placed policy without insurer and without sum_insured', function () {
@@ -278,6 +278,24 @@ it('can store placed policy without broker_slip_number and schedule_file', funct
     expect($policy)->not->toBeNull();
     expect($policy->broker_slip_number)->toBeNull();
     expect($policy->schedule_file_path)->toBeNull();
+});
+
+it('can store placed policy without premium_amount', function () {
+    $response = $this->actingAs($this->broker)
+        ->post(route('policy-management.store-placed'), [
+            'customer_id' => $this->brokerCustomer->id,
+            'policy_product_id' => $this->brokerPolicyProduct->id,
+            'placement_date' => now()->format('Y-m-d'),
+            'effective_date' => now()->format('Y-m-d'),
+            'expiry_date' => now()->addYear()->format('Y-m-d'),
+        ]);
+
+    $response->assertRedirect();
+
+    $policy = Policy::where('customer_id', $this->brokerCustomer->id)->latest()->first();
+
+    expect($policy)->not->toBeNull();
+    expect($policy->premium_amount)->toBeNull();
 });
 
 it('validates policy_number uniqueness per tenant for placed policy', function () {

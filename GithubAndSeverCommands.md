@@ -13,6 +13,8 @@ ssh root@184.94.215.54
 
 cd /var/www/insurepal
 
+nano storage/logs/laravel.log
+
 git pull origin main
 
 composer install --no-dev --prefer-dist --optimize-autoloader

@@ -621,7 +621,9 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="premium_amount">Gross Premium Amount (₦)</Label>
+                                        <Label htmlFor="premium_amount">
+                                            Gross Premium Amount (₦) <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                                        </Label>
                                         <Input
                                             id="premium_amount"
                                             type="number"

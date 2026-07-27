@@ -26,7 +26,7 @@ class RecordPlacedPolicyRequest extends FormRequest
             'insurer_name' => 'nullable|string',
             'effective_date' => 'required|date',
             'expiry_date' => 'required|date|after:effective_date',
-            'premium_amount' => 'required|numeric|min:0',
+            'premium_amount' => 'nullable|numeric|min:0',
             'sum_insured' => 'nullable|numeric|min:0',
             'commission_amount' => 'nullable|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',

@@ -77,8 +77,7 @@ class UpdatePolicyRequest extends FormRequest
                 'max:1000',
             ],
             'premium_amount' => [
-                'sometimes',
-                'required',
+                'nullable',
                 'numeric',
                 'min:0',
             ],
