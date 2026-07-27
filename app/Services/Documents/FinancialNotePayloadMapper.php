@@ -42,7 +42,7 @@ class FinancialNotePayloadMapper
             'description' => $debitNote->description ?? '',
             'settlement_condition' => $debitNote->settlement_condition ?? '',
             'currency' => $debitNote->currency_code ?? 'NGN',
-            'insurer_name' => optional($debitNote->policy)->insurer_name ?? 'N/A',
+            'insurer_name' => optional($debitNote->policy)->insurer_name ?: 'Various',
             'insurer_address' => optional($debitNote->policy)->insurer_address ?? '',
             'insurer_email' => optional($debitNote->policy)->insurer_email ?? '',
             'insurer_phone' => optional($debitNote->policy)->insurer_phone ?? '',
@@ -61,7 +61,7 @@ class FinancialNotePayloadMapper
         // Use direct insurer fields on credit note, fallback to policy insurer if not set
         $insurerName = $creditNote->insurer_name
             ?? $creditNote->policy?->insurer_name
-            ?? 'N/A';
+            ?? 'Various';
         $insurerAddress = $creditNote->insurer_address
             ?? $creditNote->policy?->insurer_address
             ?? '';

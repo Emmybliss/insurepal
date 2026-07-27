@@ -11,7 +11,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useInitials } from '@/hooks/use-initials';
-import { getImageUrl } from '@/lib/constants';
 import { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { Button } from '../ui/button';
@@ -24,10 +23,10 @@ export function ProfileDropDownMenu() {
         <DropdownMenu>
             <DropdownMenuTrigger className="cursor-pointer" asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="relative">
-                        <AvatarImage src={`${getImageUrl()}${user?.avatar || ''}`} />
-                        <AvatarFallback className="rounded-lg bg-primary text-white dark:bg-white dark:text-primary">
-                            {user?.name ? getInitials(user.name) : ''}
+                    <Avatar className="h-8 w-8 overflow-hidden rounded-full">
+                        <AvatarImage src={user.avatar_url} alt={user.name} />
+                        <AvatarFallback className="rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
+                            {getInitials(user.name)}
                         </AvatarFallback>
                     </Avatar>
                     <span className="absolute -end-0.5 -bottom-0.5 size-3 rounded-full border-2 border-background bg-emerald-500">

@@ -142,8 +142,9 @@ export default function DebitNotesIndex({ notes, customers, filters, stats }: Pr
         }
     };
 
-    const getCustomerName = (customer: Customer) => {
-        return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
+    const getCustomerName = (customer?: Customer | null) => {
+        if (!customer) return 'N/A';
+        return customer.type === 'individual' ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'N/A' : customer.company_name || 'N/A';
     };
 
     return (
@@ -233,7 +234,7 @@ export default function DebitNotesIndex({ notes, customers, filters, stats }: Pr
                                     <SelectValue placeholder="All customers" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {customers.map((customer) => (
+                                    {customers?.map((customer) => (
                                         <SelectItem key={customer.id} value={customer.id.toString()}>
                                             {getCustomerName(customer)}
                                         </SelectItem>

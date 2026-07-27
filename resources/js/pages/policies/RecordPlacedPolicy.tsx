@@ -1,4 +1,6 @@
 import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
+import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
 import BrokerSlipSearchCombobox from '@/components/insurance/BrokerSlipSearchCombobox';
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
@@ -230,39 +232,34 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="customer_id">Customer *</Label>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select customer" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {customerList.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                            {customer.name} - {customer.email}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCustomerModalOpen(true)}
-                                            className="mt-0 shrink-0 self-start"
-                                        >
-                                            <Plus className="mr-1 h-4 w-4" />
-                                            Add New
-                                        </Button>
-                                    </div>
-                                    {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
-                                    <CustomerCreateModal
-                                        open={customerModalOpen}
-                                        onOpenChange={setCustomerModalOpen}
-                                        onCustomerCreated={handleCustomerCreated}
+                                    <Label htmlFor="customer_id">Customer (Insured) *</Label>
+                                    <CustomerSearchSelect
+                                        value={data.customer_id}
+                                        initialCustomers={customerList.map((c: any) => ({
+                                            ...c,
+                                            display_name: c.display_name || c.name,
+                                        }))}
+                                        onChange={(customerId, newCust) => {
+                                            setData('customer_id', customerId);
+                                            if (newCust) {
+                                                setCustomerList((prev) => {
+                                                    const exists = prev.some((c) => c.id.toString() === newCust.id.toString());
+                                                    if (exists) return prev;
+                                                    return [
+                                                        ...prev,
+                                                        {
+                                                            id: newCust.id,
+                                                            name: newCust.display_name || `${newCust.first_name || ''} ${newCust.last_name || ''}`.trim() || newCust.company_name || '',
+                                                            email: newCust.email || '',
+                                                            phone: newCust.phone || '',
+                                                            type: newCust.type || 'individual',
+                                                        },
+                                                    ];
+                                                });
+                                            }
+                                        }}
                                     />
+                                    {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
                                 </div>
 
                                 <div className="space-y-2">
@@ -549,16 +546,15 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="policy_number">
-                                        Policy Number (from Underwriter){' '}
+                                        Policy Number (from Underwriter) / Risk Reference{' '}
                                         <span className="text-xs font-normal text-muted-foreground">
-                                            (Optional — leave blank if not yet issued by insurer)
+                                            (Optional — leave blank for TBA)
                                         </span>
                                     </Label>
-                                    <Input
-                                        id="policy_number"
-                                        value={data.policy_number}
-                                        onChange={(e) => setData('policy_number', e.target.value)}
-                                        placeholder="e.g. MTR-2026-00000001 (Optional)"
+                                    <PolicyNumberSearchSelect
+                                        policyNumberValue={data.policy_number}
+                                        customerId={data.customer_id}
+                                        onPolicySelect={(_id, policyNumber) => setData('policy_number', policyNumber)}
                                     />
                                     {errors.policy_number && <p className="text-sm text-red-600">{errors.policy_number}</p>}
                                 </div>
@@ -585,7 +581,12 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Insurer (Underwriter) *</Label>
+                                    <Label>
+                                        Insurer (Underwriter){' '}
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            (Optional — leave blank for Various / To Be Confirmed)
+                                        </span>
+                                    </Label>
                                     <CompanySearchCombobox
                                         companyType="underwriter"
                                         value={data.insurer_name}
@@ -593,11 +594,11 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                         onSelect={(company) =>
                                             setData((prev) => ({
                                                 ...prev,
-                                                insurer_name: company.name,
-                                                insurer_id: String(company.company_id || company.id),
+                                                insurer_name: company?.name || '',
+                                                insurer_id: company ? String(company.company_id || company.id) : '',
                                             }))
                                         }
-                                        placeholder="Search for an insurance company..."
+                                        placeholder="Search for an insurance company (leave blank for Various)..."
                                     />
                                     {errors.insurer_name && <p className="text-sm text-red-600">{errors.insurer_name}</p>}
                                 </div>
@@ -661,7 +662,10 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="sum_insured">Sum Insured (Total Coverage Amount) *</Label>
+                                    <Label htmlFor="sum_insured">
+                                        Sum Insured (Total Coverage Amount){' '}
+                                        <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                                    </Label>
                                     <Input
                                         id="sum_insured"
                                         type="number"
@@ -669,7 +673,7 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                         step="0.01"
                                         value={data.sum_insured}
                                         onChange={(e) => setData('sum_insured', e.target.value)}
-                                        placeholder="e.g. 50000000.00"
+                                        placeholder="e.g. 50000000.00 (Optional)"
                                     />
                                     {errors.sum_insured && <p className="text-sm text-red-600">{errors.sum_insured}</p>}
                                 </div>

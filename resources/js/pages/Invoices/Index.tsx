@@ -132,8 +132,9 @@ export default function InvoicesIndex({ invoices, customers, filters, stats }: P
         }
     };
 
-    const getCustomerName = (customer: Customer) => {
-        return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
+    const getCustomerName = (customer?: Customer | null) => {
+        if (!customer) return 'N/A';
+        return customer.type === 'individual' ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'N/A' : customer.company_name || 'N/A';
     };
 
     return (

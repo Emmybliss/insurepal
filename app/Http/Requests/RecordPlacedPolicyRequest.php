@@ -23,7 +23,7 @@ class RecordPlacedPolicyRequest extends FormRequest
             'broker_slip_number' => 'nullable|string|max:100',
             'placement_date' => 'required|date',
             'insurer_id' => 'nullable|integer',
-            'insurer_name' => 'required|string',
+            'insurer_name' => 'nullable|string',
             'effective_date' => 'required|date',
             'expiry_date' => 'required|date|after:effective_date',
             'premium_amount' => 'required|numeric|min:0',

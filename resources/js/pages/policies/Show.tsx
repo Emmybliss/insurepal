@@ -805,51 +805,49 @@ export default function Show({ policy }: Props) {
                                         </div>
                                     </div>
 
-                                    {policy.insurer_name && (
-                                        <>
-                                            <Separator />
-                                            <div>
-                                                <h4 className="text-sm font-semibold text-gray-700">Underwriter (Insurer)</h4>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-medium text-gray-600">Company</h4>
-                                                <div className="mt-1 flex items-center gap-2">
-                                                    <Building2 className="h-4 w-4 text-gray-400" />
-                                                    <span className="font-medium">{policy.insurer_name}</span>
-                                                </div>
-                                            </div>
-                                            {(policy.insurer_email || policy.insurer_phone) && (
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-600">Contact</h4>
-                                                    <div className="mt-1 space-y-1 text-sm">
-                                                        {policy.insurer_email && (
-                                                            <div className="flex items-center gap-2">
-                                                                <User className="h-4 w-4 text-gray-400" />
-                                                                <span>{policy.insurer_email}</span>
-                                                            </div>
-                                                        )}
-                                                        {policy.insurer_phone && (
-                                                            <div className="flex items-center gap-2">
-                                                                <Phone className="h-4 w-4 text-gray-400" />
-                                                                <span>{policy.insurer_phone}</span>
-                                                            </div>
-                                                        )}
+                                    <Separator />
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-700">Underwriter (Insurer)</h4>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-600">Company</h4>
+                                        <div className="mt-1 flex items-center gap-2">
+                                            <Building2 className="h-4 w-4 text-gray-400" />
+                                            <span className={cn("font-medium", !policy.insurer_name && "text-muted-foreground italic")}>
+                                                {policy.insurer_name || 'Various (To Be Confirmed)'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {(policy.insurer_email || policy.insurer_phone) && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-600">Contact</h4>
+                                            <div className="mt-1 space-y-1 text-sm">
+                                                {policy.insurer_email && (
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="h-4 w-4 text-gray-400" />
+                                                        <span>{policy.insurer_email}</span>
                                                     </div>
-                                                </div>
-                                            )}
-                                            {policy.insurer_address && (
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-600">Address</h4>
-                                                    <p className="mt-1 text-sm">{policy.insurer_address}</p>
-                                                </div>
-                                            )}
-                                            {policy.commission_rate != null && (
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-600">Commission Rate</h4>
-                                                    <p className="mt-1 font-medium">{policy.commission_rate}%</p>
-                                                </div>
-                                            )}
-                                        </>
+                                                )}
+                                                {policy.insurer_phone && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="h-4 w-4 text-gray-400" />
+                                                        <span>{policy.insurer_phone}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {policy.insurer_address && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-600">Address</h4>
+                                            <p className="mt-1 text-sm">{policy.insurer_address}</p>
+                                        </div>
+                                    )}
+                                    {policy.commission_rate != null && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-600">Commission Rate</h4>
+                                            <p className="mt-1 font-medium">{policy.commission_rate}%</p>
+                                        </div>
                                     )}
 
                                     {policy.schedule_file_path && (

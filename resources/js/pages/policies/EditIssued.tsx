@@ -504,7 +504,12 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                 )}
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="insurer">Insurer (Underwriter)</Label>
+                                    <Label htmlFor="insurer">
+                                        Insurer (Underwriter){' '}
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            (Optional — leave blank for Various / To Be Confirmed)
+                                        </span>
+                                    </Label>
                                     <CompanySearchCombobox
                                         companyType="underwriter"
                                         value={data.insurer_name}
@@ -512,15 +517,15 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                         onSelect={(company) => {
                                             setData((prev) => ({
                                                 ...prev,
-                                                insurer_name: company.name,
-                                                insurer_address: company.address || '',
-                                                insurer_email: company.email || '',
-                                                insurer_phone: company.phone || '',
-                                                insurer_id: String(company.company_id || company.id),
-                                                insurer_source: company.source,
+                                                insurer_name: company?.name || '',
+                                                insurer_address: company?.address || '',
+                                                insurer_email: company?.email || '',
+                                                insurer_phone: company?.phone || '',
+                                                insurer_id: company ? String(company.company_id || company.id) : '',
+                                                insurer_source: company?.source || '',
                                             }));
                                         }}
-                                        placeholder="Search for an insurance company..."
+                                        placeholder="Search for an insurance company (leave blank for Various)..."
                                     />
                                     {errors.insurer_id && <p className="text-sm text-red-600">{errors.insurer_id}</p>}
                                 </div>
@@ -598,7 +603,10 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="sum_insured">Sum Insured (Total Coverage Amount)</Label>
+                                    <Label htmlFor="sum_insured">
+                                        Sum Insured (Total Coverage Amount){' '}
+                                        <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                                    </Label>
                                     <Input
                                         id="sum_insured"
                                         type="number"
@@ -606,7 +614,7 @@ export default function EditIssued({ policy, policyTypes, policyClasses, policyP
                                         step="0.01"
                                         value={data.sum_insured}
                                         onChange={(e) => setData('sum_insured', e.target.value)}
-                                        placeholder="e.g. 50000000.00"
+                                        placeholder="e.g. 50000000.00 (Optional)"
                                     />
                                     {errors.sum_insured && <p className="text-sm text-red-600">{errors.sum_insured}</p>}
                                 </div>

@@ -150,7 +150,7 @@ class PolicyRecordPdfService
             'policy_class_name' => $policy->policyClass?->name ?? 'N/A',
             'tenant_name' => $policy->tenant?->name ?? 'N/A',
 
-            'insurer_name' => $policy->insurer_name ?? $policy->tenant?->name ?? 'N/A',
+            'insurer_name' => $policy->insurer_name ?: 'Various (To Be Confirmed)',
             'broker_name' => $policy->brokerTenant?->name ?? ($policy->isBrokerRecorded() ? ($policy->tenant?->name ?? 'N/A') : 'N/A'),
 
             'effective_date' => $effectiveDate ? $effectiveDate->format('d M Y') : 'N/A',
