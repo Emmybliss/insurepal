@@ -25,6 +25,9 @@ php artisan optimize:clear
 php artisan optimize
 
 php artisan queue:restart
+## restart the services
+sudo systemctl restart php8.4-fpm
+sudo systemctl restart nginx
 
 ## Permission commands
 

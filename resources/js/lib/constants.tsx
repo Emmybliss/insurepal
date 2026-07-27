@@ -1,3 +1,5 @@
+import { Customer } from "@/types";
+
 export const NIGERIAN_STATES = [
     'Abia',
     'Abuja (FCT)',
@@ -57,6 +59,13 @@ export const getSafeExcerpt = (html: string, maxLength = 100) => {
 
     // Truncate safely
     return text.length > maxLength ? text.slice(0, maxLength) + '…' : text;
+};
+
+export const getCustomerName = (customer: Customer) => {
+    if (customer.type === 'corporate') {
+        return customer.company_name || `${customer.first_name} ${customer.last_name}`;
+    }
+    return `${customer.first_name} ${customer.last_name}`;
 };
 
 export const samplePolicyData = {

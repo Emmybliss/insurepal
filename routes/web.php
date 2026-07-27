@@ -201,6 +201,8 @@ Route::middleware(['auth', 'verified', 'super.admin'])->prefix('admin')->name('a
     Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
     Route::post('users/{user}/resend-verification', [AdminUserController::class, 'resendVerification'])->name('users.resend-verification');
     Route::post('users/{user}/force-verify-email', [AdminUserController::class, 'forceVerifyEmail'])->name('users.force-verify-email');
+    Route::post('users/{user}/reject', [AdminUserController::class, 'rejectUser'])->name('users.reject');
+    Route::post('users/{user}/revoke-verification', [AdminUserController::class, 'revokeVerification'])->name('users.revoke-verification');
     Route::post('users/bulk-action', [AdminUserController::class, 'bulkAction'])->name('users.bulk-action');
 
     // User Role Management
@@ -332,12 +334,22 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
                 ->name('edit');
             Route::put('/{policy}', [PolicyManagementController::class, 'update'])
                 ->name('update');
+            Route::delete('/{policy}', [PolicyManagementController::class, 'destroy'])
+                ->name('destroy');
 
             // Policy Amendment Routes
             Route::get('/{policy}/amend', [PolicyManagementController::class, 'showAmendForm'])
                 ->name('amend');
             Route::post('/{policy}/amend', [PolicyManagementController::class, 'storeAmendment'])
                 ->name('amend.store');
+
+            // Policy Record PDF Routes
+            Route::get('/{policy}/record/download', [PolicyManagementController::class, 'downloadRecord'])
+                ->name('record.download');
+            Route::get('/{policy}/record/preview', [PolicyManagementController::class, 'previewRecord'])
+                ->name('record.preview');
+            Route::get('/{policy}/record/html-preview', [PolicyManagementController::class, 'htmlPreviewRecord'])
+                ->name('record.html-preview');
         });
 
         // Policy Approval Workflow (Underwriter only)
@@ -484,12 +496,6 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
                 ->name('certificates.generate');
             Route::post('certificates/bulk-generate', [\App\Http\Controllers\CertificateController::class, 'bulkGenerate'])
                 ->name('certificates.bulk-generate');
-
-            // Certificate Media Routes (QR Codes and Barcodes)
-            Route::get('media/qrcode/{data}', [\App\Http\Controllers\CertificateMediaController::class, 'generateQrCode'])
-                ->name('media.qrcode');
-            Route::get('media/barcode/{data}', [\App\Http\Controllers\CertificateMediaController::class, 'generateBarcode'])
-                ->name('media.barcode');
         });
 
         // Renewal Management
@@ -605,6 +611,14 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
         Route::get('api/customers/{customer}/policies', [\App\Http\Controllers\DebitNoteController::class, 'getPoliciesByCustomer'])
             ->name('api.customers.policies');
 
+        // Customer & Policy Lookup APIs for Draft-First Workflow
+        Route::get('api/customers-lookup/search', [\App\Http\Controllers\Api\V1\CustomerLookupController::class, 'search'])
+            ->name('api.customers-lookup.search');
+        Route::post('api/customers-lookup/quick-store', [\App\Http\Controllers\Api\V1\CustomerLookupController::class, 'quickStore'])
+            ->name('api.customers-lookup.quick-store');
+        Route::get('api/policies-lookup/search', [\App\Http\Controllers\Api\V1\PolicyLookupController::class, 'search'])
+            ->name('api.policies-lookup.search');
+
         // Invoice Management
         Route::resource('invoices', \App\Http\Controllers\InvoiceController::class);
         Route::get('invoices/{invoice}/template-options', [\App\Http\Controllers\InvoiceController::class, 'getInvoiceGenerationOptions'])
@@ -618,6 +632,8 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
         // invoice download
         Route::post('invoices/{invoice}/download', [\App\Http\Controllers\InvoiceController::class, 'downloadInvoicePdf'])
             ->name('invoices.download');
+        Route::get('invoices/{invoice}/download-pdf', [\App\Http\Controllers\InvoiceController::class, 'downloadInvoicePdf'])
+            ->name('invoices.download-pdf');
         Route::post('invoices/{invoice}/mark-sent', [\App\Http\Controllers\InvoiceController::class, 'markAsSent'])
             ->name('invoices.mark-sent');
         Route::post('invoices/{invoice}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markAsPaid'])
@@ -804,11 +820,12 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
     Route::post('user-management/{user}/update-roles', [\App\Http\Controllers\UserManagementController::class, 'updateRoles'])->name('user-management.update-roles');
 
     // Tenant-Level Role Management
-    Route::resource('role-management', \App\Http\Controllers\RoleManagementController::class);
+    Route::resource('role-management', \App\Http\Controllers\RoleManagementController::class)->parameters(['role-management' => 'role']);
     Route::post('role-management/{role}/toggle-status', [\App\Http\Controllers\RoleManagementController::class, 'toggleStatus'])->name('role-management.toggle-status');
+    Route::post('role-management/{role}/duplicate', [\App\Http\Controllers\RoleManagementController::class, 'duplicate'])->name('role-management.duplicate');
 
     // Tenant-Level Permission Management
-    Route::resource('permission-management', \App\Http\Controllers\PermissionManagementController::class);
+    Route::resource('permission-management', \App\Http\Controllers\PermissionManagementController::class)->parameters(['permission-management' => 'permission']);
     Route::post('permission-management/{permission}/toggle-status', [\App\Http\Controllers\PermissionManagementController::class, 'toggleStatus'])->name('permission-management.toggle-status');
 
     // Reports & Analytics
@@ -936,6 +953,14 @@ Route::get('verify/invoice/{token}', [\App\Http\Controllers\VerifyDocumentContro
     ->name('verify.invoice');
 Route::get('verify/receipt/{token}', [\App\Http\Controllers\VerifyDocumentController::class, 'receipt'])
     ->name('verify.receipt');
+
+// Public Media Routes for QR Codes and Barcodes (No authentication required)
+Route::get('media/qrcode/{data}', [\App\Http\Controllers\CertificateMediaController::class, 'generateQrCode'])
+    ->where('data', '.*')
+    ->name('media.qrcode');
+Route::get('media/barcode/{data}', [\App\Http\Controllers\CertificateMediaController::class, 'generateBarcode'])
+    ->where('data', '.*')
+    ->name('media.barcode');
 
 // Help & Support Center (public routes)
 Route::get('help', [\App\Http\Controllers\HelpController::class, 'index'])->name('help.index');

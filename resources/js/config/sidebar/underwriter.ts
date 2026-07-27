@@ -29,7 +29,7 @@ import {
 import type { AuthHelpers, PlanHelpers, TranslateFn } from './index';
 
 export function getUnderwriterNavItems(auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
-    const { can, hasAnyRole } = auth;
+    const { can, hasAnyRole, isUnderwriter, isBroker, isStaff } = auth;
     const items: NavItem[] = [];
 
     items.push({
@@ -192,7 +192,7 @@ export function getUnderwriterNavItems(auth: AuthHelpers, plan: PlanHelpers, t: 
     //     });
     // }
 
-    if (hasAnyRole(['underwriter', 'broker'])) {
+    if (isUnderwriter || isBroker || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
         items.push({
             title: t('Connections'),
             href: route('tenant-relationships.index'),
@@ -242,7 +242,7 @@ export function getUnderwriterNavItems(auth: AuthHelpers, plan: PlanHelpers, t: 
         });
     }
 
-    if (can('recycle_bin_view')) {
+    if (can('recycle_bin_view') || can('delete_policies') || isUnderwriter || isBroker || isStaff || hasAnyRole(['underwriter', 'underwriter_admin', 'underwriter_staff', 'broker', 'broker_admin', 'broker_staff', 'staff'])) {
         items.push({
             title: t('Recycle Bin'),
             href: route('recycle-bin.index'),

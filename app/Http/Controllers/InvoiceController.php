@@ -40,11 +40,7 @@ class InvoiceController extends Controller
 
     public function create(Request $request)
     {
-        // Get Last Invoice
-        $lastInvoice = Invoice::withTrashed()->where('tenant_id', Auth::user()->tenant_id)->latest('id')->first();
-        //  Generate Invoice Number
-        $lastNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, -6)) : 0;
-        $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
+        $newNumber = $this->generateInvoiceService->generateInvoiceNumber(Auth::user()->tenant_id);
 
         $customers = Customer::where('tenant_id', Auth::user()->tenant_id)->get();
         $policies = collect();
@@ -246,16 +242,40 @@ class InvoiceController extends Controller
         }
     }
 
-    public function previewInvoice(Invoice $invoice)
+    public function previewInvoice(Request $request, Invoice $invoice)
     {
-        if (! $invoice->file_path || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($invoice->file_path)) {
-            return redirect()->back()->with('error', 'Invoice file not found.');
-        }
+        try {
+            $invoice->load(['customer', 'items', 'tenant', 'policy']);
 
-        return response()->file(storage_path('app/public/'.$invoice->file_path), [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="invoice-'.$invoice->invoice_number.'.pdf"',
-        ]);
+            $templateKey = $request->input('template_key', 'invoice.classic');
+
+            $pdfContent = $this->documentService->generateInvoicePdf($invoice, $templateKey);
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="invoice-'.$invoice->invoice_number.'.pdf"',
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to preview PDF: '.$e->getMessage());
+        }
+    }
+
+    public function downloadInvoicePdf(Request $request, Invoice $invoice)
+    {
+        try {
+            $invoice->load(['customer', 'items', 'tenant', 'policy']);
+
+            $templateKey = $request->input('template_key', 'invoice.classic');
+
+            $pdfContent = $this->documentService->generateInvoicePdf($invoice, $templateKey);
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="invoice-'.$invoice->invoice_number.'.pdf"',
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to download PDF: '.$e->getMessage());
+        }
     }
 
     public function htmlPreview(Request $request, Invoice $invoice)

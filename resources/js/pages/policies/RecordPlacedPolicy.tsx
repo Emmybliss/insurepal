@@ -686,10 +686,24 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                             onChange={(e) => {
                                                 const raw = e.target.value.replace(/,/g, '');
                                                 if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                                    setData('premium_amount', raw);
+                                                    const prem = parseFloat(raw || '0');
                                                     const rate = parseFloat(data.commission_rate || '0');
-                                                    const commission = parseFloat(raw || '0') * (rate / 100);
-                                                    setData('commission_amount', commission.toFixed(2));
+                                                    const comm = parseFloat(data.commission_amount || '0');
+                                                    let newComm = data.commission_amount;
+                                                    let newRate = data.commission_rate;
+
+                                                    if (rate > 0) {
+                                                        newComm = (prem * (rate / 100)).toFixed(2);
+                                                    } else if (comm > 0 && prem > 0) {
+                                                        newRate = ((comm / prem) * 100).toFixed(4);
+                                                    }
+
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        premium_amount: raw,
+                                                        commission_amount: newComm,
+                                                        commission_rate: newRate,
+                                                    }));
                                                 }
                                             }}
                                             onFocus={() => setPremiumAmountFocused(true)}
@@ -717,25 +731,59 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="commission_amount">Commission Amount</Label>
-                                    <Input
-                                        id="commission_amount"
-                                        type="text"
-                                        inputMode="decimal"
-                                        min="0"
-                                        value={commissionAmountFocused ? data.commission_amount : formatAmount(data.commission_amount)}
-                                        onChange={(e) => {
-                                            const raw = e.target.value.replace(/,/g, '');
-                                            if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                                                setData('commission_amount', raw);
-                                            }
-                                        }}
-                                        onFocus={() => setCommissionAmountFocused(true)}
-                                        onBlur={() => setCommissionAmountFocused(false)}
-                                        placeholder="Enter commission amount"
-                                    />
-                                    {errors.commission_amount && <p className="text-sm text-red-600">{errors.commission_amount}</p>}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="commission_rate">Commission Rate (%)</Label>
+                                        <Input
+                                            id="commission_rate"
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={data.commission_rate}
+                                            onChange={(e) => {
+                                                const rateStr = e.target.value;
+                                                const rate = parseFloat(rateStr || '0');
+                                                const prem = parseFloat(data.premium_amount || '0');
+                                                const comm = prem * (rate / 100);
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    commission_rate: rateStr,
+                                                    commission_amount: prem > 0 ? comm.toFixed(2) : prev.commission_amount,
+                                                }));
+                                            }}
+                                            placeholder="e.g. 15"
+                                        />
+                                        {errors.commission_rate && <p className="text-sm text-red-600">{errors.commission_rate}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="commission_amount">Commission Amount</Label>
+                                        <Input
+                                            id="commission_amount"
+                                            type="text"
+                                            inputMode="decimal"
+                                            min="0"
+                                            value={commissionAmountFocused ? data.commission_amount : formatAmount(data.commission_amount)}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/,/g, '');
+                                                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                                                    const comm = parseFloat(raw || '0');
+                                                    const prem = parseFloat(data.premium_amount || '0');
+                                                    const calculatedRate = prem > 0 && comm > 0 ? ((comm / prem) * 100).toFixed(4) : '';
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        commission_amount: raw,
+                                                        commission_rate: calculatedRate || prev.commission_rate,
+                                                    }));
+                                                }
+                                            }}
+                                            onFocus={() => setCommissionAmountFocused(true)}
+                                            onBlur={() => setCommissionAmountFocused(false)}
+                                            placeholder="Enter commission amount"
+                                        />
+                                        {errors.commission_amount && <p className="text-sm text-red-600">{errors.commission_amount}</p>}
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

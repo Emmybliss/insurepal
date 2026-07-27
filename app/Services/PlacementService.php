@@ -182,9 +182,7 @@ class PlacementService
                 'commission_amount' => $product?->commission_rate
                     ? ($placement->total_sum_insured * $product->commission_rate / 100)
                     : 0,
-                'total_amount' => $placement->total_sum_insured + ($product?->commission_rate
-                    ? ($placement->total_sum_insured * $product->commission_rate / 100)
-                    : 0),
+                'total_amount' => $placement->total_sum_insured,
                 'sum_insured' => $placement->total_sum_insured,
                 'form_data' => $placement->risk_details,
                 'created_by' => $user->id,

@@ -301,6 +301,37 @@ class AuthServiceProvider extends ServiceProvider
                    $user->hasPermissionTo('remove_tenant_relationships');
         });
 
+        // Recycle Bin Gates
+        Gate::define('recycle_bin_view', function ($user) {
+            if ($user->hasRole('super_admin')) {
+                return true;
+            }
+
+            try {
+                return $user->hasPermissionTo('recycle_bin_view') ||
+                       $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+            } catch (\Exception $e) {
+                return $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+            }
+        });
+
+        Gate::define('recycle_bin_restore', function ($user) {
+            if ($user->hasRole('super_admin')) {
+                return true;
+            }
+
+            try {
+                return $user->hasPermissionTo('recycle_bin_restore') ||
+                       $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+            } catch (\Exception $e) {
+                return $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+            }
+        });
+
+        Gate::define('recycle_bin_force_delete', function ($user) {
+            return $user->hasRole('super_admin');
+        });
+
         Gate::before(function ($user, $ability) {
             if ($user->hasRole('super_admin')) {
                 return true;

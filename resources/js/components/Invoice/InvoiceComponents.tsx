@@ -73,26 +73,28 @@ interface InvoiceSummaryProps {
 
 export const InvoiceSummary: React.FC<InvoiceSummaryProps> = ({ invoice }) => {
     return (
-        <div className="overflow-hidden rounded-lg bg-white shadow">
+        <div className="overflow-hidden rounded-lg bg-white dark:bg-background shadow">
             <div className="px-4 py-5 sm:p-6">
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                     <div>
-                        <dt className="text-sm font-medium text-gray-500">Invoice Number</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{invoice.invoice_number}</dd>
+                        <dt className="text-sm font-medium text-gray-500 dark:text-white">Invoice Number</dt>
+                        <dd className="mt-1 text-sm text-gray-900 dark:text-white">{invoice.invoice_number}</dd>
                     </div>
                     <div>
-                        <dt className="text-sm font-medium text-gray-500">Status</dt>
+                        <dt className="text-sm font-medium text-gray-500 dark:text-white">Status</dt>
                         <dd className="mt-1">
                             <InvoiceStatusBadge status={invoice.status} />
                         </dd>
                     </div>
                     <div>
-                        <dt className="text-sm font-medium text-gray-500">Due Date</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{new Date(invoice.due_date).toLocaleDateString()}</dd>
+                        <dt className="text-sm font-medium text-gray-500 dark:text-white">Due Date</dt>
+                        <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}
+                        </dd>
                     </div>
                     <div>
-                        <dt className="text-sm font-medium text-gray-500">Total Amount</dt>
-                        <dd className="mt-1 text-sm text-gray-900">
+                        <dt className="text-sm font-medium text-gray-500 dark:text-white">Total Amount</dt>
+                        <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                             <MoneyDisplay amount={invoice.total_amount} currency={invoice.currency} />
                         </dd>
                     </div>
@@ -113,56 +115,56 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({ items }) =
                 <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
                     <div className="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-gray-50 dark:bg-gray-500">
                                 <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Description
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Quantity
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Unit Price
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Tax
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Discount
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 dark:text-white uppercase">
                                         Total
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
+                            <tbody className="divide-y divide-gray-200 bg-white dark:bg-background">
                                 {items.map((item, index) => (
                                     <tr key={item.id || index}>
-                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900">{item.description}</td>
-                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900">{item.quantity}</td>
-                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900">
+                                        <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-900 dark:text-white">{item.description}</td>
+                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">{item.quantity}</td>
+                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">
                                             <MoneyDisplay amount={item.unit_price} />
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900">
+                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">
                                             <MoneyDisplay amount={item.tax_amount} />
-                                            {item.tax_rate > 0 && <span className="ml-1 text-gray-500">({item.tax_rate}%)</span>}
+                                            {item.tax_rate > 0 && <span className="ml-1 text-gray-500 dark:text-white">({item.tax_rate}%)</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900">
+                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">
                                             <MoneyDisplay amount={item.discount_amount} />
-                                            {item.discount_rate > 0 && <span className="ml-1 text-gray-500">({item.discount_rate}%)</span>}
+                                            {item.discount_rate > 0 && <span className="ml-1 text-gray-500 dark:text-white">({item.discount_rate}%)</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900">
+                                        <td className="px-6 py-4 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">
                                             <MoneyDisplay amount={item.total} />
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
-                            <tfoot className="bg-gray-50">
+                            <tfoot className="bg-gray-50 dark:bg-gray-500">
                                 <tr>
-                                    <th scope="row" colSpan={5} className="px-6 py-3 text-right text-sm font-medium text-gray-500">
+                                    <th scope="row" colSpan={5} className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-white">
                                         Subtotal
                                     </th>
-                                    <td className="px-6 py-3 text-right text-sm whitespace-nowrap text-gray-900">
+                                    <td className="px-6 py-3 text-right text-sm whitespace-nowrap text-gray-900 dark:text-white">
                                         <MoneyDisplay amount={items.reduce((sum, item) => sum + Number(item.total), 0)} />
                                     </td>
                                 </tr>

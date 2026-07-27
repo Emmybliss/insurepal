@@ -1,4 +1,5 @@
-import { InputError } from '@/components/InputError';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
+import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
         invoice_id: invoice?.id ? String(invoice.id) : receipt?.invoice_id ? String(receipt.invoice_id) : '',
         customer_id: receipt?.customer_id ? String(receipt.customer_id) : invoice?.customer_id ? String(invoice.customer_id) : '',
         policy_id: receipt?.policy_id ? String(receipt.policy_id) : invoice?.policy_id ? String(invoice.policy_id) : '',
+        policy_number: (receipt as any)?.policy_number || '',
         amount_paid: receipt?.amount_paid ? Number(receipt.amount_paid) : 0,
         payment_date: receipt?.payment_date ?? dayjs().format('YYYY-MM-DD'),
         payment_method: receipt?.payment_method ?? 'bank_transfer',
@@ -162,39 +164,36 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                         {/* Policy first — drives amount & customer */}
                         <div className="space-y-2">
                             <Label htmlFor="policy_id">Policy</Label>
-                            <Select value={data.policy_id} onValueChange={handlePolicyChange}>
-                                <SelectTrigger id="policy_id">
-                                    <SelectValue placeholder="Select policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">— None —</SelectItem>
-                                    {policies.map((p) => (
-                                        <SelectItem key={p.id} value={p.id.toString()}>
-                                            {p.policy_number}
-                                            {p.policy_product?.name ? ` — ${p.policy_product.name}` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <PolicyNumberSearchSelect
+                                policyIdValue={data.policy_id}
+                                policyNumberValue={data.policy_number}
+                                customerId={data.customer_id}
+                                initialPolicies={policies}
+                                onPolicySelect={(policyId, policyNumber, policy) => {
+                                    if (policyId) {
+                                        handlePolicyChange(policyId);
+                                        setData('policy_number', policyNumber);
+                                    } else {
+                                        setData((prev) => ({
+                                            ...prev,
+                                            policy_id: '',
+                                            policy_number: policyNumber,
+                                        }));
+                                    }
+                                }}
+                            />
                             <InputError message={errors.policy_id} />
+                            <InputError message={errors.policy_number} />
                         </div>
 
                         {/* Customer (Insured) */}
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Insured (Customer)</Label>
-                            <Select value={data.customer_id} onValueChange={(v) => setData('customer_id', v)}>
-                                <SelectTrigger id="customer_id">
-                                    <SelectValue placeholder="Select insured" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {customers.map((c) => (
-                                        <SelectItem key={c.id} value={c.id.toString()}>
-                                            {getCustomerName(c)}
-                                            {c.email ? ` — ${c.email}` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <CustomerSearchSelect
+                                value={data.customer_id}
+                                initialCustomers={customers}
+                                onChange={(customerId) => setData('customer_id', customerId)}
+                            />
                             <InputError message={errors.customer_id} />
                         </div>
                     </div>

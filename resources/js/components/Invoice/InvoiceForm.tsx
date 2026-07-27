@@ -1,3 +1,5 @@
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
+import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
 import { InputError } from '@/components/InputError';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,12 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { cn, formatAmount } from '@/lib/utils';
 import { Customer, Policy } from '@/types';
 import { Invoice, InvoiceItem } from '@/types/invoices';
 import { router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { CalendarIcon, Plus, PlusCircle, Trash2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 export interface InvoiceFormProps {
@@ -25,15 +27,30 @@ export interface InvoiceFormProps {
 }
 
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, policies, mode = 'create', lastInvoiceNumber, queryParams }) => {
+    const [customerList, setCustomerList] = useState<Customer[]>(customers);
+    const [customerModalOpen, setCustomerModalOpen] = useState(false);
     const [issueDateOpen, setIssueDateOpen] = useState(false);
     const [issueDateObj, setIssueDateObj] = useState<Date | undefined>(undefined);
     const [dueDateOpen, setDueDateOpen] = useState(false);
     const [dueDateObj, setDueDateObj] = useState<Date | undefined>(undefined);
 
+    useEffect(() => {
+        setCustomerList(customers);
+    }, [customers]);
+
+    const handleCustomerCreated = (newCustomer: Customer) => {
+        setCustomerList((prev) => [...prev, newCustomer]);
+        setData('customer_id', String(newCustomer.id));
+        if (mode === 'create') {
+            router.get(route('invoices.create'), { customer_id: String(newCustomer.id) }, { preserveScroll: true });
+        }
+    };
+
     const { data, setData, post, put, processing, errors } = useForm({
         invoice_number: invoice?.invoice_number || lastInvoiceNumber || '',
         customer_id: invoice?.customer_id ? String(invoice.customer_id) : queryParams?.customer_id || '',
         policy_id: invoice?.policy_id ? String(invoice.policy_id) : '',
+        policy_number: (invoice as any)?.policy_number || '',
         created_at: invoice?.created_at || dayjs().format('YYYY-MM-DD'),
         due_date: invoice?.due_date || '',
         currency: invoice?.currency || 'NGN',
@@ -163,7 +180,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
         return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
     };
 
-    console.log('Policies data:', policies);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -181,50 +197,33 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
                     </div>
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label htmlFor="customer_id">Customer(Insured)</Label>
-                            <Select
-                                name="customer_id"
+                            <Label htmlFor="customer_id">Customer (Insured) *</Label>
+                            <CustomerSearchSelect
                                 value={data.customer_id}
-                                onValueChange={(value) => {
-                                    router.get(route('invoices.create'), { customer_id: value }, { preserveScroll: true });
+                                initialCustomers={customerList}
+                                onChange={(customerId) => {
+                                    setData('customer_id', customerId);
+                                    setData('policy_id', '');
+                                    setData('policy_number', '');
                                 }}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a customer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {customers.map((customer) => (
-                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                            {getCustomerName(customer)}
-                                            {customer.email ? ` - ${customer.email}` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            />
                             <InputError message={errors.customer_id} />
                         </div>
                         {/* Policy (Optional) */}
                         <div className="space-y-2">
                             <Label htmlFor="policy_id">Policy (Optional)</Label>
-                            <Select name="policy_id" value={data.policy_id} onValueChange={handlePolicyChange} disabled={!data.customer_id}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {policies.length === 0 ? (
-                                        <SelectItem value="none" disabled>
-                                            No policies available
-                                        </SelectItem>
-                                    ) : (
-                                        policies.map((policy) => (
-                                            <SelectItem key={policy.id} value={policy.id.toString()}>
-                                                {policy.policy_number}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
+                            <PolicyNumberSearchSelect
+                                policyIdValue={data.policy_id}
+                                policyNumberValue={data.policy_number}
+                                customerId={data.customer_id}
+                                initialPolicies={policies}
+                                onPolicySelect={(policyId, policyNumber) => {
+                                    setData('policy_id', policyId);
+                                    setData('policy_number', policyNumber);
+                                }}
+                            />
                             <InputError message={errors.policy_id} />
+                            <InputError message={errors.policy_number} />
                         </div>
                         {/* Issue Date */}
                         <div>
@@ -238,7 +237,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
                         </div>
                         {/* Due Date */}
                         <div className="space-y-2">
-                            <Label htmlFor="due_date">Due Date</Label>
+                            <Label htmlFor="due_date">Due Date <span className="text-sm text-muted-foreground">(Optional)</span></Label>
                             <DatePickerSimple
                                 date={data.due_date ? new Date(data.due_date) : undefined}
                                 onSelect={(date) => setData('due_date', date ? dayjs(date).format('YYYY-MM-DD') : '')}
@@ -299,7 +298,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
                                 </div>
                                 <div className="col-span-6 md:col-span-2">
                                     <Label>Total</Label>
-                                    <p className="mt-2 font-semibold">{item.total.toFixed(2)}</p>
+                                    <p className="mt-2 font-semibold">{formatAmount(item.total)}</p>
                                 </div>
                                 <div className="col-span-12 flex items-end justify-end">
                                     <Button type="button" variant="destructive" size="sm" onClick={() => removeItem(index)}>
@@ -325,19 +324,19 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoice, customers, po
                     <CardContent className="space-y-2">
                         <div className="flex justify-between">
                             <span>Subtotal</span>
-                            <span>{data.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0).toFixed(2)}</span>
+                            <span>{formatAmount(data.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0))}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Tax</span>
-                            <span>{data.items.reduce((sum, item) => sum + item.tax_amount, 0).toFixed(2)}</span>
+                            <span>{formatAmount(data.items.reduce((sum, item) => sum + item.tax_amount, 0))}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Discount</span>
-                            <span>{data.items.reduce((sum, item) => sum + item.discount_amount, 0).toFixed(2)}</span>
+                            <span>{formatAmount(data.items.reduce((sum, item) => sum + item.discount_amount, 0))}</span>
                         </div>
                         <div className="flex justify-between text-lg font-bold">
                             <span>Total</span>
-                            <span>{calculateTotal().toFixed(2)}</span>
+                            <span>{formatAmount(calculateTotal())}</span>
                         </div>
                     </CardContent>
                 </Card>

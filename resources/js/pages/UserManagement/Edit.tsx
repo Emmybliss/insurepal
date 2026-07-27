@@ -43,6 +43,7 @@ interface UserData {
 interface Props {
     user: UserData;
     roles: Role[];
+    tenantType: string;
 }
 
 interface FormData {
@@ -54,11 +55,11 @@ interface FormData {
     roles: number[];
 }
 
-export default function UserManagementEdit({ user, roles }: Props) {
+export default function UserManagementEdit({ user, roles, tenantType }: Props) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    const { data, setData, put, processing } = useForm<FormData>({
+    const { data, setData, put, processing, errors } = useForm<FormData>({
         name: user.name,
         email: user.email,
         password: '',
@@ -260,7 +261,10 @@ export default function UserManagementEdit({ user, roles }: Props) {
                     <Card>
                         <CardHeader>
                             <CardTitle>Role Assignment</CardTitle>
-                            <CardDescription>Update user roles to determine permissions</CardDescription>
+                            <CardDescription>
+                                Update user roles to determine permissions — showing roles for{' '}
+                                <span className="font-medium capitalize">{tenantType}</span> tenants
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">

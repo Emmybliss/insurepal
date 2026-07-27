@@ -214,12 +214,18 @@ class ComprehensivePermissionsSeeder extends Seeder
             'submit_naicom_reports' => 'Submit regulatory reports',
         ];
 
-        // Create permissions that don't exist
+        // Create permissions that don't exist with system-owned defaults
         $createdCount = 0;
         foreach ($permissions as $permission => $description) {
             $created = Permission::firstOrCreate(
                 ['name' => $permission],
-                ['guard_name' => 'web']
+                [
+                    'guard_name' => 'web',
+                    'tenant_id' => null,
+                    'is_system_permission' => true,
+                    'is_active' => true,
+                    'description' => $description,
+                ]
             );
             if ($created->wasRecentlyCreated) {
                 $createdCount++;

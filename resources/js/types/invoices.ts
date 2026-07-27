@@ -1,3 +1,5 @@
+import { Customer } from "./core";
+
 export interface User {
     id: number;
     name: string;
@@ -33,6 +35,7 @@ export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'partially_paid' | 'over
 
 export interface Invoice {
     id: number;
+    customer: Customer;
     invoice_number: string;
     tenant_id: number;
     user_id: number;

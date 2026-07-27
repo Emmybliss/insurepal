@@ -52,7 +52,6 @@ class InsuranceBackfillCommissionLedger extends Command
 
         $this->backfillPolicyEntries();
         $this->backfillCreditNoteEntries();
-        $this->backfillDebitNoteEntries();
         $this->backfillCancellationEntries();
         $this->flagAmendmentsForReview();
 
@@ -200,77 +199,6 @@ class InsuranceBackfillCommissionLedger extends Command
         $this->line('');
     }
 
-    protected function backfillDebitNoteEntries(): void
-    {
-        $this->line("\n[3/5] Backfilling DEBIT_NOTE entries from debit_notes...");
-
-        $debitNotes = \App\Models\DebitNote::whereIn('status', ['issued', 'paid'])
-            ->whereNotNull('policy_id')
-            ->where('amount', '>', 0)
-            ->get();
-
-        $progress = $this->output->createProgressBar($debitNotes->count());
-        $progress->start();
-
-        foreach ($debitNotes as $debitNote) {
-            try {
-                $policyExists = Policy::where('id', $debitNote->policy_id)->exists();
-
-                if (! $policyExists) {
-                    $this->stats['debit_note_skipped']++;
-                    $this->warn("\nSkipping debit note #{$debitNote->id}: policy #{$debitNote->policy_id} not found");
-                    $progress->advance();
-
-                    continue;
-                }
-
-                $exists = CommissionEntry::where('policy_id', $debitNote->policy_id)
-                    ->where('transaction_type', CommissionTransactionType::DebitNote->value)
-                    ->where('reference_type', 'debit_note')
-                    ->where('reference_id', $debitNote->id)
-                    ->exists();
-
-                if ($exists) {
-                    $this->stats['debit_note_skipped']++;
-                    $progress->advance();
-
-                    continue;
-                }
-
-                if ($this->option('dry-run')) {
-                    $this->stats['debit_note_created']++;
-                    $progress->advance();
-
-                    continue;
-                }
-
-                $policy = Policy::find($debitNote->policy_id);
-
-                CommissionEntry::create([
-                    'tenant_id' => $policy->tenant_id,
-                    'policy_id' => $policy->id,
-                    'transaction_type' => CommissionTransactionType::DebitNote,
-                    'reference_type' => 'debit_note',
-                    'reference_id' => $debitNote->id,
-                    'amount' => abs((float) $debitNote->amount),
-                    'posting_date' => $debitNote->issue_date ?? $debitNote->created_at,
-                    'description' => 'Backfill: debit note adjustment',
-                    'created_by' => $debitNote->created_by_id,
-                ]);
-
-                $this->stats['debit_note_created']++;
-            } catch (\Exception $e) {
-                $this->stats['debit_note_errors']++;
-                $this->error("\nError backfilling debit note #{$debitNote->id}: {$e->getMessage()}");
-            }
-
-            $progress->advance();
-        }
-
-        $progress->finish();
-        $this->line('');
-    }
-
     protected function backfillCancellationEntries(): void
     {
         $this->line("\n[4/5] Backfilling CANCELLATION entries from cancelled policies...");
@@ -399,14 +327,10 @@ class InsuranceBackfillCommissionLedger extends Command
                 ->whereIn('status', ['issued', 'paid'])
                 ->sum('amount');
 
-            $debitNoteTotal = (float) \App\Models\DebitNote::where('policy_id', $policy->id)
-                ->whereIn('status', ['issued', 'paid'])
-                ->sum('amount');
-
             if ($policy->status === Policy::STATUS_CANCELLED) {
                 $expected = 0.0; // cancellation entries offset the original commission
             } else {
-                $expected = (float) $policy->commission_amount - $creditNoteTotal + $debitNoteTotal;
+                $expected = (float) $policy->commission_amount - $creditNoteTotal;
             }
 
             if (abs($ledgerTotal - $expected) > 0.01) {
@@ -414,13 +338,12 @@ class InsuranceBackfillCommissionLedger extends Command
                 $this->stats['validation_mismatches']++;
 
                 $this->warn(sprintf(
-                    '  MISMATCH: Policy #%d | Ledger: %0.2f | Expected: %0.2f (commission: %0.2f - CN: %0.2f + DN: %0.2f)',
+                    '  MISMATCH: Policy #%d | Ledger: %0.2f | Expected: %0.2f (commission: %0.2f - CN: %0.2f)',
                     $policy->id,
                     $ledgerTotal,
                     $expected,
                     (float) $policy->commission_amount,
                     $creditNoteTotal,
-                    $debitNoteTotal,
                 ));
             }
         }

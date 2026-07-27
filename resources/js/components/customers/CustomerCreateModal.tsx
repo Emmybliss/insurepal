@@ -113,6 +113,7 @@ export default function CustomerCreateModal({ open, onOpenChange, onCustomerCrea
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        e.stopPropagation();
 
         if (!data.type) {
             setErrors({ type: 'Please select customer type.' });

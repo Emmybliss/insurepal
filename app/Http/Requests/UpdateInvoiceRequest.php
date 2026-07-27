@@ -16,7 +16,7 @@ class UpdateInvoiceRequest extends FormRequest
         return [
             'customer_id' => ['required', 'exists:customers,id'],
             'policy_id' => ['nullable', 'exists:policies,id'],
-            'due_date' => ['required', 'date'],
+            'due_date' => ['nullable', 'date'],
             'currency' => ['required', 'string', 'size:3'],
             'notes' => ['nullable', 'string'],
             'billing_address' => ['required', 'array'],

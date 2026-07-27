@@ -1,6 +1,7 @@
 import FinancialSummary from '@/components/broker-slips/FinancialSummary';
 import RiskScheduleItem from '@/components/broker-slips/RiskScheduleItem';
 import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -346,41 +347,12 @@ export default function CreateDirect({ customers, policyTypes, policyClasses, po
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <Label>Customer / Insured *</Label>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <Select
-                                                value={data.customer_id}
-                                                onValueChange={(value) => setData((prev) => ({ ...prev, customer_id: value }))}
-                                            >
-                                                <SelectTrigger className={errors.customer_id ? 'border-red-500' : ''}>
-                                                    <SelectValue placeholder="Select customer" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {customerList.map((c) => (
-                                                        <SelectItem key={c.id} value={c.id.toString()}>
-                                                            {getCustomerName(c)}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCustomerModalOpen(true)}
-                                            className="mt-0 shrink-0 self-start"
-                                        >
-                                            <Plus className="mr-1 h-4 w-4" />
-                                            Add New
-                                        </Button>
-                                    </div>
-                                    {errors.customer_id && <p className="mt-1 text-sm text-red-600">{errors.customer_id}</p>}
-                                    <CustomerCreateModal
-                                        open={customerModalOpen}
-                                        onOpenChange={setCustomerModalOpen}
-                                        onCustomerCreated={handleCustomerCreated}
+                                    <CustomerSearchSelect
+                                        value={data.customer_id}
+                                        initialCustomers={customerList as any}
+                                        onChange={(customerId) => setData((prev) => ({ ...prev, customer_id: customerId }))}
                                     />
+                                    {errors.customer_id && <p className="mt-1 text-sm text-red-600">{errors.customer_id}</p>}
                                 </div>
 
                                 <div>

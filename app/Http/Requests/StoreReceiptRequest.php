@@ -17,6 +17,7 @@ class StoreReceiptRequest extends FormRequest
             'invoice_id' => ['nullable', 'exists:invoices,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'policy_id' => ['nullable', 'exists:policies,id'],
+            'policy_number' => ['nullable', 'string', 'max:255'],
             'amount_paid' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string'],
             'payment_date' => ['required', 'date'],

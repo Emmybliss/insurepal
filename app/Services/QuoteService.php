@@ -55,7 +55,7 @@ class QuoteService
                 'coverage_details' => $data['coverage_details'],
                 'premium_amount' => $premiumAmount,
                 'commission_amount' => $commissionAmount,
-                'total_amount' => $premiumAmount + $commissionAmount,
+                'total_amount' => $premiumAmount,
                 'valid_until' => $data['valid_until'],
                 'form_data' => $data['form_data'] ?? [],
                 'notes' => $data['notes'] ?? null,
@@ -93,7 +93,7 @@ class QuoteService
 
                 $data['premium_amount'] = $premiumAmount;
                 $data['commission_amount'] = $commissionAmount;
-                $data['total_amount'] = $premiumAmount + $commissionAmount;
+                $data['total_amount'] = $premiumAmount;
             }
 
             $quote->update($data);

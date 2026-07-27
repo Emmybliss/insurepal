@@ -104,7 +104,6 @@ export default function GenerateCertificate({
         }
         return `${customer.first_name} ${customer.last_name}`;
     };
-    // console.log('Policy', policy);
 
     return (
         <AppLayout>
@@ -308,7 +307,7 @@ export default function GenerateCertificate({
                         isGenerating={isGenerating || processing}
                         editStageRef={editStageRef}
                         qrBarcodeData={qrBarcodeData}
-                        // qrBarcodeData={sampleQrBarcodeData}
+                    // qrBarcodeData={sampleQrBarcodeData}
                     />
                 )}
 

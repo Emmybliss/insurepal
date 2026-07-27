@@ -1,4 +1,5 @@
-import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
+import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
 import { InputError } from '@/components/InputError';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +66,7 @@ export default function CreateDebitNote({ customers, policies, selectedCustomer,
         tenant_id: tenant_id,
         customer_id: selectedCustomer?.toString() || '',
         policy_id: '',
+        policy_number: '',
         amount: '',
         tax_rate: '',
         tax_amount: '0',
@@ -151,22 +153,27 @@ export default function CreateDebitNote({ customers, policies, selectedCustomer,
         ? policyClasses.filter((c) => c.policy_type_id === selectedPolicyType.id)
         : policyClasses;
 
-    const handlePolicyChange = (policyId: string) => {
-        const policy = policies.find((p) => p.id.toString() === policyId);
+    const handlePolicySelect = (policyId: string, policyNumber: string, policy?: Policy) => {
         if (policy) {
             const pType = (policy as any).policy_type?.name || policy.policy_product?.name || '';
             const cBusiness = (policy as any).policy_class?.name || '';
             setData((prev) => ({
                 ...prev,
                 policy_id: policyId,
+                policy_number: policyNumber,
                 amount: policy.premium_amount ? policy.premium_amount.toString() : prev.amount,
                 policy_type: pType || prev.policy_type,
                 class_of_business: cBusiness || prev.class_of_business,
-                description: `Being Premium Due on the Policy ${policy.policy_product?.name || ''}(${policy.policy_number}) Scheme for ${policy.effective_date ? dayjs(policy.effective_date).format('DD-MM-YYYY') : 'N/A'
-                    } to ${policy.expiry_date ? dayjs(policy.expiry_date).format('DD-MM-YYYY') : 'N/A'}. `,
+                description: `Being Premium Due on Policy ${policy.policy_product?.name || ''} (${policy.policy_number || 'TBA'}) Scheme for ${
+                    policy.effective_date ? dayjs(policy.effective_date).format('DD-MM-YYYY') : 'N/A'
+                } to ${policy.expiry_date ? dayjs(policy.expiry_date).format('DD-MM-YYYY') : 'N/A'}. `,
             }));
         } else {
-            setData('policy_id', policyId);
+            setData((prev) => ({
+                ...prev,
+                policy_id: '',
+                policy_number: policyNumber,
+            }));
         }
     };
 
@@ -240,78 +247,30 @@ export default function CreateDebitNote({ customers, policies, selectedCustomer,
 
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="customer_id">Customer(Insured)</Label>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1">
-                                                <Select
-                                                    name="customer_id"
-                                                    value={data.customer_id}
-                                                    onValueChange={(value) => {
-                                                        router.get(route('debit-notes.create'), { customer_id: value }, { preserveScroll: true });
-                                                    }}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select a customer" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {customerList.map((customer) => (
-                                                            <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                                {getCustomerName(customer)}
-                                                                {customer.email ? ` - ${customer.email}` : ''}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setCustomerModalOpen(true)}
-                                                className="mt-0 shrink-0 self-start"
-                                            >
-                                                <Plus className="mr-1 h-4 w-4" />
-                                                Add New
-                                            </Button>
-                                        </div>
-                                        <InputError message={errors.customer_id} />
-                                        <CustomerCreateModal
-                                            open={customerModalOpen}
-                                            onOpenChange={setCustomerModalOpen}
-                                            onCustomerCreated={handleCustomerCreated}
+                                        <Label htmlFor="customer_id">Customer (Insured)</Label>
+                                        <CustomerSearchSelect
+                                            value={data.customer_id}
+                                            initialCustomers={customerList}
+                                            onChange={(customerId) => {
+                                                setData('customer_id', customerId);
+                                                setData('policy_id', '');
+                                                setData('policy_number', '');
+                                            }}
                                         />
+                                        <InputError message={errors.customer_id} />
                                     </div>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="policy_id">Policy / Risk Reference</Label>
-                                        <Select
-                                            name="policy_id"
-                                            value={data.policy_id}
-                                            onValueChange={handlePolicyChange}
-                                            disabled={!data.customer_id}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select policy or leave as To Be Advised" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {filteredPolicies.length === 0 ? (
-                                                    <SelectItem value="none" disabled>
-                                                        No policies available
-                                                    </SelectItem>
-                                                ) : (
-                                                    filteredPolicies.map((policy) => (
-                                                        <SelectItem key={policy.id} value={policy.id.toString()}>
-                                                            {policy.policy_number}
-                                                        </SelectItem>
-                                                    ))
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            Leave blank if the policy is not available yet. It will be marked as To Be Advised and can be updated
-                                            later.
-                                        </p>
+                                        <PolicyNumberSearchSelect
+                                            policyIdValue={data.policy_id}
+                                            policyNumberValue={data.policy_number}
+                                            customerId={data.customer_id}
+                                            initialPolicies={filteredPolicies}
+                                            onPolicySelect={handlePolicySelect}
+                                        />
                                         <InputError message={errors.policy_id} />
+                                        <InputError message={errors.policy_number} />
                                     </div>
                                 </div>
 

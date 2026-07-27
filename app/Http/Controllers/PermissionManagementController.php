@@ -84,54 +84,42 @@ class PermissionManagementController extends Controller
 
     public function create()
     {
-        $tenant = Auth::user()->tenant;
-
-        if (! $tenant) {
-            abort(403, 'Access denied: No tenant associated');
-        }
-
-        $categories = Permission::forTenant($tenant->id)
-            ->select('category')
-            ->distinct()
-            ->whereNotNull('category')
-            ->orderBy('category')
-            ->pluck('category');
-
-        return Inertia::render('PermissionManagement/Create', [
-            'categories' => $categories,
-        ]);
+        abort(403, 'System permissions are managed platform-wide and cannot be created by tenant users');
     }
 
     public function store(StorePermissionManagementRequest $request)
     {
-        $tenant = Auth::user()->tenant;
-
-        if (! $tenant) {
-            abort(403, 'Access denied: No tenant associated');
-        }
-
-        $validated = $request->validated();
-
-        Permission::create([
-            'name' => $validated['name'],
-            'display_name' => $validated['display_name'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'category' => $validated['category'] ?? null,
-            'guard_name' => 'web',
-            'tenant_id' => $tenant->id,
-            'is_system_permission' => false,
-            'is_active' => $request->boolean('is_active', true),
-        ]);
-
-        return redirect()->route('permission-management.index')
-            ->with('success', 'Permission created successfully');
+        abort(403, 'System permissions are managed platform-wide and cannot be created by tenant users');
     }
 
     public function show(Permission $permission)
     {
         $this->authorizePermissionAccess($permission);
 
-        $permission->load(['roles']);
+        $user = Auth::user();
+
+        if ($user->hasRole('super_admin')) {
+            $permission->load(['roles']);
+        } else {
+            $tenant = $user->tenant;
+            $tenantType = $tenant?->type;
+
+            $allowedRoleNames = match ($tenantType) {
+                'broker' => ['broker', 'broker_admin', 'broker_staff', 'staff'],
+                'underwriter' => ['underwriter', 'underwriter_admin', 'underwriter_staff', 'staff'],
+                default => ['staff'],
+            };
+
+            $permission->load(['roles' => function ($query) use ($tenant, $allowedRoleNames) {
+                $query->where(function ($q) use ($tenant, $allowedRoleNames) {
+                    $q->where('tenant_id', $tenant->id)
+                        ->orWhere(function ($gq) use ($allowedRoleNames) {
+                            $gq->whereNull('tenant_id')
+                                ->whereIn('name', $allowedRoleNames);
+                        });
+                });
+            }]);
+        }
 
         return Inertia::render('PermissionManagement/Show', [
             'permission' => $permission,
@@ -140,93 +128,43 @@ class PermissionManagementController extends Controller
 
     public function edit(Permission $permission)
     {
-        $this->authorizePermissionAccess($permission);
-
-        if ($permission->isSystemPermission()) {
-            abort(403, 'Cannot edit system permissions');
-        }
-
-        $tenant = Auth::user()->tenant;
-
-        $categories = Permission::forTenant($tenant->id)
-            ->select('category')
-            ->distinct()
-            ->whereNotNull('category')
-            ->orderBy('category')
-            ->pluck('category');
-
-        return Inertia::render('PermissionManagement/Edit', [
-            'permission' => $permission,
-            'categories' => $categories,
-        ]);
+        abort(403, 'System permissions cannot be edited by tenant users');
     }
 
     public function update(UpdatePermissionManagementRequest $request, Permission $permission)
     {
-        $this->authorizePermissionAccess($permission);
-
-        if ($permission->isSystemPermission()) {
-            abort(403, 'Cannot edit system permissions');
-        }
-
-        $validated = $request->validated();
-
-        $permission->update([
-            'name' => $validated['name'],
-            'display_name' => $validated['display_name'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'category' => $validated['category'] ?? null,
-            'is_active' => $request->boolean('is_active', true),
-        ]);
-
-        return redirect()->route('permission-management.index')
-            ->with('success', 'Permission updated successfully');
+        abort(403, 'System permissions cannot be updated by tenant users');
     }
 
     public function destroy(Permission $permission)
     {
-        $this->authorizePermissionAccess($permission);
-
-        if ($permission->isSystemPermission()) {
-            abort(403, 'Cannot delete system permissions');
-        }
-
-        if ($permission->roles()->exists()) {
-            return redirect()->back()
-                ->withErrors(['permission' => 'Cannot delete permission that is assigned to roles']);
-        }
-
-        $permission->delete();
-
-        return redirect()->route('permission-management.index')
-            ->with('success', 'Permission deleted successfully');
+        abort(403, 'System permissions cannot be deleted by tenant users');
     }
 
     public function toggleStatus(Permission $permission)
     {
-        $this->authorizePermissionAccess($permission);
-
-        if ($permission->isSystemPermission()) {
-            abort(403, 'Cannot modify system permission status');
-        }
-
-        $permission->update(['is_active' => ! $permission->is_active]);
-
-        $status = $permission->is_active ? 'activated' : 'deactivated';
-
-        return redirect()->back()
-            ->with('success', "Permission {$status} successfully");
+        abort(403, 'System permissions status cannot be modified by tenant users');
     }
 
     private function authorizePermissionAccess(Permission $permission): void
     {
-        $tenant = Auth::user()->tenant;
+        $user = Auth::user();
+
+        if (! $user) {
+            abort(401, 'User not authenticated');
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return;
+        }
+
+        $tenant = $user->tenant;
 
         if (! $tenant) {
             abort(403, 'Access denied: No tenant associated');
         }
 
-        if ($permission->tenant_id !== $tenant->id) {
+        if ($permission->tenant_id !== null && $permission->tenant_id !== $tenant->id) {
             abort(403, 'Unauthorized access: Permission belongs to different tenant');
         }
     }

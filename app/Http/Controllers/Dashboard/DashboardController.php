@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Dashboard;
 use App\Enums\CommissionChartGroupBy;
 use App\Http\Controllers\Controller;
 use App\Models\Claim;
-use App\Models\CommissionEntry;
 use App\Models\Customer;
 use App\Models\Policy;
 use App\Models\Quote;
@@ -136,7 +135,7 @@ class DashboardController extends Controller
             'total_quotes' => Quote::forTenant($tenant->id)->count(),
             'total_policies' => Policy::forTenant($tenant->id)->count(),
             'active_policies' => Policy::forTenant($tenant->id)->active()->count(),
-            'commission_earned' => CommissionEntry::where('tenant_id', $tenant->id)->sum('amount'),
+            'commission' => (float) Policy::forTenant($tenant->id)->active()->sum('commission_amount'),
             'expiring_policies' => Policy::forTenant($tenant->id)->expiring(60)->count(),
             'expired_policies' => Policy::forTenant($tenant->id)->expired()->count(),
             'net_premium' => (float) Policy::forTenant($tenant->id)->active()

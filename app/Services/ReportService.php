@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Claim;
+use App\Models\CreditNote;
 use App\Models\Customer;
-use App\Models\FinancialNote;
+use App\Models\DebitNote;
 use App\Models\Policy;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +20,9 @@ class ReportService
             'total_commission' => Policy::whereBetween('effective_date', [$startDate, $endDate])->sum('commission_amount'),
             'policy_renewals' => Policy::whereNotNull('renewed_at')->whereBetween('renewed_at', [$startDate, $endDate])->count(),
             'policy_cancellations' => Policy::where('status', 'cancelled')->whereBetween('updated_at', [$startDate, $endDate])->count(),
-            'debit_notes_issued' => FinancialNote::debit()->issued()->whereBetween('issue_date', [$startDate, $endDate])->count(),
-            'credit_notes_issued' => FinancialNote::credit()->issued()->whereBetween('issue_date', [$startDate, $endDate])->count(),
-            'outstanding_premiums' => FinancialNote::debit()->issued()->sum('amount'),
+            'debit_notes_issued' => DebitNote::whereIn('status', ['issued', 'paid'])->whereBetween('issue_date', [$startDate, $endDate])->count(),
+            'credit_notes_issued' => CreditNote::whereIn('status', ['issued', 'paid'])->whereBetween('issue_date', [$startDate, $endDate])->count(),
+            'outstanding_premiums' => DebitNote::where('status', 'issued')->sum('amount'),
         ];
     }
 
@@ -88,7 +88,8 @@ class ReportService
         return DB::table('insurance_products')
             ->leftJoin('policies', function ($join) use ($startDate, $endDate) {
                 $join->on('insurance_products.id', '=', 'policies.insurance_product_id')
-                    ->whereBetween('policies.effective_date', [$startDate, $endDate]);
+                    ->whereBetween('policies.effective_date', [$startDate, $endDate])
+                    ->whereNull('policies.deleted_at');
             })
             ->select(
                 'insurance_products.name',
@@ -147,7 +148,10 @@ class ReportService
     public function getTopCustomers(int $limit = 10): array
     {
         return Customer::select('customers.*', DB::raw('SUM(policies.premium_amount) as total_premium'))
-            ->join('policies', 'customers.id', '=', 'policies.customer_id')
+            ->join('policies', function ($join) {
+                $join->on('customers.id', '=', 'policies.customer_id')
+                    ->whereNull('policies.deleted_at');
+            })
             ->groupBy('customers.id')
             ->orderBy('total_premium', 'desc')
             ->limit($limit)

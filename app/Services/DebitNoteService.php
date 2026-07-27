@@ -29,6 +29,19 @@ class DebitNoteService
     public function create(array $data, int $tenantId, int $userId): DebitNote
     {
         return DB::transaction(function () use ($data, $tenantId, $userId) {
+            $policyId = $data['policy_id'] ?? null;
+
+            if (! $policyId) {
+                $draftPolicy = app(DraftPolicyService::class)->findOrCreateDraftPolicy(
+                    $tenantId,
+                    (int) $data['customer_id'],
+                    $data['policy_number'] ?? null,
+                    $data,
+                    $userId
+                );
+                $policyId = $draftPolicy->id;
+            }
+
             $noteNumber = DebitNote::generateDebitNoteNumber($tenantId);
             $sequenceNumber = $this->getNextSequenceNumber($tenantId);
 
@@ -37,7 +50,7 @@ class DebitNoteService
                 'sequence_number' => $sequenceNumber,
                 'tenant_id' => $tenantId,
                 'customer_id' => $data['customer_id'],
-                'policy_id' => $data['policy_id'] ?? null,
+                'policy_id' => $policyId,
                 'description' => $data['description'],
                 'amount' => $data['amount'],
                 'tax_rate' => $data['tax_rate'] ?? 0,

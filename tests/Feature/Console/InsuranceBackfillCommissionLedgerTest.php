@@ -106,7 +106,7 @@ test('backfill creates CREDIT_NOTE entries', function () {
     expect($entry->reference_id)->toBe($creditNote->id);
 });
 
-test('backfill creates DEBIT_NOTE entries', function () {
+test('backfill does not create DEBIT_NOTE entries', function () {
     $policy = Policy::factory()->create([
         'tenant_id' => $this->tenant->id,
         'commission_amount' => 100000.00,
@@ -135,10 +135,7 @@ test('backfill creates DEBIT_NOTE entries', function () {
         ->where('transaction_type', CommissionTransactionType::DebitNote)
         ->first();
 
-    expect($entry)->not->toBeNull();
-    expect($entry->amount)->toEqual(15000.00);
-    expect($entry->reference_type)->toBe('debit_note');
-    expect($entry->reference_id)->toBe($debitNote->id);
+    expect($entry)->toBeNull();
 });
 
 test('backfill creates CANCELLATION entries for cancelled policies', function () {

@@ -18,13 +18,25 @@ class GenerateReceiptService
     public function generate(array $data, int $tenantId, int $userId): Receipt
     {
         return DB::transaction(function () use ($data, $tenantId, $userId) {
+            $policyId = $data['policy_id'] ?? null;
+            if (! $policyId) {
+                $draftPolicy = app(\App\Services\DraftPolicyService::class)->findOrCreateDraftPolicy(
+                    $tenantId,
+                    (int) $data['customer_id'],
+                    $data['policy_number'] ?? null,
+                    $data,
+                    $userId
+                );
+                $policyId = $draftPolicy->id;
+            }
+
             $receipt = Receipt::create([
                 'receipt_number' => Receipt::generateReceiptNumber($tenantId),
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'invoice_id' => $data['invoice_id'] ?? null,
                 'customer_id' => $data['customer_id'],
-                'policy_id' => $data['policy_id'] ?? null,
+                'policy_id' => $policyId,
                 'amount_paid' => $data['amount_paid'],
                 'payment_method' => $data['payment_method'],
                 'payment_date' => $data['payment_date'],

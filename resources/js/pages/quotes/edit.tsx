@@ -1,3 +1,4 @@
+import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { ArrowLeft, Calculator, Car, Heart, Home, Save, Send, User } from 'lucide-react';
+import { ArrowLeft, Calculator, Car, Heart, Home, Plus, Save, Send, User } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -75,7 +76,22 @@ interface FormData {
 }
 
 export default function QuoteEdit({ quote, customers, products }: Props) {
+    const [customerList, setCustomerList] = useState<Customer[]>(customers);
+    const [customerModalOpen, setCustomerModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<InsuranceProduct | null>(quote.insurance_product);
+
+    const handleCustomerCreated = (newCustomer: import('@/types').Customer) => {
+        const adapted: Customer = {
+            id: newCustomer.id,
+            first_name: newCustomer.first_name,
+            last_name: newCustomer.last_name,
+            company_name: newCustomer.company_name,
+            email: newCustomer.email,
+            type: newCustomer.type as 'individual' | 'corporate',
+        };
+        setCustomerList((prev) => [...prev, adapted]);
+        setData('customer_id', adapted.id.toString());
+    };
     const [calculatedPremium, setCalculatedPremium] = useState<number>(parseFloat(quote.premium_amount));
     const [calculatedCommission, setCalculatedCommission] = useState<number>(parseFloat(quote.commission_amount));
 
@@ -306,25 +322,44 @@ export default function QuoteEdit({ quote, customers, products }: Props) {
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="customer_id">Customer *</Label>
-                                        <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
-                                            <SelectTrigger className={errors.customer_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select customer" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {customers.map((customer) => (
-                                                    <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                        <div className="flex items-center space-x-2">
-                                                            <User className="h-4 w-4" />
-                                                            <span>{getCustomerName(customer)}</span>
-                                                            <Badge variant="outline" className="ml-2">
-                                                                {customer.type}
-                                                            </Badge>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <Select value={data.customer_id} onValueChange={(value) => setData('customer_id', value)}>
+                                                    <SelectTrigger className={errors.customer_id ? 'border-red-500' : ''}>
+                                                        <SelectValue placeholder="Select customer" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {customerList.map((customer) => (
+                                                            <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                                <div className="flex items-center space-x-2">
+                                                                    <User className="h-4 w-4" />
+                                                                    <span>{getCustomerName(customer)}</span>
+                                                                    <Badge variant="outline" className="ml-2">
+                                                                        {customer.type}
+                                                                    </Badge>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setCustomerModalOpen(true)}
+                                                className="mt-0 shrink-0 self-start"
+                                            >
+                                                <Plus className="mr-1 h-4 w-4" />
+                                                Add New
+                                            </Button>
+                                        </div>
                                         {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
+                                        <CustomerCreateModal
+                                            open={customerModalOpen}
+                                            onOpenChange={setCustomerModalOpen}
+                                            onCustomerCreated={handleCustomerCreated}
+                                        />
                                     </div>
 
                                     <div className="space-y-2">

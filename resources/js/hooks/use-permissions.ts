@@ -119,13 +119,18 @@ export function useAuth() {
     const { auth } = usePage<PageProps>().props;
     const permissions = usePermissions();
 
+    const tenantType = (auth as any)?.tenant?.type;
+    const isUnderwriter = permissions.hasAnyRole(['underwriter', 'underwriter_admin', 'underwriter_staff']) || tenantType === 'underwriter';
+    const isBroker = permissions.hasAnyRole(['broker', 'broker_admin', 'broker_staff']) || tenantType === 'broker' || (!permissions.hasRole('super_admin') && !permissions.hasRole('customer') && !!auth?.user?.tenant_id && !isUnderwriter);
+
     return {
         user: auth?.user,
+        tenant: (auth as any)?.tenant,
         isAuthenticated: !!auth?.user,
         isSuperAdmin: permissions.hasRole('super_admin'),
-        isUnderwriter: permissions.hasRole('underwriter'),
-        isBroker: permissions.hasRole('broker'),
-        isStaff: permissions.hasAnyRole(['underwriter_staff', 'broker_staff']),
+        isUnderwriter,
+        isBroker,
+        isStaff: permissions.hasAnyRole(['underwriter_staff', 'broker_staff', 'staff']),
         isCustomer: permissions.hasRole('customer'),
         ...permissions,
     };

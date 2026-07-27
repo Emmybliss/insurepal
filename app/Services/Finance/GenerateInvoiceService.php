@@ -15,6 +15,18 @@ class GenerateInvoiceService
         return DB::transaction(function () use ($data, $user, $tenantId) {
             $tenantId ??= $user->tenant_id;
 
+            $policyId = $data['policy_id'] ?? null;
+            if (! $policyId) {
+                $draftPolicy = app(\App\Services\DraftPolicyService::class)->findOrCreateDraftPolicy(
+                    $tenantId,
+                    (int) $data['customer_id'],
+                    $data['policy_number'] ?? null,
+                    $data,
+                    $user->id
+                );
+                $policyId = $draftPolicy->id;
+            }
+
             $items = $this->calculateItems($data['items']);
             $invoiceNumber = $this->generateInvoiceNumber($tenantId);
 
@@ -22,7 +34,7 @@ class GenerateInvoiceService
                 'invoice_number' => $invoiceNumber,
                 'tenant_id' => $tenantId,
                 'customer_id' => $data['customer_id'],
-                'policy_id' => $data['policy_id'] ?? null,
+                'policy_id' => $policyId,
                 'user_id' => $user->id,
                 'due_date' => $data['due_date'],
                 'currency' => $data['currency'] ?? 'USD',
@@ -90,9 +102,12 @@ class GenerateInvoiceService
             ->latest('id')
             ->first();
 
-        $lastNumber = $lastInvoice ? (int) substr($lastInvoice->invoice_number, -6) : 0;
+        $lastNumber = 0;
+        if ($lastInvoice && preg_match('/(\d+)$/', $lastInvoice->invoice_number, $matches)) {
+            $lastNumber = (int) $matches[1];
+        }
 
-        return str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
+        return 'INV-'.date('Y').'-'.str_pad($lastNumber + 1, 8, '0', STR_PAD_LEFT);
     }
 
     private function syncItems(Invoice $invoice, Collection $items): void

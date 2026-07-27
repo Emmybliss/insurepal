@@ -57,12 +57,6 @@ export default function ShowPermission({ permission }: Props) {
                             <p className="text-muted-foreground">View permission information and assignments</p>
                         </div>
                     </div>
-                    <Button asChild>
-                        <Link href={route('permission-management.edit', permission.id)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Permission
-                        </Link>
-                    </Button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -85,7 +79,7 @@ export default function ShowPermission({ permission }: Props) {
 
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">Permission Name</label>
-                                    <code className="mt-1 block rounded bg-gray-100 p-2 font-mono text-sm">{permission.name}</code>
+                                    <code className="mt-1 block rounded bg-gray-100 dark:bg-gray-700 p-2 font-mono text-sm">{permission.name}</code>
                                 </div>
 
                                 <div>

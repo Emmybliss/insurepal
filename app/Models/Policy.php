@@ -250,7 +250,7 @@ class Policy extends Model
         $this->updateQuietly([
             'sum_insured' => $this->risks->sum('coverage_amount'),
             'premium_amount' => $this->risks->sum('premium'),
-            'total_amount' => $this->risks->sum('premium') + ($this->commission_amount ?? 0),
+            'total_amount' => $this->risks->sum('premium'),
         ]);
     }
 
@@ -722,7 +722,21 @@ class Policy extends Model
         });
 
         static::saving(function (Policy $policy) {
-            $policy->net_premium = ($policy->premium_amount ?? 0) - ($policy->commission_amount ?? 0);
+            $premium = (float) ($policy->premium_amount ?? 0);
+            $commission = (float) ($policy->commission_amount ?? 0);
+
+            if ($premium > 0 && $commission > 0 && (is_null($policy->commission_rate) || (float) $policy->commission_rate == 0.0)) {
+                $policy->commission_rate = round(($commission / $premium) * 100, 4);
+            } elseif ($premium > 0 && (float) ($policy->commission_rate ?? 0) > 0 && ($commission == 0.0 || is_null($policy->commission_amount))) {
+                $policy->commission_amount = round($premium * ((float) $policy->commission_rate / 100), 2);
+                $commission = (float) $policy->commission_amount;
+            }
+
+            $policy->net_premium = max(0, $premium - $commission);
+
+            if (empty($policy->total_amount) || (float) $policy->total_amount == 0.0) {
+                $policy->total_amount = $premium;
+            }
         });
     }
 }

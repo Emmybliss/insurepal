@@ -17,8 +17,10 @@ use Inertia\Response;
 
 class UserManagementController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        protected \App\Services\UserVerificationService $verificationService,
+        protected \App\Services\RoleService $roleService,
+    ) {
         $this->middleware('auth');
         $this->middleware('tenant.scope');
     }
@@ -90,10 +92,17 @@ class UserManagementController extends Controller
      */
     public function create(): Response
     {
-        $roles = Role::whereIn('name', ['underwriter', 'broker', 'staff'])->get();
+        $currentTenant = Auth::user()->tenant;
+
+        if (! $currentTenant) {
+            abort(403, 'User is not associated with any tenant');
+        }
+
+        $roles = Role::forTenantOrGlobal($currentTenant->id, $currentTenant->type);
 
         return Inertia::render('UserManagement/Create', [
             'roles' => $roles,
+            'tenantType' => $currentTenant->type,
         ]);
     }
 
@@ -116,23 +125,19 @@ class UserManagementController extends Controller
             'password' => Hash::make($validated['password']),
             'tenant_id' => $currentTenant->id,
             'is_active' => $request->boolean('is_active', true),
+            'status' => 'pending_verification',
         ]);
 
         // Assign roles
         if (! empty($validated['roles'])) {
-            $validRoles = Role::whereIn('id', $validated['roles'])
-                ->whereIn('name', ['underwriter', 'broker', 'staff'])
-                ->get();
-            $user->syncRoles($validRoles);
+            $this->roleService->assignRolesToUser($user, $validated['roles'], $currentTenant, Auth::user());
         }
 
-        // Send invitation email if requested
-        if ($request->boolean('send_invitation')) {
-            // TODO: Implement invitation email logic
-        }
+        // Send email verification notification to new user
+        $this->verificationService->sendVerificationNotification($user);
 
         return redirect()->route('user-management.index')
-            ->with('success', 'User created successfully');
+            ->with('success', 'User created successfully and verification email sent.');
     }
 
     /**
@@ -156,12 +161,14 @@ class UserManagementController extends Controller
     {
         $this->authorizeUserAccess($user);
 
-        $roles = Role::whereIn('name', ['underwriter', 'broker', 'staff'])->get();
+        $currentTenant = Auth::user()->tenant;
+        $roles = Role::forTenantOrGlobal($currentTenant->id, $currentTenant->type);
         $user->load(['roles', 'permissions']);
 
         return Inertia::render('UserManagement/Edit', [
             'user' => $user,
             'roles' => $roles,
+            'tenantType' => $currentTenant->type,
         ]);
     }
 
@@ -188,11 +195,12 @@ class UserManagementController extends Controller
 
         // Update roles
         if ($request->has('roles')) {
-            $validRoles = Role::whereIn('id', $validated['roles'])
-                ->forTenant($tenant->id)
-                ->active()
-                ->get();
-            $user->syncRoles($validRoles);
+            $currentTenant = Auth::user()->tenant;
+            try {
+                $this->roleService->assignRolesToUser($user, $validated['roles'] ?? [], $currentTenant, Auth::user());
+            } catch (\InvalidArgumentException $e) {
+                return redirect()->back()->withErrors(['roles' => $e->getMessage()]);
+            }
         }
 
         return redirect()->route('user-management.index')
@@ -277,7 +285,7 @@ class UserManagementController extends Controller
         $this->authorizeUserAccess($user);
 
         $tenant = Auth::user()->tenant;
-        $roles = Role::forTenant($tenant->id)->active()->get();
+        $roles = Role::forTenantOrGlobal($tenant->id, $tenant->type);
         $user->load(['roles', 'permissions']);
 
         return Inertia::render('UserManagement/EditRoles', [
@@ -300,13 +308,11 @@ class UserManagementController extends Controller
             'roles.*' => 'exists:roles,id',
         ]);
 
-        // Only allow tenant-specific roles
-        $validRoles = Role::whereIn('id', $request->roles ?? [])
-            ->forTenant($tenant->id)
-            ->active()
-            ->get();
-
-        $user->syncRoles($validRoles);
+        try {
+            $this->roleService->assignRolesToUser($user, $request->roles ?? [], $tenant, Auth::user());
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['roles' => $e->getMessage()]);
+        }
 
         return redirect()->route('user-management.show', $user)
             ->with('success', 'User roles updated successfully');

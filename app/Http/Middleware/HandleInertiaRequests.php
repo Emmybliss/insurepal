@@ -73,7 +73,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'tenant_id' => $user->tenant_id,
             'tenant' => $tenant ? [
+                'id' => $tenant->id,
                 'name' => $tenant->name,
+                'type' => $tenant->type,
                 'logo' => $tenant->logo,
                 'logo_url' => $tenant->logo ? Storage::url($tenant->logo) : null,
                 'slogan' => $tenant->slogan,

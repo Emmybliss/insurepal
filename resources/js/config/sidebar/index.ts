@@ -18,7 +18,7 @@ export function getSidebarConfig(tenantType: 'underwriter' | 'broker', auth: Aut
 }
 
 export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: TranslateFn): NavItem[] {
-    const { can, hasRole, hasAnyRole } = auth;
+    const { can, hasRole, hasAnyRole, isUnderwriter, isBroker, isStaff } = auth;
     const { hasPlan } = plan;
 
     const items: NavItem[] = [];
@@ -32,7 +32,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
     }
 
     if (can('view_settings') && !hasRole('customer') && !hasRole('super_admin')) {
-        if (hasAnyRole(['underwriter', 'broker']) || can('edit_settings')) {
+        if (isUnderwriter || isBroker || can('edit_settings') || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
             items.push({
                 title: t('Company'),
                 href: route('settings.company'),
@@ -40,7 +40,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
             });
         }
 
-        if (can('edit_settings') || hasAnyRole(['underwriter', 'broker'])) {
+        if (can('edit_settings') || isUnderwriter || isBroker || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
             items.push({
                 title: t('Billing'),
                 href: route('settings.billing'),
@@ -56,7 +56,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
             });
         }
 
-        if (hasRole('underwriter') && (can('manage_certificate_settings') || can('edit_settings'))) {
+        if (isUnderwriter && (can('manage_certificate_settings') || can('edit_settings'))) {
             items.push({
                 title: t('Certificates'),
                 href: route('settings.certificates'),
@@ -64,7 +64,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
             });
         }
 
-        if (hasAnyRole(['underwriter', 'broker'])) {
+        if (isUnderwriter || isBroker || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
             items.push({
                 title: t('Underwriters'),
                 href: route('settings.insurance-companies.index'),
@@ -72,7 +72,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
             });
         }
 
-        if (hasAnyRole(['underwriter', 'broker'])) {
+        if (isUnderwriter || isBroker || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
             items.push({
                 title: t('KYC Verification'),
                 href: route('settings.broker-kyc.show'),
@@ -80,7 +80,7 @@ export function getSettingsNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Tra
             });
         }
 
-        if (can('recycle_bin_view')) {
+        if (can('recycle_bin_view') || can('delete_policies') || isUnderwriter || isBroker || isStaff || hasAnyRole(['underwriter', 'underwriter_admin', 'underwriter_staff', 'broker', 'broker_admin', 'broker_staff', 'staff'])) {
             items.push({
                 title: t('Recycle Bin'),
                 href: route('recycle-bin.index'),

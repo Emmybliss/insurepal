@@ -10,6 +10,8 @@ return [
         'claims' => App\Models\Claim::class,
         'debit-notes' => App\Models\DebitNote::class,
         'credit-notes' => App\Models\CreditNote::class,
+        'invoices' => App\Models\Invoice::class,
+        'receipts' => App\Models\Receipt::class,
         'documents' => App\Models\Document::class,
     ],
 ];

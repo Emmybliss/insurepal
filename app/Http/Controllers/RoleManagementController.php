@@ -4,17 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreRoleManagementRequest;
 use App\Http\Requests\UpdateRoleManagementRequest;
-use App\Models\Permission;
 use App\Models\Role;
+use App\Services\PermissionService;
+use App\Services\RoleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use InvalidArgumentException;
 
 class RoleManagementController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        protected RoleService $roleService,
+        protected PermissionService $permissionService,
+    ) {
         $this->middleware('auth');
         $this->middleware('tenant.access');
     }
@@ -29,7 +32,7 @@ class RoleManagementController extends Controller
 
         $query = Role::forTenant($tenant->id)
             ->with(['permissions'])
-            ->withCount(['permissions']);
+            ->withCount(['permissions', 'users']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -78,12 +81,7 @@ class RoleManagementController extends Controller
             abort(403, 'Access denied: No tenant associated');
         }
 
-        $permissions = Permission::forTenant($tenant->id)
-            ->active()
-            ->orderBy('category')
-            ->orderBy('name')
-            ->get()
-            ->groupBy('category');
+        $permissions = $this->permissionService->getGroupedPermissions($tenant);
 
         return Inertia::render('RoleManagement/Create', [
             'permissions' => $permissions,
@@ -98,26 +96,7 @@ class RoleManagementController extends Controller
             abort(403, 'Access denied: No tenant associated');
         }
 
-        $validated = $request->validated();
-
-        DB::transaction(function () use ($request, $tenant, $validated) {
-            $role = Role::create([
-                'name' => $validated['name'],
-                'display_name' => $validated['display_name'] ?? null,
-                'description' => $validated['description'] ?? null,
-                'guard_name' => 'web',
-                'tenant_id' => $tenant->id,
-                'is_system_role' => false,
-                'is_active' => $request->boolean('is_active', true),
-            ]);
-
-            if (! empty($validated['permissions'])) {
-                $permissions = Permission::whereIn('id', $validated['permissions'])
-                    ->forTenant($tenant->id)
-                    ->get();
-                $role->syncPermissions($permissions);
-            }
-        });
+        $this->roleService->createRole($tenant, $request->validated(), Auth::user());
 
         return redirect()->route('role-management.index')
             ->with('success', 'Role created successfully');
@@ -138,19 +117,12 @@ class RoleManagementController extends Controller
     {
         $this->authorizeRoleAccess($role);
 
-        if ($role->isSystemRole()) {
+        if ($role->isProtectedSystemRole()) {
             abort(403, 'Cannot edit system roles');
         }
 
         $tenant = Auth::user()->tenant;
-
-        $permissions = Permission::forTenant($tenant->id)
-            ->active()
-            ->orderBy('category')
-            ->orderBy('name')
-            ->get()
-            ->groupBy('category');
-
+        $permissions = $this->permissionService->getGroupedPermissions($tenant);
         $role->load('permissions');
 
         return Inertia::render('RoleManagement/Edit', [
@@ -164,29 +136,11 @@ class RoleManagementController extends Controller
     {
         $this->authorizeRoleAccess($role);
 
-        if ($role->isSystemRole()) {
-            abort(403, 'Cannot edit system roles');
+        try {
+            $this->roleService->updateRole($role, $request->validated(), Auth::user());
+        } catch (InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['role' => $e->getMessage()]);
         }
-
-        $tenant = Auth::user()->tenant;
-
-        $validated = $request->validated();
-
-        DB::transaction(function () use ($request, $role, $tenant, $validated) {
-            $role->update([
-                'name' => $validated['name'],
-                'display_name' => $validated['display_name'] ?? null,
-                'description' => $validated['description'] ?? null,
-                'is_active' => $request->boolean('is_active', true),
-            ]);
-
-            if ($request->has('permissions')) {
-                $permissions = Permission::whereIn('id', $validated['permissions'] ?? [])
-                    ->forTenant($tenant->id)
-                    ->get();
-                $role->syncPermissions($permissions);
-            }
-        });
 
         return redirect()->route('role-management.index')
             ->with('success', 'Role updated successfully');
@@ -196,31 +150,47 @@ class RoleManagementController extends Controller
     {
         $this->authorizeRoleAccess($role);
 
-        if ($role->isSystemRole()) {
-            abort(403, 'Cannot delete system roles');
+        try {
+            $this->roleService->deleteRole($role, Auth::user());
+        } catch (InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['role' => $e->getMessage()]);
         }
-
-        if ($role->users()->exists()) {
-            return redirect()->back()
-                ->withErrors(['role' => 'Cannot delete role that is assigned to users']);
-        }
-
-        $role->delete();
 
         return redirect()->route('role-management.index')
             ->with('success', 'Role deleted successfully');
+    }
+
+    public function duplicate(Request $request, Role $role)
+    {
+        $this->authorizeRoleAccess($role);
+
+        $validated = $request->validate([
+            'display_name' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $duplicatedRole = $this->roleService->duplicateRole(
+                role: $role,
+                newDisplayName: $validated['display_name'] ?? null,
+                actor: Auth::user()
+            );
+        } catch (InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['role' => $e->getMessage()]);
+        }
+
+        return redirect()->route('role-management.edit', $duplicatedRole->id)
+            ->with('success', "Role '{$duplicatedRole->display_name}' duplicated successfully.");
     }
 
     public function toggleStatus(Role $role)
     {
         $this->authorizeRoleAccess($role);
 
-        if ($role->isSystemRole()) {
+        if ($role->isProtectedSystemRole()) {
             abort(403, 'Cannot modify system role status');
         }
 
         $role->update(['is_active' => ! $role->is_active]);
-
         $status = $role->is_active ? 'activated' : 'deactivated';
 
         return redirect()->back()
@@ -235,7 +205,7 @@ class RoleManagementController extends Controller
             abort(403, 'Access denied: No tenant associated');
         }
 
-        if ($role->tenant_id !== $tenant->id) {
+        if ($role->tenant_id && $role->tenant_id !== $tenant->id) {
             abort(403, 'Unauthorized access: Role belongs to different tenant');
         }
     }

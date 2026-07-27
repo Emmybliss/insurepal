@@ -114,15 +114,9 @@ export default function PermissionsIndex({ permissions, categories, filters, sta
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Permissions Management</h1>
-                        <p className="text-muted-foreground">Manage system permissions and their assignments</p>
+                        <h1 className="text-3xl font-bold tracking-tight">Permissions Catalog</h1>
+                        <p className="text-muted-foreground">View system permissions and their role assignments</p>
                     </div>
-                    <Button asChild>
-                        <Link href={route('permission-management.create')}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Create Permission
-                        </Link>
-                    </Button>
                 </div>
 
                 {/* Stats Cards */}
@@ -237,11 +231,7 @@ export default function PermissionsIndex({ permissions, categories, filters, sta
                                                     <div className="max-w-xs truncate">{permission.description || 'No description'}</div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge
-                                                        variant={permission.is_active ? 'default' : 'secondary'}
-                                                        className="cursor-pointer"
-                                                        onClick={() => handleToggleStatus(permission.id)}
-                                                    >
+                                                    <Badge variant={permission.is_active ? 'default' : 'secondary'}>
                                                         {permission.is_active ? 'Active' : 'Inactive'}
                                                     </Badge>
                                                 </TableCell>
@@ -257,34 +247,12 @@ export default function PermissionsIndex({ permissions, categories, filters, sta
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem asChild>
-                                                                <Link href={route('permission-management.show', permission.id)}>
-                                                                    <Eye className="mr-2 h-4 w-4" />
-                                                                    View
-                                                                </Link>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem asChild>
-                                                                <Link href={route('permission-management.edit', permission.id)}>
-                                                                    <Edit className="mr-2 h-4 w-4" />
-                                                                    Edit
-                                                                </Link>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleDelete(permission.id, permission.name)}
-                                                                className="text-red-600"
-                                                            >
-                                                                <Trash className="mr-2 h-4 w-4" />
-                                                                Delete
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                    <Button variant="outline" size="sm" asChild>
+                                                        <Link href={route('permission-management.show', permission.id)}>
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            View
+                                                        </Link>
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))

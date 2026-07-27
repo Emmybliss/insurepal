@@ -14,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use \App\Traits\DeletesStorageFiles, HasApiTokens, HasFactory, HasRoles, Notifiable;
+    use \App\Models\Traits\HasAuditTrail, \App\Traits\DeletesStorageFiles, HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +28,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'tenant_id',
         'phone',
         'is_active',
+        'status',
+        'approval_method',
+        'approved_by',
+        'approved_at',
+        'last_verification_sent_at',
         'login_access',
         'last_login_at',
         'last_active_at',
@@ -78,6 +83,8 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'last_verification_sent_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
             'last_active_at' => 'datetime',
@@ -91,6 +98,36 @@ class User extends Authenticatable implements MustVerifyEmail
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function isPendingVerification(): bool
+    {
+        return $this->status === 'pending_verification' || is_null($this->email_verified_at);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active' && $this->is_active && ! is_null($this->email_verified_at);
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended' || (! $this->is_active && $this->status !== 'disabled');
+    }
+
+    public function isDisabled(): bool
+    {
+        return $this->status === 'disabled';
+    }
+
+    public function isManuallyApproved(): bool
+    {
+        return $this->approval_method === 'manual';
     }
 
     /**

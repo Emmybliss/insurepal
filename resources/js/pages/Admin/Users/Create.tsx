@@ -20,6 +20,7 @@ interface Role {
     description: string;
     is_active: boolean;
     permissions_count: number;
+    tenant_id?: number | null;
 }
 
 interface Tenant {
@@ -48,6 +49,49 @@ export default function CreateUser({ tenants, roles }: Props) {
         is_active: true,
         send_welcome_email: false,
     });
+
+    // Dynamically filter available roles based on tenant assignment
+    const availableRoles = React.useMemo(() => {
+        if (!data.tenant_id || data.tenant_id === 'none') {
+            // No tenant selected: show global system roles (excluding customer role) without duplicates
+            const globalRoles = roles.filter(
+                (role) => (role.tenant_id === null || role.tenant_id === undefined) && role.name !== 'customer',
+            );
+            const seenNames = new Set<string>();
+            return globalRoles.filter((role) => {
+                if (seenNames.has(role.name)) return false;
+                seenNames.add(role.name);
+                return true;
+            });
+        }
+
+        const tenantIdNum = parseInt(data.tenant_id, 10);
+        const selectedTenant = tenants.find((t) => t.id === tenantIdNum);
+
+        // Allowed role names based on tenant type
+        const allowedRoleNames =
+            selectedTenant?.type === 'broker'
+                ? ['broker', 'broker_admin', 'broker_staff', 'staff']
+                : selectedTenant?.type === 'underwriter'
+                  ? ['underwriter', 'underwriter_admin', 'underwriter_staff', 'staff']
+                  : ['broker', 'broker_admin', 'broker_staff', 'underwriter', 'underwriter_admin', 'underwriter_staff', 'staff'];
+
+        // Tenant-specific roles for selected tenant
+        const tenantSpecificRoles = roles.filter(
+            (role) => role.tenant_id === tenantIdNum && allowedRoleNames.includes(role.name),
+        );
+        const tenantRoleNames = new Set(tenantSpecificRoles.map((r) => r.name));
+
+        // Global roles not overridden by tenant-specific roles
+        const globalRoles = roles.filter(
+            (role) =>
+                (role.tenant_id === null || role.tenant_id === undefined) &&
+                allowedRoleNames.includes(role.name) &&
+                !tenantRoleNames.has(role.name),
+        );
+
+        return [...tenantSpecificRoles, ...globalRoles];
+    }, [data.tenant_id, roles, tenants]);
 
     useEffect(() => {
         setData('roles', selectedRoles);
@@ -269,9 +313,9 @@ export default function CreateUser({ tenants, roles }: Props) {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {roles.length > 0 ? (
+                                        {availableRoles.length > 0 ? (
                                             <div className="space-y-3">
-                                                {roles.map((role) => {
+                                                {availableRoles.map((role) => {
                                                     const isSelected = selectedRoles.includes(role.id);
 
                                                     return (

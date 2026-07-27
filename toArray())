@@ -17,6 +17,6 @@
       Psy\Exception\ParseErrorException::fromParseError(Object(PhpParser\Error))
 
   2   vendor\psy\psysh\src\CodeCleaner.php:240
-      Psy\CodeCleaner::parse("<?php print_r(\App\Models\BrokerSlip::with(['placement'])-;
+      Psy\CodeCleaner::parse("<?php print_r(\App\Models\Permission::pluck('name')-;
 ")
 

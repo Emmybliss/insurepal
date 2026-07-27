@@ -67,6 +67,12 @@ export interface User {
     permissions: string[];
     primary_role: string;
     is_active?: boolean;
+    status?: 'pending_verification' | 'active' | 'suspended' | 'disabled' | string;
+    approval_method?: 'email' | 'manual' | string | null;
+    approved_by?: number | null;
+    approved_at?: string | null;
+    last_verification_sent_at?: string | null;
+    approved_by_user?: { id: number; name: string; email: string } | null;
     is_online?: boolean;
     role?: string | null;
     last_login_at?: string | null;

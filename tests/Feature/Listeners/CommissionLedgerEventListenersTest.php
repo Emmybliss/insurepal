@@ -215,9 +215,9 @@ test('PostCreditNoteCommissionEntry does nothing when credit note has no policy_
     expect(CommissionEntry::count())->toBe(0);
 });
 
-// ─── PostDebitNoteCommissionEntry (DebitNoteGenerated) ───────────────────
+// ─── DebitNoteGenerated ───────────────────────────────────────────────────
 
-test('PostDebitNoteCommissionEntry creates a DEBIT_NOTE entry when DebitNoteGenerated is dispatched', function () {
+test('DebitNoteGenerated does not create a CommissionEntry', function () {
     $policy = Policy::factory()->create([
         'tenant_id' => $this->tenant->id,
         'customer_id' => $this->customer->id,
@@ -246,29 +246,7 @@ test('PostDebitNoteCommissionEntry creates a DEBIT_NOTE entry when DebitNoteGene
         ->where('transaction_type', CommissionTransactionType::DebitNote)
         ->first();
 
-    expect($entry)->not->toBeNull();
-    expect($entry->amount)->toEqual(18000.00);
-    expect($entry->reference_type)->toBe('debit_note');
-    expect($entry->reference_id)->toBe($debitNote->id);
-});
-
-test('PostDebitNoteCommissionEntry does nothing when debit note has no policy_id', function () {
-    $debitNote = DebitNote::create([
-        'tenant_id' => $this->tenant->id,
-        'customer_id' => $this->customer->id,
-        'amount' => 5000.00,
-        'total_amount' => 5000.00,
-        'status' => DebitNote::STATUS_ISSUED,
-        'note_number' => DebitNote::generateDebitNoteNumber($this->tenant->id),
-        'issue_date' => now(),
-        'description' => 'Standalone debit note',
-        'created_by_id' => $this->user->id,
-        'sequence_number' => 1,
-    ]);
-
-    DebitNoteGenerated::dispatch($debitNote);
-
-    expect(CommissionEntry::count())->toBe(0);
+    expect($entry)->toBeNull();
 });
 
 // ─── PostEndorsementCommissionEntry (PolicyAmended) ──────────────────────

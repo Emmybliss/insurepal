@@ -34,7 +34,7 @@ class BrokerSlipController extends Controller
         protected FinancialNotePayloadMapper $payloadMapper,
         protected HtmlTemplatePdfGenerator $pdfGenerator,
     ) {
-        $this->middleware('tenant.type:broker');
+        $this->middleware('tenant.type:broker')->except(['verify']);
     }
 
     public function index(Request $request): Response

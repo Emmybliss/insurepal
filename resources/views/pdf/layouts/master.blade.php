@@ -45,7 +45,7 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 120px;
+            height: 140px;
             z-index: 1000;
         }
 
@@ -242,7 +242,7 @@
     <table style="width: 100%; border-collapse: collapse; border: none; table-layout: fixed; margin: 0; padding: 0;">
         <thead>
             <tr style="border: none;">
-                <td style="height: 120px; border: none; padding: 0;"></td>
+                <td style="height: 140px; border: none; padding: 0;"></td>
             </tr>
         </thead>
         <tbody>

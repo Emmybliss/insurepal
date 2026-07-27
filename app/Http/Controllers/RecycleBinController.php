@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
 use App\Models\Policy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,9 +55,22 @@ class RecycleBinController extends Controller
                 });
             }
 
+            if ($typeKey === 'policies') {
+                $query->with(['customer']);
+            }
+
             $records = $query->get();
 
             foreach ($records as $record) {
+                $metadata = [];
+                if ($typeKey === 'policies') {
+                    $metadata = [
+                        'policy_number' => $record->policy_number_display ?: $record->policy_number,
+                        'internal_reference' => $record->internal_reference,
+                        'customer_name' => $record->customer?->display_name ?: 'N/A',
+                    ];
+                }
+
                 $items[] = [
                     'type' => $typeKey,
                     'id' => $record->id,
@@ -70,6 +82,7 @@ class RecycleBinController extends Controller
                     'days_remaining' => $record->deleted_at
                         ? now()->diffInDays($record->deleted_at->addDays(config('recycle-bin.retention_days', 30)), false)
                         : null,
+                    'metadata' => $metadata,
                 ];
             }
         }
@@ -100,7 +113,7 @@ class RecycleBinController extends Controller
         ]);
     }
 
-    public function restore(string $type, int $id)
+    public function restore(Request $request, string $type, int $id)
     {
         $this->authorize('recycle_bin_restore');
 
@@ -117,21 +130,22 @@ class RecycleBinController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->tenant_id && $record->tenant_id !== $user->tenant_id) {
+        if ($user->tenant_id && (int) $record->tenant_id !== (int) $user->tenant_id) {
             if (! $user->hasRole('super_admin')) {
                 return back()->with('error', 'You can only restore records from your tenant.');
             }
         }
 
-        $error = $this->checkRestoreDependencies($record, $type);
+        $restorePolicy = $request->boolean('restore_policy');
 
-        if ($error) {
-            return back()->with('error', $error);
+        try {
+            $message = app(\App\Services\Policies\PolicyDependencyService::class)
+                ->restoreRecord($record, $type, $restorePolicy);
+
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        $record->restore();
-
-        return back()->with('success', 'Record restored successfully.');
     }
 
     public function forceDelete(string $type, int $id)
@@ -156,6 +170,13 @@ class RecycleBinController extends Controller
             return back()->with('error', 'Record not found in recycle bin.');
         }
 
+        if ($type === 'policies' && $record instanceof Policy) {
+            $dependencyError = app(\App\Services\Policies\PolicyDependencyService::class)->getDependencyError($record);
+            if ($dependencyError) {
+                return back()->with('error', $dependencyError);
+            }
+        }
+
         $record->forceDelete();
 
         return back()->with('success', 'Record permanently deleted.');
@@ -164,109 +185,5 @@ class RecycleBinController extends Controller
     private function getModelClass(string $type): ?string
     {
         return $this->models[$type] ?? null;
-    }
-
-    private function checkRestoreDependencies(object $record, string $type): ?string
-    {
-        return match ($type) {
-            'customers' => $this->checkCustomerDependencies($record),
-            'policies' => $this->checkPolicyDependencies($record),
-            'claims' => $this->checkClaimDependencies($record),
-            'debit-notes' => $this->checkDebitNoteDependencies($record),
-            'credit-notes' => $this->checkCreditNoteDependencies($record),
-            default => null,
-        };
-    }
-
-    private function checkCustomerDependencies(object $record): ?string
-    {
-        return null;
-    }
-
-    private function checkPolicyDependencies(object $record): ?string
-    {
-        $customerId = $record->customer_id ?? null;
-
-        if ($customerId) {
-            $customer = Customer::onlyTrashed()->find($customerId);
-
-            if ($customer) {
-                return 'Restore the linked customer before restoring this policy.';
-            }
-        }
-
-        return null;
-    }
-
-    private function checkClaimDependencies(object $record): ?string
-    {
-        $policyId = $record->policy_id ?? null;
-        $customerId = $record->customer_id ?? null;
-
-        if ($policyId) {
-            $policy = Policy::onlyTrashed()->find($policyId);
-
-            if ($policy) {
-                return 'Restore the linked policy before restoring this claim.';
-            }
-        }
-
-        if ($customerId) {
-            $customer = Customer::onlyTrashed()->find($customerId);
-
-            if ($customer) {
-                return 'Restore the linked customer before restoring this claim.';
-            }
-        }
-
-        return null;
-    }
-
-    private function checkDebitNoteDependencies(object $record): ?string
-    {
-        $policyId = $record->policy_id ?? null;
-        $customerId = $record->customer_id ?? null;
-
-        if ($policyId) {
-            $policy = Policy::onlyTrashed()->find($policyId);
-
-            if ($policy) {
-                return 'Restore the linked policy before restoring this debit note.';
-            }
-        }
-
-        if ($customerId) {
-            $customer = Customer::onlyTrashed()->find($customerId);
-
-            if ($customer) {
-                return 'Restore the linked customer before restoring this debit note.';
-            }
-        }
-
-        return null;
-    }
-
-    private function checkCreditNoteDependencies(object $record): ?string
-    {
-        $policyId = $record->policy_id ?? null;
-        $customerId = $record->customer_id ?? null;
-
-        if ($policyId) {
-            $policy = Policy::onlyTrashed()->find($policyId);
-
-            if ($policy) {
-                return 'Restore the linked policy before restoring this credit note.';
-            }
-        }
-
-        if ($customerId) {
-            $customer = Customer::onlyTrashed()->find($customerId);
-
-            if ($customer) {
-                return 'Restore the linked customer before restoring this credit note.';
-            }
-        }
-
-        return null;
     }
 }

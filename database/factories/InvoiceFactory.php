@@ -11,7 +11,7 @@ class InvoiceFactory extends Factory
     {
         return [
             'tenant_id' => Tenant::factory(),
-            'invoice_number' => 'INV-'.fake()->unique()->numerify('########'),
+            'invoice_number' => 'INV-'.date('Y').'-'.fake()->unique()->numerify('########'),
             'total_amount' => fake()->randomFloat(2, 1000, 500000),
             'subtotal' => fake()->randomFloat(2, 1000, 500000),
             'status' => 'paid',

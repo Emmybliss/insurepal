@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, Pencil, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
+import { Copy, Eye, Pencil, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -140,6 +140,23 @@ export default function RoleManagementIndex({ roles, filters, stats }: Props) {
                     });
                 },
             });
+        }
+    };
+
+    const handleDuplicate = (role: Role) => {
+        if (confirm(`Duplicate the role "${role.display_name || role.name}"?`)) {
+            router.post(
+                route('role-management.duplicate', role.id),
+                {},
+                {
+                    onStart: () => toast.loading('Duplicating role...', { id: 'dup-role' }),
+                    onSuccess: () => toast.success('Role duplicated successfully', { id: 'dup-role' }),
+                    onError: (errors) => {
+                        const message = (Object.values(errors)[0] as string) || 'Failed to duplicate role';
+                        toast.error(message, { id: 'dup-role' });
+                    },
+                },
+            );
         }
     };
 
@@ -320,15 +337,19 @@ export default function RoleManagementIndex({ roles, filters, stats }: Props) {
 
                                         <div className="flex items-center space-x-2">
                                             <Link href={route('role-management.show', role.id)}>
-                                                <Button variant="outline" size="sm">
+                                                <Button variant="outline" size="sm" title="View Role">
                                                     <Eye className="h-4 w-4" />
                                                 </Button>
                                             </Link>
 
+                                            <Button variant="outline" size="sm" title="Duplicate Role" onClick={() => handleDuplicate(role)}>
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+
                                             {!role.is_system_role && (
                                                 <>
                                                     <Link href={route('role-management.edit', role.id)}>
-                                                        <Button variant="outline" size="sm">
+                                                        <Button variant="outline" size="sm" title="Edit Role">
                                                             <Pencil className="h-4 w-4" />
                                                         </Button>
                                                     </Link>
@@ -346,6 +367,7 @@ export default function RoleManagementIndex({ roles, filters, stats }: Props) {
                                                         size="sm"
                                                         onClick={() => handleDelete(role)}
                                                         className="text-red-600 hover:text-red-700"
+                                                        title="Delete Role"
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>

@@ -38,7 +38,12 @@ class Permission extends SpatiePermission
     {
         $tenantId = $tenantId ?? auth()->user()?->tenant_id;
 
-        return $query->where('tenant_id', $tenantId);
+        return $query->where(function (Builder $q) use ($tenantId) {
+            $q->whereNull('tenant_id');
+            if ($tenantId) {
+                $q->orWhere('tenant_id', $tenantId);
+            }
+        });
     }
 
     public function scopeSystem(Builder $query): Builder

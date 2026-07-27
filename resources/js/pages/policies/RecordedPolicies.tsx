@@ -7,19 +7,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
+import { Customer } from '@/types';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, FileText, Filter, Plus, Search, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, FileText, Filter, Plus, Search, Trash2, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 interface Policy {
     id: number;
     policy_number: string;
+    policy_number_display: string;
+    internal_reference: string;
     source_type: string;
     status: string;
     approval_status: string;
-    customer: {
-        name: string;
-        email: string;
-    };
+    customer: Customer;
     policy_product: {
         name: string;
     };
@@ -105,6 +107,28 @@ const getPolicyStatus = (policy: Policy) => {
 export default function RecordedPolicies({ policies, stats, filters }: Props) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
+    const [policyToDelete, setPolicyToDelete] = useState<Policy | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeletePolicy = () => {
+        if (!policyToDelete) return;
+        setIsDeleting(true);
+        router.delete(route('policy-management.destroy', policyToDelete.id), {
+            onSuccess: (page: { props: { flash?: { error?: string } } }) => {
+                if (page.props.flash?.error) {
+                    toast.error(page.props.flash.error);
+                } else {
+                    toast.success('Policy moved to Recycle Bin successfully.');
+                    setPolicyToDelete(null);
+                }
+            },
+            onError: (errors: Record<string, string>) => {
+                const message = errors?.error || errors?.message || 'Cannot delete policy due to existing related records.';
+                toast.error(message);
+            },
+            onFinish: () => setIsDeleting(false),
+        });
+    };
 
     const handleSearch = () => {
         router.get(
@@ -134,6 +158,12 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
             day: 'numeric',
         });
     };
+
+    const getCustomerName = (customer: Customer) => {
+        return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
+    };
+
+    console.log(policies);
 
     return (
         <AppSidebarLayout>
@@ -309,12 +339,12 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                     <TableRow key={policy.id}>
                                         <TableCell className="font-medium">
                                             <Link href={route('policy-management.show', policy.id)} className="text-blue-600 hover:text-blue-800">
-                                                {policy.policy_number_display || policy.policy_number || policy.internal_reference}
+                                                {policy.policy_number_display || policy.policy_number}<br /> Ref: {policy.internal_reference}
                                             </Link>
                                         </TableCell>
                                         <TableCell>
                                             <div>
-                                                <div className="font-medium">{policy.customer.name}</div>
+                                                <div className="font-medium">{getCustomerName(policy.customer)}</div>
                                                 <div className="text-sm text-muted-foreground">{policy.customer.email}</div>
                                             </div>
                                         </TableCell>
@@ -342,6 +372,14 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                                 <Button variant="ghost" size="sm" asChild>
                                                     <Link href={route('policy-management.edit', policy.id)}>Edit</Link>
                                                 </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setPolicyToDelete(policy)}
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -362,6 +400,29 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                 {/* Pagination */}
                 {policies.data.length > 0 && <Pagination links={policies.links} meta={policies.meta} />}
             </div>
+
+            <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move Policy to Recycle Bin</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete policy{' '}
+                            <span className="font-semibold text-foreground">
+                                {policyToDelete?.policy_number_display || policyToDelete?.policy_number || policyToDelete?.internal_reference}
+                            </span>
+                            ? The policy will be moved to the Recycle Bin and can be restored later. It will not be permanently deleted.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setPolicyToDelete(null)} disabled={isDeleting}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeletePolicy} disabled={isDeleting}>
+                            {isDeleting ? 'Moving to Recycle Bin...' : 'Move to Recycle Bin'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppSidebarLayout>
     );
 }

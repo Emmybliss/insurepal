@@ -21,14 +21,18 @@ use App\Models\PolicyAmendment;
 use App\Models\PolicyApproval;
 use App\Models\PolicyProduct;
 use App\Models\Quote;
+use App\Services\Policies\PolicyDependencyService;
 use App\Services\PolicyIssuanceService;
+use App\Services\PolicyRecordPdfService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,7 +45,7 @@ class PolicyManagementController extends Controller
     {
         $this->policyIssuanceService = $policyIssuanceService;
 
-        $this->middleware('permission:view_policies')->only(['index', 'show', 'approvals', 'recordedPolicies']);
+        $this->middleware('permission:view_policies')->only(['index', 'show', 'approvals', 'recordedPolicies', 'downloadRecord', 'previewRecord', 'htmlPreviewRecord']);
         $this->middleware('permission:create_policies')->only(['createDirect', 'storeDirect', 'convertQuote']);
         $this->middleware('permission:edit_policies')->only(['edit', 'update']);
         $this->middleware('permission:delete_policies')->only(['destroy']);
@@ -90,6 +94,10 @@ class PolicyManagementController extends Controller
                     $query->active();
                 } elseif ($status === \App\Models\Policy::STATUS_EXPIRED) {
                     $query->expired();
+                } elseif ($status === \App\Models\Policy::STATUS_DRAFT) {
+                    $query->draft();
+                } elseif ($status === \App\Models\Policy::STATUS_CANCELLED) {
+                    $query->cancelled();
                 } else {
                     $query->where('status', $status);
                 }
@@ -105,9 +113,11 @@ class PolicyManagementController extends Controller
 
         $stats = [
             'total' => (clone $baseQuery)->count(),
+            'draft' => (clone $baseQuery)->draft()->count(),
             'active' => (clone $baseQuery)->active()->count(),
             'pending' => (clone $baseQuery)->pendingApproval()->count(),
             'expired' => (clone $baseQuery)->expired()->count(),
+            'cancelled' => (clone $baseQuery)->cancelled()->count(),
             'expiring_soon' => (clone $baseQuery)->expiring(60)->count(),
         ];
 
@@ -407,6 +417,29 @@ class PolicyManagementController extends Controller
 
         return redirect()->route('policy-management.show', $policy)
             ->with('success', 'Policy updated successfully.');
+    }
+
+    /**
+     * Soft delete a policy (move to Recycle Bin)
+     */
+    public function destroy(Policy $policy, PolicyDependencyService $dependencyService): RedirectResponse
+    {
+        $this->authorize('delete', $policy);
+
+        $user = Auth::user();
+        if ($user->tenant_id && $policy->tenant_id !== $user->tenant_id && ! $user->hasRole('super_admin')) {
+            abort(403, 'Unauthorized access to policy.');
+        }
+
+        try {
+            $dependencyService->softDelete($policy);
+
+            return redirect()->back()
+                ->with('success', 'Policy moved to Recycle Bin successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', $e->getMessage());
+        }
     }
 
     /**
@@ -1108,5 +1141,57 @@ class PolicyManagementController extends Controller
 
             return response()->json(['error' => $e->getMessage()], 422);
         }
+    }
+
+    /**
+     * Download the Policy Record PDF file.
+     */
+    public function downloadRecord(Policy $policy, PolicyRecordPdfService $recordPdfService): HttpResponse
+    {
+        if ($policy->tenant_id !== Auth::user()->tenant_id) {
+            abort(403, 'Unauthorized access to policy.');
+        }
+
+        $pdfBinary = $recordPdfService->generatePdf($policy, Auth::user());
+        $filename = 'policy-record-'.Str::slug($policy->policy_number_display ?? $policy->policy_number ?? $policy->id).'.pdf';
+
+        return response($pdfBinary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /**
+     * Preview the Policy Record PDF file in browser iframe.
+     */
+    public function previewRecord(Policy $policy, PolicyRecordPdfService $recordPdfService): HttpResponse
+    {
+        if ($policy->tenant_id !== Auth::user()->tenant_id) {
+            abort(403, 'Unauthorized access to policy.');
+        }
+
+        $pdfBinary = $recordPdfService->generatePdf($policy, Auth::user());
+        $filename = 'policy-record-'.Str::slug($policy->policy_number_display ?? $policy->policy_number ?? $policy->id).'.pdf';
+
+        return response($pdfBinary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /**
+     * Preview HTML template of the Policy Record.
+     */
+    public function htmlPreviewRecord(Policy $policy, PolicyRecordPdfService $recordPdfService): HttpResponse
+    {
+        if ($policy->tenant_id !== Auth::user()->tenant_id) {
+            abort(403, 'Unauthorized access to policy.');
+        }
+
+        $html = $recordPdfService->renderHtml($policy, Auth::user(), isPreview: true);
+
+        return response($html, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+        ]);
     }
 }

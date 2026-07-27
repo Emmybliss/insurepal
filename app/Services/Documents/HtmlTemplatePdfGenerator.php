@@ -63,6 +63,7 @@ class HtmlTemplatePdfGenerator
     protected function buildVerifyUrl(string $documentType, string $token): string
     {
         $routeMap = [
+            'certificate' => 'certificates.verify',
             'credit_note' => 'verify.credit-note',
             'debit_note' => 'verify.debit-note',
             'invoice' => 'verify.invoice',
@@ -73,9 +74,11 @@ class HtmlTemplatePdfGenerator
         $routeName = $routeMap[$documentType] ?? null;
 
         if ($routeName && \Illuminate\Support\Facades\Route::has($routeName)) {
-            // For broker slips, the route uses model binding (ID), not a token
             if ($documentType === 'broker_slip') {
                 return route($routeName, ['brokerSlip' => $token]);
+            }
+            if ($documentType === 'certificate') {
+                return route($routeName, ['certificateNumber' => $token]);
             }
 
             return route($routeName, ['token' => $token]);

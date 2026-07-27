@@ -153,19 +153,6 @@ class CommissionPostingService
         );
     }
 
-    public function postDebitNoteEntry(Policy $policy, float $amount, int $debitNoteId, ?User $createdBy = null): CommissionEntry
-    {
-        return $this->postEntry(
-            $policy,
-            CommissionTransactionType::DebitNote,
-            abs($amount),
-            'debit_note',
-            $debitNoteId,
-            'Debit note adjustment',
-            $createdBy,
-        );
-    }
-
     public function postCancellationEntry(Policy $policy, float $commissionAmount, ?User $createdBy = null): CommissionEntry
     {
         return $this->postEntry(

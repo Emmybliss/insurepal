@@ -18,6 +18,7 @@ interface Role {
 
 interface Props {
     roles: Role[];
+    tenantType: string;
 }
 
 interface FormData {
@@ -30,7 +31,7 @@ interface FormData {
     roles: number[];
 }
 
-export default function UserManagementCreate({ roles }: Props) {
+export default function UserManagementCreate({ roles, tenantType }: Props) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
@@ -243,7 +244,10 @@ export default function UserManagementCreate({ roles }: Props) {
                     <Card>
                         <CardHeader>
                             <CardTitle>Role Assignment</CardTitle>
-                            <CardDescription>Assign roles to determine user permissions</CardDescription>
+                            <CardDescription>
+                                Assign roles to determine user permissions — showing roles for{' '}
+                                <span className="font-medium capitalize">{tenantType}</span> tenants
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">

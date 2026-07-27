@@ -20,6 +20,11 @@ interface RecycleBinItem {
     deleted_at: string | null;
     auto_delete_at: string | null;
     days_remaining: number | null;
+    metadata?: {
+        policy_number?: string;
+        internal_reference?: string;
+        customer_name?: string;
+    };
 }
 
 interface Props {
@@ -61,6 +66,11 @@ export default function RecycleBinIndex({ items, meta, filters, available_types 
         open: boolean;
         item: RecycleBinItem | null;
     }>({ open: false, item: null });
+    const [restoreDialog, setRestoreDialog] = useState<{
+        open: boolean;
+        item: RecycleBinItem | null;
+        message: string;
+    }>({ open: false, item: null, message: '' });
     const [processing, setProcessing] = useState(false);
 
     const handleSearch = () => {
@@ -79,43 +89,64 @@ export default function RecycleBinIndex({ items, meta, filters, available_types 
         );
     };
 
-    const handleRestore = async (item: RecycleBinItem) => {
-        try {
-            setProcessing(true);
-            await router.post(
-                route('recycle-bin.restore', {
-                    type: item.type,
-                    id: item.id,
-                }),
-            );
-            toast.success(t('Record restored successfully'));
-            router.reload({ only: ['items'] });
-        } catch (error: any) {
-            toast.error(error.message || t('Failed to restore record'));
-        } finally {
-            setProcessing(false);
-        }
+    const handleRestore = (item: RecycleBinItem, restorePolicy: boolean = false) => {
+        setProcessing(true);
+        router.post(
+            route('recycle-bin.restore', {
+                type: item.type,
+                id: item.id,
+            }),
+            { restore_policy: restorePolicy },
+            {
+                onSuccess: (page: { props: { flash?: { error?: string; success?: string } } }) => {
+                    if (page.props.flash?.error) {
+                        const errMsg = page.props.flash.error;
+                        if (errMsg.includes("Restore with Policy")) {
+                            setRestoreDialog({
+                                open: true,
+                                item,
+                                message: errMsg,
+                            });
+                        } else {
+                            toast.error(errMsg);
+                        }
+                    } else {
+                        toast.success(page.props.flash?.success || t('Record restored successfully'));
+                        setRestoreDialog({ open: false, item: null, message: '' });
+                    }
+                },
+                onError: (errors: Record<string, string>) => {
+                    toast.error(errors?.error || errors?.message || t('Failed to restore record'));
+                },
+                onFinish: () => setProcessing(false),
+            },
+        );
     };
 
-    const handleForceDelete = async () => {
+    const handleForceDelete = () => {
         if (!deleteDialog.item) return;
 
-        try {
-            setProcessing(true);
-            await router.delete(
-                route('recycle-bin.force-delete', {
-                    type: deleteDialog.item.type,
-                    id: deleteDialog.item.id,
-                }),
-            );
-            toast.success(t('Record permanently deleted'));
-            setDeleteDialog({ open: false, item: null });
-            router.reload({ only: ['items'] });
-        } catch (error: any) {
-            toast.error(error.message || t('Failed to delete record'));
-        } finally {
-            setProcessing(false);
-        }
+        setProcessing(true);
+        router.delete(
+            route('recycle-bin.force-delete', {
+                type: deleteDialog.item.type,
+                id: deleteDialog.item.id,
+            }),
+            {
+                onSuccess: (page: { props: { flash?: { error?: string } } }) => {
+                    if (page.props.flash?.error) {
+                        toast.error(page.props.flash.error);
+                    } else {
+                        toast.success(t('Record permanently deleted'));
+                        setDeleteDialog({ open: false, item: null });
+                    }
+                },
+                onError: (errors: Record<string, string>) => {
+                    toast.error(errors?.error || errors?.message || t('Failed to delete record'));
+                },
+                onFinish: () => setProcessing(false),
+            },
+        );
     };
 
     return (
@@ -197,7 +228,15 @@ export default function RecycleBinIndex({ items, meta, filters, available_types 
                                             <TableCell>
                                                 <Badge variant="outline">{typeLabels[item.type] || item.type}</Badge>
                                             </TableCell>
-                                            <TableCell className="font-medium">{item.display_name}</TableCell>
+                                            <TableCell className="font-medium">
+                                                <div>{item.display_name}</div>
+                                                {item.type === 'policies' && item.metadata && (
+                                                    <div className="mt-0.5 space-y-0.5 text-xs font-normal text-muted-foreground">
+                                                        {item.metadata.internal_reference && <div>Ref: {item.metadata.internal_reference}</div>}
+                                                        {item.metadata.customer_name && <div>Customer: {item.metadata.customer_name}</div>}
+                                                    </div>
+                                                )}
+                                            </TableCell>
                                             <TableCell>{item.deleted_at ? new Date(item.deleted_at).toLocaleDateString() : '-'}</TableCell>
                                             <TableCell>{item.auto_delete_at ? new Date(item.auto_delete_at).toLocaleDateString() : '-'}</TableCell>
                                             <TableCell>
@@ -288,6 +327,29 @@ export default function RecycleBinIndex({ items, meta, filters, available_types 
                             </Button>
                             <Button variant="destructive" onClick={handleForceDelete} disabled={processing}>
                                 {processing ? t('Deleting...') : t('Permanently Delete')}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={restoreDialog.open} onOpenChange={(open) => setRestoreDialog({ open, item: restoreDialog.item, message: restoreDialog.message })}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('Restore Linked Policy')}</DialogTitle>
+                            <DialogDescription className="whitespace-pre-line text-foreground/90">
+                                {restoreDialog.message}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+                            <Button variant="outline" onClick={() => setRestoreDialog({ open: false, item: null, message: '' })}>
+                                {t('Cancel')}
+                            </Button>
+                            <Button
+                                variant="default"
+                                onClick={() => restoreDialog.item && handleRestore(restoreDialog.item, true)}
+                                disabled={processing}
+                            >
+                                {processing ? t('Restoring...') : t('Restore Record & Policy Together')}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

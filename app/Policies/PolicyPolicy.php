@@ -34,7 +34,16 @@ class PolicyPolicy
     {
         Gate::authorize('tenant-access', $policy);
 
-        return $user->can('delete_policies') && $policy->isDraft();
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('delete_policies') ||
+                   $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+        } catch (\Exception $e) {
+            return $user->hasAnyRole(['underwriter', 'broker', 'underwriter_staff', 'broker_staff', 'admin']);
+        }
     }
 
     public function approve(User $user, Policy $policy): bool

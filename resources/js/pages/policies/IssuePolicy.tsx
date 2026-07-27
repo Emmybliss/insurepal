@@ -485,15 +485,13 @@ export default function IssuePolicy({ customers, policyProducts }: Props) {
                                 </div>
 
                                 {calculatedPremium > 0 && (
-                                    <div className="rounded-lg bg-green-50 p-4">
-                                        <h4 className="mb-2 font-medium text-green-800">Calculated Premium</h4>
-                                        <div className="text-sm text-green-700">
-                                            <p>Premium: {formatCurrency(calculatedPremium)}</p>
+                                    <div className="rounded-lg bg-green-50 p-4 dark:bg-green-950/20">
+                                        <h4 className="mb-2 font-medium text-green-800 dark:text-green-300">Financial Summary</h4>
+                                        <div className="space-y-1 text-sm text-green-700 dark:text-green-400">
+                                            <p>Gross Premium: {formatCurrency(calculatedPremium)}</p>
                                             <p>Commission: {formatCurrency(parseFloat(data.commission_amount) || 0)}</p>
-                                            <p>
-                                                <strong>
-                                                    Total: {formatCurrency(calculatedPremium + (parseFloat(data.commission_amount) || 0))}
-                                                </strong>
+                                            <p className="font-semibold text-green-800 dark:text-green-300">
+                                                Net Premium: {formatCurrency(Math.max(0, calculatedPremium - (parseFloat(data.commission_amount) || 0)))}
                                             </p>
                                         </div>
                                     </div>

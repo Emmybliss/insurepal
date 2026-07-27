@@ -246,7 +246,7 @@ export function AppSidebar() {
                 icon: Bell,
             },
         ];
-    } else if (auth.isUnderwriter || auth.isBroker) {
+    } else if (auth.isUnderwriter || auth.isBroker || auth.user?.tenant_id) {
         mainNavItems = getSidebarConfig(auth.isUnderwriter ? 'underwriter' : 'broker', auth, plan, t);
     } else {
         mainNavItems = [];

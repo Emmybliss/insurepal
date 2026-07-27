@@ -37,15 +37,6 @@ test('postCreditNoteEntry stores negative amount', function () {
     expect($entry->reference_id)->toBe(1);
 });
 
-test('postDebitNoteEntry stores positive amount', function () {
-    $entry = $this->service->postDebitNoteEntry($this->policy, 150.00, 1, $this->user);
-
-    expect($entry->transaction_type)->toBe(CommissionTransactionType::DebitNote);
-    expect($entry->amount)->toEqual(150.00);
-    expect($entry->reference_type)->toBe('debit_note');
-    expect($entry->reference_id)->toBe(1);
-});
-
 test('postCancellationEntry stores negative amount', function () {
     $entry = $this->service->postCancellationEntry($this->policy, 500.00, $this->user);
 
@@ -109,9 +100,8 @@ test('reverseEntry creates reversal with opposite amount', function () {
 test('multiple entries accumulate', function () {
     $this->service->postPolicyEntry($this->policy, 1000.00, $this->user);
     $this->service->postCreditNoteEntry($this->policy, 200.00, 1, $this->user);
-    $this->service->postDebitNoteEntry($this->policy, 50.00, 1, $this->user);
 
     $total = CommissionEntry::where('policy_id', $this->policy->id)->sum('amount');
 
-    expect((float) $total)->toBe(850.00); // 1000 - 200 + 50
+    expect((float) $total)->toBe(800.00); // 1000 - 200
 });

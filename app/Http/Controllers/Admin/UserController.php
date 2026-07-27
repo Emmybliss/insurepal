@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\UserVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,8 +19,9 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        protected UserVerificationService $verificationService
+    ) {
         $this->middleware('auth');
         $this->middleware('super.admin');
     }
@@ -34,11 +36,16 @@ class UserController extends Controller
             'total_customers' => Customer::count(),
             'underwriters' => Tenant::byType('underwriter')->count(),
             'brokers' => Tenant::byType('broker')->count(),
-            'super_admins' => User::SuperAdmins()->count(),
+            'super_admins' => User::superAdmins()->count(),
+            'pending_verification' => User::whereNull('email_verified_at')->orWhere('status', 'pending_verification')->count(),
+            'manually_approved' => User::where('approval_method', 'manual')->count(),
+            'email_verified' => User::where('approval_method', 'email')->whereNotNull('email_verified_at')->count(),
         ];
-        $query = User::query()
-            ->with(['tenant', 'roles']);
 
+        $query = User::query()
+            ->with(['tenant', 'roles', 'approvedBy']);
+
+        // Search by name or email
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -47,26 +54,75 @@ class UserController extends Controller
             });
         }
 
+        // Filter by tenant
         if ($request->filled('tenant_id')) {
-            $query->where('tenant_id', $request->tenant_id);
+            if ($request->tenant_id === 'none') {
+                $query->whereNull('tenant_id');
+            } else {
+                $query->where('tenant_id', $request->tenant_id);
+            }
+        }
+
+        // Filter by role
+        if ($request->filled('role')) {
+            $query->whereHas('roles', function ($q) use ($request) {
+                $q->where('name', $request->role);
+            });
+        }
+
+        // Filter by user lifecycle status
+        if ($request->filled('status')) {
+            switch ($request->status) {
+                case 'pending_verification':
+                    $query->where(function ($q) {
+                        $q->where('status', 'pending_verification')
+                            ->orWhereNull('email_verified_at');
+                    });
+                    break;
+                case 'active':
+                    $query->where('status', 'active')->where('is_active', true);
+                    break;
+                case 'suspended':
+                    $query->where('status', 'suspended')->orWhere(function ($q) {
+                        $q->where('is_active', false)->where('status', '!=', 'disabled');
+                    });
+                    break;
+                case 'disabled':
+                    $query->where('status', 'disabled');
+                    break;
+            }
+        }
+
+        // Filter by email verification status
+        if ($request->filled('verification_status')) {
+            if ($request->verification_status === 'verified') {
+                $query->whereNotNull('email_verified_at');
+            } elseif ($request->verification_status === 'unverified') {
+                $query->whereNull('email_verified_at');
+            }
+        }
+
+        // Filter by approval method
+        if ($request->filled('approval_method')) {
+            $query->where('approval_method', $request->approval_method);
         }
 
         $users = $query->latest()->paginate(20)->withQueryString();
 
-        $tenants = Tenant::select('id', 'name')->get();
+        $tenants = Tenant::select('id', 'name', 'type')->orderBy('name')->get();
 
         return Inertia::render('Admin/Users/Index', [
             'stats' => $stats,
             'users' => $users,
             'tenants' => $tenants,
-            'filters' => $request->only(['search', 'tenant_id']),
+            'filters' => $request->only(['search', 'tenant_id', 'role', 'status', 'verification_status', 'approval_method']),
         ]);
     }
 
     public function create(): Response
     {
         $tenants = Tenant::select('id', 'name', 'type')->orderBy('name')->get();
-        $roles = Role::where('is_active', true)->orderBy('name')->get();
+        $roles = Role::where('is_active', true)->withCount('permissions')->orderBy('name')->get();
 
         return Inertia::render('Admin/Users/Create', [
             'tenants' => $tenants,
@@ -84,7 +140,7 @@ class UserController extends Controller
             'password' => Hash::make($validated['password']),
             'tenant_id' => $validated['tenant_id'],
             'is_active' => $validated['is_active'] ?? true,
-            'email_verified_at' => now(),
+            'status' => 'pending_verification',
         ]);
 
         if (! empty($validated['roles'])) {
@@ -92,35 +148,32 @@ class UserController extends Controller
             $user->assignRole($roles);
         }
 
-        if ($validated['send_welcome_email'] ?? false) {
-            // TODO: Implement welcome email notification
-        }
+        // Send verification notification
+        $this->verificationService->sendVerificationNotification($user);
 
         return redirect()->route('admin.users.index')
-            ->with('success', 'User created successfully.');
+            ->with('success', 'User created successfully and verification email sent.');
     }
 
     public function show(User $user): Response
     {
-        $user->load(['tenant', 'roles.permissions']);
+        $user->load(['tenant', 'roles.permissions', 'approvedBy', 'auditLogs.user']);
 
         $stats = [
-            'login_count' => 0, // implement later
+            'login_count' => 0,
             'last_login' => $user->last_login_at,
             'account_age' => $user->created_at->diffForHumans(),
             'roles_count' => $user->roles->count(),
             'permissions_count' => $user->getAllPermissions()->count(),
-            'total_customers' => $user->customers()->count(), // adjust depending on relation
+            'total_customers' => $user->customers()->count(),
             'active_policies' => $user->policies()->where('status', 'active')->count(),
             'total_quotes' => $user->quotes()->count(),
         ];
 
-        $recentActivity = []; // implement later
-
         return Inertia::render('Admin/Users/Show', [
             'user' => $user,
             'stats' => $stats,
-            'recentActivity' => $recentActivity,
+            'auditLogs' => $user->auditLogs()->with('user')->latest()->limit(50)->get(),
         ]);
     }
 
@@ -129,7 +182,7 @@ class UserController extends Controller
         $user->load(['roles']);
 
         $tenants = Tenant::select('id', 'name', 'type')->orderBy('name')->get();
-        $roles = Role::where('is_active', true)->orderBy('name')->get();
+        $roles = Role::where('is_active', true)->withCount('permissions')->orderBy('name')->get();
 
         return Inertia::render('Admin/Users/Edit', [
             'user' => $user,
@@ -223,46 +276,60 @@ class UserController extends Controller
             }
         }
 
-        $user->update(['is_active' => ! $user->is_active]);
+        $newActiveState = ! $user->is_active;
+        $user->update([
+            'is_active' => $newActiveState,
+            'status' => $newActiveState ? ($user->hasVerifiedEmail() ? 'active' : 'pending_verification') : 'suspended',
+        ]);
 
-        $status = $user->is_active ? 'activated' : 'deactivated';
+        $user->logActivity(
+            action: $newActiveState ? 'account_activated' : 'account_suspended',
+            description: "User account {$user->name} was ".($newActiveState ? 'activated' : 'suspended').' by Super Admin',
+            user: $authUser
+        );
+
+        $status = $newActiveState ? 'activated' : 'deactivated';
 
         return back()->with('success', "User {$status} successfully.");
     }
 
     public function resendVerification(User $user): RedirectResponse
     {
-        if ($user->hasVerifiedEmail()) {
-            return back()->withErrors([
-                'error' => 'User email is already verified.',
-            ]);
-        }
-
-        $user->sendEmailVerificationNotification();
+        $this->verificationService->resendVerificationNotification($user, Auth::user());
 
         return back()->with('success', 'Verification email sent successfully.');
     }
 
     public function forceVerifyEmail(User $user): RedirectResponse
     {
-        if ($user->hasVerifiedEmail()) {
-            return back()->withErrors([
-                'error' => 'User email is already verified.',
-            ]);
-        }
+        $this->verificationService->approveManually($user, Auth::user());
 
-        $user->markEmailAsVerified();
+        return back()->with('success', 'User manually approved and email marked as verified.');
+    }
 
-        return back()->with('success', 'User email verified successfully.');
+    public function rejectUser(Request $request, User $user): RedirectResponse
+    {
+        $reason = $request->input('reason');
+        $this->verificationService->rejectUser($user, Auth::user(), $reason);
+
+        return back()->with('success', 'User registration request rejected.');
+    }
+
+    public function revokeVerification(User $user): RedirectResponse
+    {
+        $this->verificationService->revokeVerification($user, Auth::user());
+
+        return back()->with('success', 'User verification revoked successfully.');
     }
 
     public function bulkAction(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'action' => 'required|in:activate,deactivate,delete,verify_email',
+            'action' => 'required|in:activate,deactivate,delete,verify_email,resend_verification,reject',
             'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'exists:users,id',
-        ]); // single field — leave inline
+            'reason' => 'nullable|string|max:500',
+        ]);
 
         $users = User::whereIn('id', $validated['user_ids'])->get();
         $authUser = Auth::user();
@@ -275,44 +342,63 @@ class UserController extends Controller
 
         $actionCount = 0;
 
-        foreach ($users as $user) {
-            switch ($validated['action']) {
-                case 'activate':
+        switch ($validated['action']) {
+            case 'verify_email':
+                $actionCount = $this->verificationService->bulkApprove($validated['user_ids'], $authUser);
+                $actionName = 'manually approved';
+                break;
+
+            case 'resend_verification':
+                $actionCount = $this->verificationService->bulkResendVerification($validated['user_ids'], $authUser);
+                $actionName = 'verification emails sent';
+                break;
+
+            case 'reject':
+                foreach ($users as $user) {
+                    if (! $user->hasRole('super_admin')) {
+                        $this->verificationService->rejectUser($user, $authUser, $validated['reason'] ?? null);
+                        $actionCount++;
+                    }
+                }
+                $actionName = 'rejected';
+                break;
+
+            case 'activate':
+                foreach ($users as $user) {
                     if (! $user->is_active) {
-                        $user->update(['is_active' => true]);
+                        $user->update([
+                            'is_active' => true,
+                            'status' => $user->hasVerifiedEmail() ? 'active' : 'pending_verification',
+                        ]);
                         $actionCount++;
                     }
-                    break;
+                }
+                $actionName = 'activated';
+                break;
 
-                case 'deactivate':
+            case 'deactivate':
+                foreach ($users as $user) {
                     if (! $user->hasRole('super_admin') && $user->is_active) {
-                        $user->update(['is_active' => false]);
+                        $user->update([
+                            'is_active' => false,
+                            'status' => 'suspended',
+                        ]);
                         $actionCount++;
                     }
-                    break;
+                }
+                $actionName = 'deactivated';
+                break;
 
-                case 'delete':
+            case 'delete':
+                foreach ($users as $user) {
                     if (! $user->hasRole('super_admin')) {
                         $user->delete();
                         $actionCount++;
                     }
-                    break;
-
-                case 'verify_email':
-                    if (! $user->hasVerifiedEmail()) {
-                        $user->markEmailAsVerified();
-                        $actionCount++;
-                    }
-                    break;
-            }
+                }
+                $actionName = 'deleted';
+                break;
         }
-
-        $actionName = match ($validated['action']) {
-            'activate' => 'activated',
-            'deactivate' => 'deactivated',
-            'delete' => 'deleted',
-            'verify_email' => 'verified',
-        };
 
         return back()->with('success', "{$actionCount} users {$actionName} successfully.");
     }

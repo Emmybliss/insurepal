@@ -26,6 +26,19 @@ class CreditNoteService
     public function create(array $data, int $tenantId, int $userId): CreditNote
     {
         return DB::transaction(function () use ($data, $tenantId, $userId) {
+            $policyId = $data['policy_id'] ?? null;
+
+            if (! $policyId) {
+                $draftPolicy = app(DraftPolicyService::class)->findOrCreateDraftPolicy(
+                    $tenantId,
+                    (int) $data['customer_id'],
+                    $data['policy_number'] ?? null,
+                    $data,
+                    $userId
+                );
+                $policyId = $draftPolicy->id;
+            }
+
             $noteNumber = CreditNote::generateCreditNoteNumber($tenantId);
             $sequenceNumber = CreditNote::withTrashed()->where('tenant_id', $tenantId)->count() + 1;
 
@@ -34,7 +47,7 @@ class CreditNoteService
                 'sequence_number' => $sequenceNumber,
                 'tenant_id' => $tenantId,
                 'customer_id' => $data['customer_id'],
-                'policy_id' => $data['policy_id'] ?? null,
+                'policy_id' => $policyId,
                 'debit_note_id' => $data['debit_note_id'],
                 'description' => $data['description'],
                 'amount' => $data['amount'],

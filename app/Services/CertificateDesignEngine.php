@@ -31,10 +31,11 @@ class CertificateDesignEngine
     public function generateQrBarcodeData(Policy $policy, string $certificateNumber): array
     {
         $number = $policy->policy_number_display;
+        $verifyUrl = route('certificates.verify', ['certificateNumber' => $certificateNumber]);
 
         return [
-            'qr_code_policy' => url('/media/qrcode/'.urlencode($number)),
-            'qr_code_certificate' => url('/media/qrcode/'.urlencode($certificateNumber)),
+            'qr_code_policy' => url('/media/qrcode/'.urlencode($verifyUrl)),
+            'qr_code_certificate' => url('/media/qrcode/'.urlencode($verifyUrl)),
             'barcode_policy' => url('/media/barcode/'.urlencode($number)),
             'barcode_certificate' => url('/media/barcode/'.urlencode($certificateNumber)),
         ];
@@ -77,8 +78,8 @@ class CertificateDesignEngine
             'company_address' => $policy->tenant->address,
             'company_phone' => $policy->tenant->phone,
             'company_email' => $policy->tenant->email,
-            'qr_code_policy' => url('/media/qrcode/'.urlencode($number)),
-            'qr_code_certificate' => url('/media/qrcode/'.urlencode($certificateNumber)),
+            'qr_code_policy' => url('/media/qrcode/'.urlencode(route('certificates.verify', ['certificateNumber' => $certificateNumber]))),
+            'qr_code_certificate' => url('/media/qrcode/'.urlencode(route('certificates.verify', ['certificateNumber' => $certificateNumber]))),
             'barcode_policy' => url('/media/barcode/'.urlencode($number)),
             'barcode_certificate' => url('/media/barcode/'.urlencode($certificateNumber)),
             'template_name' => $template['name'] ?? $templateKey,

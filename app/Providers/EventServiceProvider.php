@@ -15,7 +15,6 @@ use App\Events\PolicyCreated;
 use App\Events\PolicyIssued;
 use App\Events\PolicyRenewed;
 use App\Events\TicketStatusChanged;
-use App\Jobs\CalculateCommission;
 use App\Jobs\GeneratePolicyCertificate;
 use App\Jobs\SendPolicyEmailNotification;
 use App\Jobs\UpdateNaicomReport;
@@ -25,7 +24,6 @@ use App\Listeners\MessageSentListener;
 use App\Listeners\NotificationSentListener;
 use App\Listeners\PostCancellationCommissionEntry;
 use App\Listeners\PostCreditNoteCommissionEntry;
-use App\Listeners\PostDebitNoteCommissionEntry;
 use App\Listeners\PostEndorsementCommissionEntry;
 use App\Listeners\PostPolicyCommissionEntry;
 use App\Listeners\PostRenewalCommissionEntry;
@@ -67,7 +65,6 @@ class EventServiceProvider extends ServiceProvider
             GeneratePolicyCertificate::class,
             SendPolicyEmailNotification::class,
             UpdateNaicomReport::class,
-            CalculateCommission::class,
         ],
         PolicyCreated::class => [
             PostPolicyCommissionEntry::class,
@@ -84,12 +81,9 @@ class EventServiceProvider extends ServiceProvider
         PolicyAmended::class => [
             PostEndorsementCommissionEntry::class,
         ],
-        PaymentReceived::class => [
-            CalculateCommission::class,
-        ],
+        PaymentReceived::class => [],
         DebitNoteGenerated::class => [
             UpdateNaicomReport::class,
-            PostDebitNoteCommissionEntry::class,
         ],
         CreditNoteGenerated::class => [
             UpdateNaicomReport::class,

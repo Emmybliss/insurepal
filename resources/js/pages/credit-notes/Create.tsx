@@ -14,6 +14,8 @@ import { Customer } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { CalendarIcon, Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
+import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
 import CompanySearchCombobox, { InsuranceCompany } from '@/components/insurance/CompanySearchCombobox';
 import { useEffect, useState } from 'react';
 
@@ -233,14 +235,14 @@ export default function CreateCreditNote({ debit_notes = [], customers = [], sel
                                     {/* Customer Selection */}
                                     <div className="space-y-2">
                                         <Label htmlFor="customer_id">Customer</Label>
-                                        <Select
-                                            name="customer_id"
+                                        <CustomerSearchSelect
                                             value={data.customer_id}
-                                            onValueChange={(value) => {
+                                            initialCustomers={customers}
+                                            onChange={(customerId) => {
                                                 setIsLoadingDebitNotes(true);
                                                 setData((prev) => ({
                                                     ...prev,
-                                                    customer_id: value,
+                                                    customer_id: customerId,
                                                     debit_note_id: '',
                                                     policy_id: '',
                                                     amount: '',
@@ -251,18 +253,7 @@ export default function CreateCreditNote({ debit_notes = [], customers = [], sel
                                                 setSelectedDebitNoteData(null);
                                                 setTimeout(() => setIsLoadingDebitNotes(false), 250);
                                             }}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a customer" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {customers.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id.toString()}>
-                                                        {getCustomerName(c)}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                         <InputError message={errors.customer_id} />
                                     </div>
 

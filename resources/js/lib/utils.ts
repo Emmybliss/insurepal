@@ -16,11 +16,11 @@ export function formatCurrency(amount: number | string, currency: string = 'USD'
     }).format(value);
 }
 
-export function formatAmount(value: number | string | null | undefined, maxDecimals = 2): string {
+export function formatAmount(value: number | string | null | undefined, maxDecimals = 2, minDecimals = 2): string {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (num === null || num === undefined || isNaN(num)) return '0.00';
-    return num.toLocaleString('en-NG', {
-        minimumFractionDigits: 0,
+    return num.toLocaleString('en-US', {
+        minimumFractionDigits: minDecimals,
         maximumFractionDigits: maxDecimals,
     });
 }

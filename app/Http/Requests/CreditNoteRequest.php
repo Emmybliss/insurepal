@@ -25,6 +25,7 @@ class CreditNoteRequest extends FormRequest
             'debit_note_id' => 'required|exists:debit_notes,id',
             'customer_id' => 'required|exists:customers,id',
             'policy_id' => 'nullable|exists:policies,id',
+            'policy_number' => 'nullable|string|max:255',
             'description' => 'required|string|max:1000',
             'amount' => 'required|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',

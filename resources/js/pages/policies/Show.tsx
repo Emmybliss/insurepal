@@ -2,7 +2,7 @@ import { Can } from '@/components/auth/permission-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router } from '@inertiajs/react';
@@ -23,11 +23,13 @@ import {
     Plus,
     Receipt,
     Shield,
+    Trash2,
     User,
     Users,
     XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import CreateFinancialNoteModal from './CreateFinancialNoteModal';
 
 interface PolicyType {
@@ -168,6 +170,8 @@ interface Policy {
     policy_class_id?: number;
     policy_type_id?: number;
     policy_number: string;
+    policy_number_display: string;
+    internal_reference: string;
     source_type: string;
     status: string;
     approval_status: string;
@@ -221,6 +225,7 @@ interface Policy {
     insurer_phone?: string;
     insurer_address?: string;
     commission_rate?: number;
+    net_premium?: number;
 }
 
 interface Props {
@@ -312,6 +317,30 @@ export default function Show({ policy }: Props) {
 
     // Quick Note Generation State
     const [isGeneratingNote, setIsGeneratingNote] = useState(false);
+
+    // Delete Policy State
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+    const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
+
+    const handleDeletePolicy = () => {
+        setIsDeletingPolicy(true);
+        router.delete(route('policy-management.destroy', policy.id), {
+            onSuccess: (page: { props: { flash?: { error?: string } } }) => {
+                if (page.props.flash?.error) {
+                    toast.error(page.props.flash.error);
+                } else {
+                    toast.success('Policy moved to Recycle Bin successfully.');
+                    setIsConfirmingDelete(false);
+                    router.visit(route('policy-management.index'));
+                }
+            },
+            onError: (errors: Record<string, string>) => {
+                const message = errors?.error || errors?.message || 'Cannot delete policy due to existing related records.';
+                toast.error(message);
+            },
+            onFinish: () => setIsDeletingPolicy(false),
+        });
+    };
 
     const openPreview = (url: string, title: string) => {
         setPreviewUrl(url);
@@ -474,6 +503,7 @@ export default function Show({ policy }: Props) {
         },
     ];
 
+
     return (
         <AppLayout>
             <Head title={`Policy: ${policy.policy_number_display || policy.policy_number || policy.internal_reference}`} />
@@ -558,6 +588,16 @@ export default function Show({ policy }: Props) {
                             </div>
                         </Can>
 
+                        <Can permission="delete_policies">
+                            <Button
+                                variant="destructive"
+                                onClick={() => setIsConfirmingDelete(true)}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Policy
+                            </Button>
+                        </Can>
+
                         {policy.certificates && policy.certificates.length > 0 ? (
                             <div className="flex gap-2">
                                 {/* Download existing certificate */}
@@ -595,6 +635,22 @@ export default function Show({ policy }: Props) {
                             </Can>
                         )}
 
+                        <Button
+                            variant="outline"
+                            onClick={() => openPreview(route('policy-management.record.preview', policy.id), `Policy Record Summary - ${policy.policy_number_display || policy.policy_number || ''}`)}
+                        >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview Record
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            onClick={() => window.open(route('policy-management.record.download', policy.id), '_blank')}
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Record
+                        </Button>
+
                         <Button variant="outline" onClick={() => window.print()}>
                             <FileText className="mr-2 h-4 w-4" />
                             Print
@@ -613,7 +669,7 @@ export default function Show({ policy }: Props) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <h4 className="font-medium text-gray-900">{getCustomerDisplayName()}</h4>
+                                <h4 className="font-medium text-gray-900 dark:text-white">{getCustomerDisplayName()}</h4>
                                 <Badge variant="outline" className="mt-1">
                                     {policy.customer?.type === 'corporate' ? 'Corporate' : 'Individual'}
                                 </Badge>
@@ -691,11 +747,15 @@ export default function Show({ policy }: Props) {
                                     days coverage
                                 </p>
                             </div>
-
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-600">Coverage Amount/Sum Insured</h4>
+                                {policy.currency || 'NGN'} {Number(policy.sum_insured).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                            </div>
                             <div>
                                 <h4 className="text-sm font-medium text-gray-600">Payment Frequency</h4>
                                 <p className="font-medium capitalize">{policy.payment_frequency?.replace('_', ' ') || ''}</p>
                             </div>
+
                         </CardContent>
                     </Card>
 
@@ -839,7 +899,7 @@ export default function Show({ policy }: Props) {
                                 {policy.sum_insured != null && (
                                     <div className="flex justify-between">
                                         <span className="text-sm text-gray-600">Sum Insured</span>
-                                        <span className="font-medium">
+                                        <span className="font-medium text-muted-foreground underline">
                                             {policy.currency || 'NGN'} {Number(policy.sum_insured).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                                         </span>
                                     </div>
@@ -850,14 +910,15 @@ export default function Show({ policy }: Props) {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-sm text-gray-600">
-                                        Commission {policy.commission_rate != null ? `(${policy.commission_rate}%)` : ''}
+                                        Commission {policy.commission_rate != null && Number(policy.commission_rate) > 0 ? `(${Number(policy.commission_rate).toFixed(2).replace(/\.00$/, '')}%)` : ''}
                                     </span>
-                                    <span className="font-medium">{formatCurrency(policy.commission_amount)}</span>
+                                    <span className="font-medium">({formatCurrency(policy.commission_amount)})</span>
                                 </div>
+
                                 <Separator />
                                 <div className="flex justify-between text-lg font-semibold">
-                                    <span>Total Amount ({policy.currency || 'NGN'})</span>
-                                    <span className="text-green-600">{formatCurrency(policy.total_amount)}</span>
+                                    <span>Net Premium ({policy.currency || 'NGN'})</span>
+                                    <span className="text-green-600">{formatCurrency(policy.net_premium ?? ((policy.premium_amount || 0) - (policy.commission_amount || 0)))}</span>
                                 </div>
                                 {policy.payment_method && (
                                     <div className="flex justify-between text-xs text-gray-600 pt-1">
@@ -943,19 +1004,17 @@ export default function Show({ policy }: Props) {
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
-                                    className={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                                        activeTab === tab.key
-                                            ? 'border-primary text-primary'
-                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
-                                    }`}
+                                    className={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.key
+                                        ? 'border-primary text-primary'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
+                                        }`}
                                 >
                                     {tab.icon}
                                     {tab.label}
                                     {tab.count > 0 && (
                                         <span
-                                            className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                                                activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-600'
-                                            }`}
+                                            className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${activeTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-600'
+                                                }`}
                                         >
                                             {tab.count}
                                         </span>
@@ -1520,10 +1579,10 @@ export default function Show({ policy }: Props) {
                                                         amendment.status === 'active'
                                                             ? 'default'
                                                             : amendment.status === 'approved'
-                                                              ? 'secondary'
-                                                              : amendment.status === 'pending_approval'
-                                                                ? 'outline'
-                                                                : 'destructive'
+                                                                ? 'secondary'
+                                                                : amendment.status === 'pending_approval'
+                                                                    ? 'outline'
+                                                                    : 'destructive'
                                                     }
                                                 >
                                                     {amendment.status?.replace('_', ' ').toUpperCase() || ''}
@@ -1601,6 +1660,30 @@ export default function Show({ policy }: Props) {
                     </DialogContent>
                 </Dialog>
             )}
+
+            {/* ─── Delete Policy Confirmation Modal ─── */}
+            <Dialog open={isConfirmingDelete} onOpenChange={setIsConfirmingDelete}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move Policy to Recycle Bin</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete policy{' '}
+                            <span className="font-semibold text-foreground">
+                                {policy.policy_number_display || policy.policy_number || policy.internal_reference}
+                            </span>
+                            ? The policy will be moved to the Recycle Bin and can be restored later. It will not be permanently deleted.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setIsConfirmingDelete(false)} disabled={isDeletingPolicy}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeletePolicy} disabled={isDeletingPolicy}>
+                            {isDeletingPolicy ? 'Moving to Recycle Bin...' : 'Move to Recycle Bin'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
