@@ -16,6 +16,7 @@ class CustomerListingService
         $query = Customer::query()
             ->forTenant($user->tenant_id)
             ->with(['user', 'kyc', 'quotes.insuranceProduct', 'policies.policyProduct'])
+            ->withCount(['policies', 'quotes'])
             ->latest();
 
         $query = $this->applySearch($query, $filters['search'] ?? null, [
