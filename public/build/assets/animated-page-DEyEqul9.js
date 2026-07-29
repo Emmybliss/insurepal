@@ -1,0 +1,1 @@
+import{j as a}from"./react-vendor-CuEy2nlE.js";import{p as n}from"./animations-DwnzDdrN.js";import{m}from"./proxy-BqbGdo-0.js";function s({children:i,className:t=""}){return a.jsx(m.div,{initial:"initial",animate:"animate",exit:"exit",variants:n,className:t,children:i})}export{s as A};
