@@ -529,7 +529,7 @@ export default function IssuedPolicies({ policies, stats, filters }: Props) {
                  </Card>
 
                  {/* Pagination */}
-                 {policies.data.length > 0 && <Pagination links={policies.meta.links} meta={policies.meta} />}
+                 {policies.data.length > 0 && policies.meta?.links && <Pagination links={policies.meta.links} meta={policies.meta} />}
              </div>
 
              <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>
