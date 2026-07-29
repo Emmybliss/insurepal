@@ -1,1 +1,0 @@
-const a={initial:{opacity:0,y:20},animate:{opacity:1,y:0,transition:{duration:.3,ease:"easeOut"}},exit:{opacity:0,y:-20,transition:{duration:.2,ease:"easeIn"}}},t={initial:{opacity:0,y:20},animate:{opacity:1,y:0,transition:{duration:.4}}};export{a as p,t as s};
