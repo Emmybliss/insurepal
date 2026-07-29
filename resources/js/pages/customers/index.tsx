@@ -349,7 +349,7 @@ export default function CustomersIndex({ customers, filters }: Props) {
                     {customers.last_page > 1 && (
                         <div className="flex items-center justify-between border-t px-6 py-4">
                             <p className="text-sm text-muted-foreground">
-                                {t('Showing page {current} of {total}', { current: customers.current_page, total: customers.last_page })}
+                                {t('Showing page {current} of {last} ({total} total)', { current: customers.current_page, last: customers.last_page, total: customers.total })}
                             </p>
                             <div className="flex items-center gap-2">
                                 <Button

@@ -398,4 +398,8 @@ export interface SiteSettingsProps {
 export type PageProps<T extends Record<string, unknown> = Record<string, unknown>> = T & {
     auth: Auth;
     settings: SiteSettingsProps;
+    flash?: {
+        success?: string;
+        error?: string;
+    };
 };

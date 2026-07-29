@@ -46,13 +46,13 @@ export function getBrokerNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Trans
         });
     }
 
-    // if (can('view_quotes')) {
-    //     items.push({
-    //         title: t('Quotations'),
-    //         href: route('quotes.index'),
-    //         icon: FileText,
-    //     });
-    // }
+    if (can('view_quotes')) {
+        items.push({
+            title: t('Quotations'),
+            href: route('quotes.index'),
+            icon: FileText,
+        });
+    }
 
     const placementSubItems: NavItem[] = [];
 

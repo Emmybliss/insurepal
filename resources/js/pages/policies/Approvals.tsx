@@ -394,7 +394,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                 </Card>
 
                 {/* Pagination */}
-                {approvals.data.length > 0 && <Pagination links={approvals.links} meta={approvals.meta} />}
+                {approvals.data.length > 0 && <Pagination links={approvals.meta.links} meta={approvals.meta} />}
             </div>
 
             {/* Approval Dialog */}

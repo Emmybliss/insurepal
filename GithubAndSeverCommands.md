@@ -27,6 +27,7 @@ php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
 
+
 ## restart the services
 php artisan queue:restart
 sudo systemctl restart php8.4-fpm

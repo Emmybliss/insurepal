@@ -362,11 +362,28 @@ class BrokerSlipController extends Controller
             'versions' => fn ($q) => $q->latest()->limit(5),
         ]);
 
+        $checksumValid = null;
+        $isBackfilled = false;
+
+        if ($brokerSlip->snapshot_json && $brokerSlip->checksum) {
+            $checksumValid = hash('sha256', json_encode($brokerSlip->snapshot_json)) === $brokerSlip->checksum;
+        } elseif (! $brokerSlip->checksum) {
+            $snapshot = $this->brokerSlipService->buildSnapshotForVerification($brokerSlip);
+            $checksum = hash('sha256', json_encode($snapshot));
+
+            $brokerSlip->updateQuietly([
+                'snapshot_json' => $snapshot,
+                'checksum' => $checksum,
+            ]);
+
+            $checksumValid = true;
+            $isBackfilled = true;
+        }
+
         return Inertia::render('broker-slips/Verify', [
             'brokerSlip' => $brokerSlip,
-            'checksumValid' => $brokerSlip->snapshot_json
-                ? hash('sha256', $brokerSlip->snapshot_json) === $brokerSlip->checksum
-                : null,
+            'checksumValid' => $checksumValid,
+            'isBackfilled' => $isBackfilled,
         ]);
     }
 }

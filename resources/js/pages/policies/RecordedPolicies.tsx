@@ -114,7 +114,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
         if (!policyToDelete) return;
         setIsDeleting(true);
         router.delete(route('policy-management.destroy', policyToDelete.id), {
-            onSuccess: (page: { props: { flash?: { error?: string } } }) => {
+            onSuccess: (page) => {
                 if (page.props.flash?.error) {
                     toast.error(page.props.flash.error);
                 } else {
@@ -162,8 +162,6 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
     const getCustomerName = (customer: Customer) => {
         return customer.type === 'individual' ? `${customer.first_name} ${customer.last_name}` : customer.company_name;
     };
-
-    console.log(policies);
 
     return (
         <AppSidebarLayout>
@@ -398,7 +396,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                 </Card>
 
                 {/* Pagination */}
-                {policies.data.length > 0 && <Pagination links={policies.links} meta={policies.meta} />}
+                {policies.data.length > 0 && <Pagination links={policies.meta.links} meta={policies.meta} />}
             </div>
 
             <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>

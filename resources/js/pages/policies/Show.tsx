@@ -325,7 +325,7 @@ export default function Show({ policy }: Props) {
     const handleDeletePolicy = () => {
         setIsDeletingPolicy(true);
         router.delete(route('policy-management.destroy', policy.id), {
-            onSuccess: (page: { props: { flash?: { error?: string } } }) => {
+            onSuccess: (page) => {
                 if (page.props.flash?.error) {
                     toast.error(page.props.flash.error);
                 } else {

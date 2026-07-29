@@ -397,7 +397,7 @@ class BrokerSlipService
         }
     }
 
-    private function buildSnapshot(BrokerSlip $slip, User $user): array
+    public function buildSnapshot(BrokerSlip $slip, User $user): array
     {
         $slip->loadMissing([
             'placement.customer',
@@ -415,6 +415,29 @@ class BrokerSlipService
             'clauses' => $slip->clauses->toArray(),
             'issued_at' => now()->toIso8601String(),
             'issued_by' => $user->toArray(),
+        ];
+    }
+
+    public function buildSnapshotForVerification(BrokerSlip $slip): array
+    {
+        $slip->loadMissing([
+            'placement.customer',
+            'placementMarket.insuranceCompany',
+            'risks',
+            'clauses',
+            'createdBy',
+        ]);
+
+        $issuer = $slip->issuedBy ?? $slip->createdBy;
+
+        return [
+            'broker_slip' => $slip->toArray(),
+            'customer' => $slip->placement->customer?->toArray(),
+            'insurer' => $slip->placementMarket?->insuranceCompany?->toArray(),
+            'risks' => $slip->risks->toArray(),
+            'clauses' => $slip->clauses->toArray(),
+            'issued_at' => $slip->issued_at?->toIso8601String() ?? now()->toIso8601String(),
+            'issued_by' => $issuer?->toArray(),
         ];
     }
 }

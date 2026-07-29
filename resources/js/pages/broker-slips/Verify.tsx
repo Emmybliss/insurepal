@@ -75,6 +75,7 @@ interface BrokerSlip {
 interface Props {
     brokerSlip: BrokerSlip;
     checksumValid: boolean | null;
+    isBackfilled?: boolean;
 }
 
 const statusStyles: Record<string, string> = {
@@ -87,7 +88,7 @@ const statusStyles: Record<string, string> = {
     withdrawn: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300',
 };
 
-export default function Verify({ brokerSlip, checksumValid }: Props) {
+export default function Verify({ brokerSlip, checksumValid, isBackfilled = false }: Props) {
     const totals = brokerSlip.items.reduce(
         (acc, r) => ({
             premium: acc.premium + (r.premium || 0),
@@ -136,7 +137,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                             <div className="text-left">
                                 <p className="text-lg font-semibold text-green-800 dark:text-green-300">Valid Document</p>
                                 <p className="text-sm text-green-600 dark:text-green-400">
-                                    Digital signature verified — content has not been altered
+                                    {isBackfilled
+                                        ? 'Verification snapshot generated from current document data'
+                                        : 'Digital signature verified — content has not been altered'}
                                 </p>
                             </div>
                         </div>
@@ -155,7 +158,9 @@ export default function Verify({ brokerSlip, checksumValid }: Props) {
                             <Shield className="h-8 w-8 text-gray-400" />
                             <div className="text-left">
                                 <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Verification Not Available</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">No digital snapshot exists for this document version</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    This document was created before digital verification was available. Document details are shown for reference.
+                                </p>
                             </div>
                         </div>
                     )}
