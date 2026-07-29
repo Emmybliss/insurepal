@@ -385,7 +385,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                             </TableBody>
                         </Table>
 
-                        {policies.data.length === 0 && (
+                        {policies?.data?.length === 0 && (
                             <div className="py-8 text-center">
                                 <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-2 text-sm font-semibold">No policies found</h3>
@@ -396,7 +396,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                 </Card>
 
                 {/* Pagination */}
-                {policies.data.length > 0 && policies.meta?.links && <Pagination links={policies.meta.links} meta={policies.meta} />}
+                {policies?.data?.length > 0 && policies?.meta?.links && <Pagination links={policies?.meta?.links} meta={policies?.meta} />}
             </div>
 
             <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>

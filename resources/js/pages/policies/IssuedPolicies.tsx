@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 interface Policy {
     id: number;
     policy_number: string;
+    policy_number_display: string;
+    internal_reference: string;
     source_type: string;
     status: string;
     approval_status: string;
@@ -504,56 +506,56 @@ export default function IssuedPolicies({ policies, stats, filters }: Props) {
                                                     {policy.status === 'approved' && (
                                                         <DropdownMenuItem onClick={() => handleIssuePolicy(policy.id)}>Issue Policy</DropdownMenuItem>
                                                     )}
-                                                     <DropdownMenuItem
-                                                         onClick={() => setPolicyToDelete(policy)}
-                                                         className="text-red-600 focus:text-red-600 cursor-pointer"
-                                                     >
-                                                         <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
-                                                     </DropdownMenuItem>
-                                                 </DropdownMenuContent>
-                                             </DropdownMenu>
-                                         </TableCell>
-                                     </TableRow>
-                                 ))}
-                             </TableBody>
-                         </Table>
+                                                    <DropdownMenuItem
+                                                        onClick={() => setPolicyToDelete(policy)}
+                                                        className="text-red-600 focus:text-red-600 cursor-pointer"
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
 
-                         {policies.data.length === 0 && (
-                             <div className="py-8 text-center">
-                                 <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                                 <h3 className="mt-2 text-sm font-semibold">No policies found</h3>
-                                 <p className="mt-1 text-sm text-muted-foreground">No policies match your current filters.</p>
-                             </div>
-                         )}
-                     </CardContent>
-                 </Card>
+                        {policies?.data?.length === 0 && (
+                            <div className="py-8 text-center">
+                                <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                                <h3 className="mt-2 text-sm font-semibold">No policies found</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">No policies match your current filters.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                 {/* Pagination */}
-                 {policies.data.length > 0 && policies.meta?.links && <Pagination links={policies.meta.links} meta={policies.meta} />}
-             </div>
+                {/* Pagination */}
+                {policies?.data?.length > 0 && policies?.meta?.links && <Pagination links={policies?.meta?.links} meta={policies?.meta} />}
+            </div>
 
-             <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>
-                 <DialogContent>
-                     <DialogHeader>
-                         <DialogTitle>Move Policy to Recycle Bin</DialogTitle>
-                         <DialogDescription>
-                             Are you sure you want to delete policy{' '}
-                             <span className="font-semibold text-foreground">
-                                 {policyToDelete?.policy_number_display || policyToDelete?.policy_number || policyToDelete?.id}
-                             </span>
-                             ? The policy will be moved to the Recycle Bin and can be restored later. It will not be permanently deleted.
-                         </DialogDescription>
-                     </DialogHeader>
-                     <DialogFooter className="gap-2 sm:gap-0">
-                         <Button variant="outline" onClick={() => setPolicyToDelete(null)} disabled={isDeleting}>
-                             Cancel
-                         </Button>
-                         <Button variant="destructive" onClick={handleDeletePolicy} disabled={isDeleting}>
-                             {isDeleting ? 'Moving to Recycle Bin...' : 'Move to Recycle Bin'}
-                         </Button>
-                     </DialogFooter>
-                 </DialogContent>
-             </Dialog>
-         </AppSidebarLayout>
-     );
- }
+            <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move Policy to Recycle Bin</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete policy{' '}
+                            <span className="font-semibold text-foreground">
+                                {policyToDelete?.policy_number_display || policyToDelete?.policy_number || policyToDelete?.id}
+                            </span>
+                            ? The policy will be moved to the Recycle Bin and can be restored later. It will not be permanently deleted.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setPolicyToDelete(null)} disabled={isDeleting}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeletePolicy} disabled={isDeleting}>
+                            {isDeleting ? 'Moving to Recycle Bin...' : 'Move to Recycle Bin'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </AppSidebarLayout>
+    );
+}
