@@ -46,9 +46,8 @@ class QuoteRequest extends FormRequest
                 Rule::in(array_keys(Quote::getStatuses())),
             ],
             'coverage_details' => [
-                'required',
+                'nullable',
                 'array',
-                'min:1',
             ],
             'coverage_details.*.type' => [
                 'required',

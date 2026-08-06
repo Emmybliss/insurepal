@@ -15,10 +15,12 @@ interface CustomerSearchSelectProps {
     error?: string;
 }
 
+const DEFAULT_EMPTY_CUSTOMERS: Customer[] = [];
+
 export function CustomerSearchSelect({
     value,
     onChange,
-    initialCustomers = [],
+    initialCustomers = DEFAULT_EMPTY_CUSTOMERS,
     disabled = false,
 }: CustomerSearchSelectProps) {
     const [open, setOpen] = useState(false);

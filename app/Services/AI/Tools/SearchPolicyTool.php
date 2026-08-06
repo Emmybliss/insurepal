@@ -59,7 +59,7 @@ class SearchPolicyTool implements ToolContract
 
     public function authorize(User $user): bool
     {
-        return $user->can('view policies');
+        return $user->tenant_id !== null;
     }
 
     public function requiresApproval(): bool

@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {} from '@/components/ui/tooltip';
+import { } from '@/components/ui/tooltip';
 import { useCanSms } from '@/hooks/use-plan';
 import AppLayout from '@/layouts/app-layout';
 import { PageProps } from '@/types';
@@ -244,7 +244,7 @@ export default function RenewalsIndex({ renewals, stats, filters }: RenewalsInde
                                                 {policy.policyClass && <p className="text-sm text-muted-foreground">{policy.policyClass.name}</p>}
                                             </div>
                                             <div className="text-right">
-                                                <div className="font-medium">₦{policy.premium_amount.toLocaleString()}</div>
+                                                <div className="font-medium">₦{policy.premium_amount?.toLocaleString()}</div>
                                                 <div className="text-sm text-muted-foreground">
                                                     Expires: {new Date(policy.expiry_date).toLocaleDateString()}
                                                 </div>

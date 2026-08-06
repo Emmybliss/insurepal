@@ -16,6 +16,7 @@ class AIAssistantController extends Controller
     public function __construct(
         private AIAssistantService $aiService,
         private ToolRegistry $toolRegistry,
+        private \App\Services\AI\ExecutionEngine $executionEngine,
     ) {}
 
     public function chat(ChatRequest $request): JsonResponse
@@ -31,6 +32,29 @@ class AIAssistantController extends Controller
         return response()->json([
             'success' => true,
             'data' => $result,
+        ]);
+    }
+
+    public function uploadDocument(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,png,jpg,jpeg|max:10240',
+            'conversation_id' => 'nullable|integer|exists:conversations,id',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store("tenants/{$request->user()->tenant_id}/ai-uploads", 'public');
+
+        $textExtract = "Attached file: {$file->getClientOriginalName()} (Stored at: {$path})";
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'extracted_text' => $textExtract,
+            ],
+            'message' => 'File uploaded and attached to AI context.',
         ]);
     }
 
@@ -109,15 +133,12 @@ class AIAssistantController extends Controller
             ->where('status', 'pending')
             ->firstOrFail();
 
-        $execution->update([
-            'status' => 'approved',
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-        ]);
+        $result = $this->executionEngine->executeApproved($execution, $request->user());
 
         return response()->json([
-            'success' => true,
-            'message' => 'Action approved',
+            'success' => $result->success,
+            'message' => $result->message ?? ($result->success ? 'Action approved and executed' : 'Action approval failed'),
+            'data' => $result->data,
         ]);
     }
 

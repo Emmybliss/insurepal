@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export interface PremiumTrendData {
     month: string;
@@ -26,14 +26,16 @@ const COLORS = [
     '#8b5cf6', // Violet
 ];
 
-const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-        return `₦${(value / 1000000).toFixed(1)}M`;
+const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'number' ? value : Number(value ?? 0);
+    if (isNaN(num)) return '₦0';
+    if (num >= 1000000) {
+        return `₦${(num / 1000000).toFixed(1)}M`;
     }
-    if (value >= 1000) {
-        return `₦${(value / 1000).toFixed(1)}k`;
+    if (num >= 1000) {
+        return `₦${(num / 1000).toFixed(1)}k`;
     }
-    return `₦${value.toFixed(0)}`;
+    return `₦${num.toFixed(0)}`;
 };
 
 export function PremiumChart({ data }: PremiumChartProps) {
@@ -80,31 +82,51 @@ export function PremiumChart({ data }: PremiumChartProps) {
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={premiumData}>
+                    <AreaChart data={premiumData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                            {categories.map((category, index) => {
+                                const color = COLORS[index % COLORS.length];
+                                return (
+                                    <linearGradient key={`premiumGrad-${category.key}`} id={`premiumGrad-${category.key}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.7} />
+                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                    </linearGradient>
+                                );
+                            })}
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                         <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} width={70} />
                         <Tooltip
                             contentStyle={{
                                 backgroundColor: 'hsl(var(--card))',
                                 border: '1px solid hsl(var(--border))',
                                 borderRadius: '8px',
                             }}
-                            formatter={(value: number) => [formatCurrency(value), '']}
+                            formatter={(value: any) => [formatCurrency(value), '']}
                         />
                         <Legend />
-                        {categories.map((category, index) => (
-                            <Line
-                                key={category.key}
-                                type="monotone"
-                                dataKey={category.key}
-                                stroke={COLORS[index % COLORS.length]}
-                                strokeWidth={2}
-                                dot={{ fill: COLORS[index % COLORS.length], strokeWidth: 2, r: 4 }}
-                                name={category.name}
-                            />
-                        ))}
-                    </LineChart>
+                        {categories.map((category, index) => {
+                            const color = COLORS[index % COLORS.length];
+                            return (
+                                <Area
+                                    key={category.key}
+                                    type="monotone"
+                                    dataKey={category.key}
+                                    stroke={color}
+                                    strokeWidth={2.5}
+                                    fillOpacity={1}
+                                    fill={`url(#premiumGrad-${category.key})`}
+                                    name={category.name}
+                                    isAnimationActive={true}
+                                    animationBegin={200 + index * 150}
+                                    animationDuration={1300}
+                                    dot={{ r: 4, stroke: color, strokeWidth: 2, fill: 'hsl(var(--card))' }}
+                                    activeDot={{ r: 6, stroke: color, strokeWidth: 2 }}
+                                />
+                            );
+                        })}
+                    </AreaChart>
                 </ResponsiveContainer>
             </CardContent>
         </Card>

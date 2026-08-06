@@ -12,6 +12,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
     $this->tenant = Tenant::factory()->create(['status' => 'active']);
     app()->instance('tenant', $this->tenant);
 
@@ -19,6 +21,7 @@ beforeEach(function () {
         'tenant_id' => $this->tenant->id,
         'is_active' => true,
     ]);
+    $this->user->assignRole('super_admin');
 
     $this->token = $this->user->createToken('test-token')->plainTextToken;
     $this->withHeader('Authorization', "Bearer {$this->token}");
@@ -298,4 +301,51 @@ test('approvals are scoped to tenant', function () {
     $response = $this->getJson('/api/v1/ai/approvals');
 
     expect($response->json('meta.total'))->toBe(0);
+});
+
+test('can upload document to AI context', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('policy-document.pdf', 100, 'application/pdf');
+
+    $response = $this->postJson('/api/v1/ai/upload-document', [
+        'file' => $file,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonStructure(['data' => ['file_name', 'file_path', 'extracted_text']]);
+});
+
+test('executes tool logic when approving a pending action', function () {
+    $customer = Customer::factory()->create(['tenant_id' => $this->tenant->id]);
+    $policy = Policy::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $customer->id,
+    ]);
+
+    $execution = ToolExecution::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'user_id' => $this->user->id,
+        'tool_name' => 'create_debit_note',
+        'parameters' => [
+            'customer_id' => $customer->id,
+            'policy_id' => $policy->id,
+            'amount' => 150000,
+            'description' => 'Test Debit Note Approval',
+        ],
+        'status' => 'pending',
+    ]);
+
+    $response = $this->postJson("/api/v1/ai/approvals/{$execution->id}/approve");
+
+    $response->assertOk()
+        ->assertJsonPath('success', true);
+
+    expect($execution->fresh()->status)->toBe('approved');
+    $this->assertDatabaseHas('debit_notes', [
+        'customer_id' => $customer->id,
+        'tenant_id' => $this->tenant->id,
+        'amount' => 150000,
+    ]);
 });

@@ -180,11 +180,14 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
 
     const handleProductSelect = (product: PolicyProduct) => {
         setSelectedProduct(product);
-        setData('policy_product_id', product.id.toString());
-        setData('policy_type_id', product.policy_type?.id?.toString() || '');
-        setData('policy_class_id', product.policy_class?.id?.toString() || '');
-        setData('commission_rate', product.commission_rate.toString());
-        setData('commission_amount', (parseFloat(data.premium_amount || '0') * (product.commission_rate / 100)).toFixed(2));
+        setData((prev) => ({
+            ...prev,
+            policy_product_id: product.id.toString(),
+            policy_type_id: product.policy_type?.id?.toString() || '',
+            policy_class_id: product.policy_class?.id?.toString() || '',
+            commission_rate: product.commission_rate.toString(),
+            commission_amount: (parseFloat(prev.premium_amount || '0') * (product.commission_rate / 100)).toFixed(2),
+        }));
     };
 
     const formatCurrency = (amount: number) => {
@@ -318,9 +321,12 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                                                             setSelectedTypeId(t.id.toString());
                                                                             setSelectedClassId('');
                                                                             setSelectedProduct(null);
-                                                                            setData('policy_type_id', t.id.toString());
-                                                                            setData('policy_class_id', '');
-                                                                            setData('policy_product_id', '');
+                                                                            setData((prev) => ({
+                                                                                ...prev,
+                                                                                policy_type_id: t.id.toString(),
+                                                                                policy_class_id: '',
+                                                                                policy_product_id: '',
+                                                                            }));
                                                                             setTypeSearchOpen(false);
                                                                         }}
                                                                     >
@@ -393,8 +399,11 @@ export default function RecordPlacedPolicy({ customers, policyProducts, policyTy
                                                                         onClick={() => {
                                                                             setSelectedClassId(c.id.toString());
                                                                             setSelectedProduct(null);
-                                                                            setData('policy_class_id', c.id.toString());
-                                                                            setData('policy_product_id', '');
+                                                                            setData((prev) => ({
+                                                                                ...prev,
+                                                                                policy_class_id: c.id.toString(),
+                                                                                policy_product_id: '',
+                                                                            }));
                                                                             setClassSearchOpen(false);
                                                                         }}
                                                                     >

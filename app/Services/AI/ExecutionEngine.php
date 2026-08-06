@@ -32,12 +32,14 @@ class ExecutionEngine
             ];
         }
 
+        $parameters = $intent['parameters'] ?? [];
+
         $execution = ToolExecution::create([
             'tenant_id' => $user->tenant_id,
             'user_id' => $user->id,
             'conversation_id' => $conversation->id,
             'tool_name' => $tool->name(),
-            'parameters' => [],
+            'parameters' => $parameters,
             'status' => $tool->requiresApproval() ? 'pending' : 'completed',
         ]);
 
@@ -51,7 +53,7 @@ class ExecutionEngine
         }
 
         try {
-            $result = $tool->execute([], $user);
+            $result = $tool->execute($parameters, $user);
 
             $execution->update([
                 'status' => $result->success ? 'completed' : 'failed',
@@ -61,9 +63,10 @@ class ExecutionEngine
 
             $responseMessage = $result->message ?? ($result->success ? 'Action completed successfully.' : 'Action failed.');
 
+            $userMsg = $intent['user_message'] ?? "Execute: {$tool->name()}";
             $this->conversationManager->saveMessages(
                 $conversation,
-                "Execute: {$tool->name()}",
+                $userMsg,
                 $responseMessage,
             );
 
@@ -82,6 +85,68 @@ class ExecutionEngine
                 'conversation_id' => $conversation->id,
                 'message' => "Error executing action: {$e->getMessage()}",
             ];
+        }
+    }
+
+    public function executeApproved(ToolExecution $execution, User $user): ToolResult
+    {
+        $tool = $this->toolRegistry->get($execution->tool_name);
+
+        if (! $tool) {
+            $execution->update([
+                'status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+            ]);
+
+            return new ToolResult(true, [], 'Action approved');
+        }
+
+        if (! $tool->authorize($user)) {
+            $execution->update(['status' => 'failed', 'error_message' => 'Unauthorized']);
+
+            return new ToolResult(false, [], 'User not authorized to execute tool.', 'Unauthorized');
+        }
+
+        try {
+            $params = $execution->parameters ?? [];
+            if (! empty($params)) {
+                $result = $tool->execute($params, $user);
+                $isSuccess = $result->success;
+                $message = $result->message;
+                $data = $result->data;
+                $error = $result->error;
+            } else {
+                $isSuccess = true;
+                $message = 'Action approved';
+                $data = [];
+                $error = null;
+            }
+
+            $execution->update([
+                'status' => $isSuccess ? 'approved' : 'failed',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'result' => $data,
+                'error_message' => $error,
+            ]);
+
+            if ($execution->conversation) {
+                $this->conversationManager->saveMessages(
+                    $execution->conversation,
+                    "Approved Execution: {$tool->name()}",
+                    $message ?? 'Action executed successfully upon approval.'
+                );
+            }
+
+            return new ToolResult($isSuccess, $data, $message ?? 'Action approved', $error);
+        } catch (\Exception $e) {
+            $execution->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+
+            return new ToolResult(false, [], "Error executing action: {$e->getMessage()}", $e->getMessage());
         }
     }
 }

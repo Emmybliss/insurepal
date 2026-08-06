@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Claim;
 use App\Models\CreditNote;
 use App\Models\Customer;
 use App\Models\DebitNote;

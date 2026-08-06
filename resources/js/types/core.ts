@@ -210,6 +210,8 @@ export interface PaginatedData<T> {
     from: number | null;
     to: number | null;
     total: number;
+    last_page: number;
+    per_page: number;
     links: { url: string | null; label: string; active: boolean }[];
 }
 

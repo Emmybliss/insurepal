@@ -109,7 +109,25 @@ class RenewalController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Renewals/Create');
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $tenantId = $user->tenant_id;
+
+        $customerScope = null;
+        if ($user->hasRole('customer')) {
+            $customerScope = \App\Models\Customer::where('user_id', $user->id)->value('id');
+        }
+
+        $policies = Policy::query()
+            ->where('tenant_id', $tenantId)
+            ->when($customerScope, fn ($q) => $q->where('customer_id', $customerScope))
+            ->whereIn('status', ['active', 'expired', 'recorded'])
+            ->with(['customer', 'policyClass'])
+            ->orderBy('expiry_date', 'asc')
+            ->get();
+
+        return Inertia::render('Renewals/Create', [
+            'policies' => $policies,
+        ]);
     }
 
     /**
@@ -153,6 +171,10 @@ class RenewalController extends Controller
     public function update(UpdateRenewalRequest $request, Policy $policy)
     {
         $validated = $request->validated();
+
+        if (isset($validated['premium_amount'])) {
+            $validated['total_amount'] = $validated['premium_amount'];
+        }
 
         $policy->update($validated);
 

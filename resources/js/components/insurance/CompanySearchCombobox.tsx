@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import { Building2, ChevronsUpDown, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export interface BranchInfo {
     id: number | string;
@@ -67,52 +67,53 @@ export default function CompanySearchCombobox({
         return `/insurance-companies/search?type=${companyType}`;
     }, [scope, companyType]);
 
-    const fetchCompanies = useCallback(
-        debounce(async (searchTerm: string) => {
-            if (scope === 'tenant' && searchTerm.length < 1) {
+    const fetchCompanies = useMemo(
+        () =>
+            debounce(async (searchTerm: string) => {
+                if (scope === 'tenant' && searchTerm.length < 1) {
+                    setIsLoading(true);
+                    try {
+                        const response = await fetch(getEndpoint());
+                        if (response.ok) {
+                            const data = await response.json();
+                            setResults(data);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching companies:', error);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                    return;
+                }
+
+                if (searchTerm.length < 2 && scope !== 'tenant') {
+                    setResults([]);
+                    return;
+                }
+
                 setIsLoading(true);
                 try {
-                    const response = await fetch(getEndpoint());
+                    const url = scope === 'tenant' ? `${getEndpoint()}` : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`;
+                    const response = await fetch(scope === 'tenant' ? getEndpoint() : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`);
                     if (response.ok) {
                         const data = await response.json();
-                        setResults(data);
+                        if (scope === 'tenant' && searchTerm.length >= 1) {
+                            const q = searchTerm.toLowerCase();
+                            setResults(
+                                data.filter(
+                                    (item: InsuranceCompany) => item.name.toLowerCase().includes(q) || item.company_name?.toLowerCase().includes(q),
+                                ),
+                            );
+                        } else {
+                            setResults(data);
+                        }
                     }
                 } catch (error) {
                     console.error('Error fetching companies:', error);
                 } finally {
                     setIsLoading(false);
                 }
-                return;
-            }
-
-            if (searchTerm.length < 2 && scope !== 'tenant') {
-                setResults([]);
-                return;
-            }
-
-            setIsLoading(true);
-            try {
-                const url = scope === 'tenant' ? `${getEndpoint()}` : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`;
-                const response = await fetch(scope === 'tenant' ? getEndpoint() : `${getEndpoint()}&q=${encodeURIComponent(searchTerm)}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (scope === 'tenant' && searchTerm.length >= 1) {
-                        const q = searchTerm.toLowerCase();
-                        setResults(
-                            data.filter(
-                                (item: InsuranceCompany) => item.name.toLowerCase().includes(q) || item.company_name?.toLowerCase().includes(q),
-                            ),
-                        );
-                    } else {
-                        setResults(data);
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching companies:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        }, 300),
+            }, 300),
         [scope, companyType, getEndpoint],
     );
 

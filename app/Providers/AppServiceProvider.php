@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Notification;
+use App\Models\Policy;
 use App\Models\Tenant;
 use App\Observers\NotificationObserver;
+use App\Observers\PolicyObserver;
 use App\Observers\TenantObserver;
 use App\Services\PlatformSettingsService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -18,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(\App\Services\AI\ToolRegistry::class);
+
         $this->app->singleton(
             \App\Services\Pdf\PdfService::class,
             \App\Services\Pdf\BrowsershotPdfService::class
@@ -33,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
 
         Notification::observe(NotificationObserver::class);
         Tenant::observe(TenantObserver::class);
+        Policy::observe(PolicyObserver::class);
 
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
@@ -44,14 +49,32 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         // Register AI tools
-        $this->app->make(\App\Services\AI\ToolRegistry::class)->register(
-            $this->app->make(\App\Services\AI\Tools\SearchCustomerTool::class),
-        );
-        $this->app->make(\App\Services\AI\ToolRegistry::class)->register(
-            $this->app->make(\App\Services\AI\Tools\SearchPolicyTool::class),
-        );
-        $this->app->make(\App\Services\AI\ToolRegistry::class)->register(
-            $this->app->make(\App\Services\AI\Tools\GenerateQuoteTool::class),
-        );
+        $aiTools = [
+            \App\Services\AI\Tools\SearchCustomerTool::class,
+            \App\Services\AI\Tools\SearchPolicyTool::class,
+            \App\Services\AI\Tools\GenerateQuoteTool::class,
+            \App\Services\AI\Tools\IssuePolicyTool::class,
+            \App\Services\AI\Tools\CancelPolicyTool::class,
+            \App\Services\AI\Tools\RenewPolicyTool::class,
+            \App\Services\AI\Tools\CreateDebitNoteTool::class,
+            \App\Services\AI\Tools\CreateCreditNoteTool::class,
+            \App\Services\AI\Tools\GenerateReceiptTool::class,
+            \App\Services\AI\Tools\RegisterClaimTool::class,
+            \App\Services\AI\Tools\ApproveClaimTool::class,
+            \App\Services\AI\Tools\GenerateCertificateTool::class,
+            \App\Services\AI\Tools\CalculatePremiumTool::class,
+            \App\Services\AI\Tools\CalculateCommissionTool::class,
+            \App\Services\AI\Tools\GenerateReportTool::class,
+            \App\Services\AI\Tools\SendEmailTool::class,
+            \App\Services\AI\Tools\ScheduleReminderTool::class,
+            \App\Services\AI\Tools\SummarizeEmailsTool::class,
+            \App\Services\AI\Tools\DraftQuoteResponseTool::class,
+            \App\Services\AI\Tools\EmailToClaimTool::class,
+        ];
+
+        $registry = $this->app->make(\App\Services\AI\ToolRegistry::class);
+        foreach ($aiTools as $toolClass) {
+            $registry->register($this->app->make($toolClass));
+        }
     }
 }

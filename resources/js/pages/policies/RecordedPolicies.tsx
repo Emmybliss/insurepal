@@ -2,15 +2,15 @@ import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
-import { Customer } from '@/types';
+import { Customer, PaginatedData } from '@/types/core';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, FileText, Filter, Plus, Search, Trash2, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, FileText, Filter, Plus, Trash2, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 interface Policy {
@@ -48,11 +48,7 @@ interface Filters {
 }
 
 interface Props {
-    policies: {
-        data: Policy[];
-        links: any[];
-        meta: any;
-    };
+    policies: PaginatedData<Policy>;
     stats: Stats;
     filters: Filters;
 }
@@ -130,10 +126,13 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
         });
     };
 
-    const handleSearch = () => {
+    const search = (searchOverride?: string, statusOverride?: string) => {
         router.get(
             route('policy-management.recorded-policies'),
-            { search: searchTerm, status: statusFilter },
+            {
+                search: searchOverride !== undefined ? searchOverride : searchTerm || undefined,
+                status: statusOverride !== undefined ? statusOverride : statusFilter || undefined,
+            },
             { preserveState: true, replace: true },
         );
     };
@@ -274,21 +273,24 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                         <div className="grid gap-4 md:grid-cols-3">
                             <div className="space-y-2">
                                 <Label htmlFor="search">Search</Label>
-                                <div className="relative">
-                                    <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        id="search"
-                                        placeholder="Policy number, customer..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-8"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                    />
-                                </div>
+                                <SearchInput
+                                    placeholder="Policy number, customer..."
+                                    value={searchTerm}
+                                    onChange={(val) => {
+                                        setSearchTerm(val);
+                                        search(val, statusFilter);
+                                    }}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Status</Label>
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={(val) => {
+                                        setStatusFilter(val);
+                                        search(searchTerm, val);
+                                    }}
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
@@ -301,11 +303,8 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex items-end space-x-2">
-                                <Button onClick={handleSearch} className="flex-1">
-                                    Apply Filters
-                                </Button>
-                                <Button variant="outline" onClick={clearFilters}>
+                            <div className="flex items-end">
+                                <Button variant="outline" onClick={clearFilters} className="w-full">
                                     Clear
                                 </Button>
                             </div>
@@ -317,7 +316,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Recorded Policies</CardTitle>
-                        <CardDescription>{policies?.meta?.total} policies found</CardDescription>
+                        <CardDescription>{policies?.total} policies found</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -396,7 +395,7 @@ export default function RecordedPolicies({ policies, stats, filters }: Props) {
                 </Card>
 
                 {/* Pagination */}
-                {policies?.data?.length > 0 && policies?.meta?.links && <Pagination links={policies?.meta?.links} meta={policies?.meta} />}
+                {policies?.data?.length > 0 && policies?.links && <Pagination links={policies?.links} meta={policies} />}
             </div>
 
             <Dialog open={!!policyToDelete} onOpenChange={(open) => !open && setPolicyToDelete(null)}>

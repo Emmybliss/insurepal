@@ -345,6 +345,70 @@ return [
             ],
         ],
 
+        // Customer Quotes
+        'quote.standard' => [
+            'label' => 'Standard Customer Quote',
+            'type' => 'quote',
+            'view_path' => 'pdf.templates.quotes.standard',
+            'preview_image' => null,
+            'supported_placeholders' => [
+                'quote_number', 'customer_name', 'sum_insured',
+                'gross_premium', 'net_premium', 'valid_until', 'status',
+            ],
+            'customizable_properties' => [
+                'colors' => [
+                    'primary' => [
+                        'label' => 'Primary Accent Color',
+                        'selector' => '.primary-accent, h1',
+                        'property' => 'color',
+                        'type' => 'color',
+                    ],
+                    'table_header' => [
+                        'label' => 'Table Header Background',
+                        'selector' => 'th',
+                        'property' => 'background-color',
+                        'type' => 'color',
+                    ],
+                ],
+                'typography' => [
+                    'base_font' => [
+                        'label' => 'Base Font Size',
+                        'selector' => 'body',
+                        'property' => 'font-size',
+                        'type' => 'number',
+                        'unit' => 'px',
+                    ],
+                    'font_family' => [
+                        'label' => 'Font Family',
+                        'selector' => 'body',
+                        'property' => 'font-family',
+                        'type' => 'select',
+                        'options' => [
+                            ['label' => 'Sans Serif (Modern)', 'value' => "'Helvetica Neue', Helvetica, Arial, sans-serif"],
+                            ['label' => 'Serif (Classic)', 'value' => "Georgia, 'Times New Roman', Times, serif"],
+                            ['label' => 'Century Gothic', 'value' => "'Century Gothic', AppleGothic, sans-serif"],
+                            ['label' => 'Times Roman', 'value' => "'Times New Roman', Times, serif"],
+                            ['label' => 'Monospace (Technical)', 'value' => "Monaco, 'Courier New', Courier, monospace"],
+                            ['label' => 'Inter (Sleek)', 'value' => "'Inter', system-ui, sans-serif"],
+                            ['label' => 'Playfair Display (Elegant)', 'value' => "'Playfair Display', serif"],
+                        ],
+                    ],
+                ],
+            ],
+            'editable_labels' => [
+                'title' => [
+                    'label' => 'Document Title',
+                    'default' => 'Insurance Quote',
+                    'key' => 'title_label',
+                ],
+                'bill_to' => [
+                    'label' => 'Recipient Label',
+                    'default' => 'Prepared For:',
+                    'key' => 'recipient_label',
+                ],
+            ],
+        ],
+
         // Policy Record PDF
         'policy_record.classic' => [
             'label' => 'Classic Policy Record',

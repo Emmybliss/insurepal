@@ -50,8 +50,8 @@ class CommissionPostingService
     public function updateEntry(
         CommissionEntry $entry,
         array $changes,
-        User $changedBy,
-        string $reason,
+        ?User $changedBy = null,
+        string $reason = 'Policy updated',
     ): CommissionEntry {
         return DB::transaction(function () use ($entry, $changes, $changedBy, $reason) {
             $originalAmount = $entry->amount;
@@ -73,7 +73,7 @@ class CommissionPostingService
             Log::info('Commission entry updated', [
                 'entry_id' => $entry->id,
                 'reason' => $reason,
-                'changed_by' => $changedBy->id,
+                'changed_by' => $changedBy?->id,
             ]);
 
             return $entry->fresh();
@@ -138,6 +138,40 @@ class CommissionPostingService
             'Initial policy commission',
             $createdBy,
         );
+    }
+
+    public function syncPolicyCommissionEntry(Policy $policy, ?User $updatedBy = null): ?CommissionEntry
+    {
+        $newAmount = (float) ($policy->commission_amount ?? 0);
+
+        $entry = CommissionEntry::where('policy_id', $policy->id)
+            ->where(function ($q) use ($policy) {
+                $q->where('transaction_type', CommissionTransactionType::Policy)
+                    ->orWhere(function ($q2) use ($policy) {
+                        $q2->where('reference_type', 'policy')
+                            ->where('reference_id', $policy->id);
+                    });
+            })
+            ->first();
+
+        if ($entry) {
+            if ((float) $entry->amount !== $newAmount) {
+                return $this->updateEntry(
+                    $entry,
+                    ['amount' => $newAmount],
+                    $updatedBy,
+                    'Policy commission updated via policy edit'
+                );
+            }
+
+            return $entry;
+        }
+
+        if ($newAmount > 0) {
+            return $this->postPolicyEntry($policy, $newAmount, $updatedBy);
+        }
+
+        return null;
     }
 
     public function postCreditNoteEntry(Policy $policy, float $amount, int $creditNoteId, ?User $createdBy = null): CommissionEntry

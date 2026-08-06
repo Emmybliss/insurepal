@@ -239,6 +239,7 @@ Route::prefix('v1/ai')->middleware('auth:sanctum')->group(function () {
     Route::get('/approvals', [\App\Http\Controllers\Api\V1\AIAssistantController::class, 'approvals']);
     Route::post('/approvals/{id}/approve', [\App\Http\Controllers\Api\V1\AIAssistantController::class, 'approveAction']);
     Route::post('/approvals/{id}/reject', [\App\Http\Controllers\Api\V1\AIAssistantController::class, 'rejectAction']);
+    Route::post('/upload-document', [\App\Http\Controllers\Api\V1\AIAssistantController::class, 'uploadDocument']);
     Route::get('/suggestions', [\App\Http\Controllers\Api\V1\AIAssistantController::class, 'suggestions']);
 });
 

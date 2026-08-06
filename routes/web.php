@@ -237,9 +237,11 @@ Route::middleware(['auth', 'verified', 'super.admin'])->prefix('admin')->name('a
     Route::get('tenants/{tenant}/receipt/{subscriptionId}', [AdminTenantController::class, 'downloadReceipt'])->name('tenants.receipt');
 });
 
-// Public route for broker slip verification (no auth needed — shared on PDFs)
+// Public route for broker slip & quote verification (no auth needed — shared on PDFs)
 Route::get('broker-slips/{brokerSlip}/verify', [\App\Http\Controllers\BrokerSlipController::class, 'verify'])
     ->name('broker-slips.verify');
+Route::get('quotes/{quote}/verify', [\App\Http\Controllers\QuoteController::class, 'verify'])
+    ->name('quotes.verify');
 
 // Protected Routes
 Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])->group(function () {
@@ -279,18 +281,38 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
 
         // Quote Management
         Route::resource('quotes', QuoteController::class);
+        Route::post('quotes/{quote}/submit-for-review', [QuoteController::class, 'submitForReview'])
+            ->name('quotes.submit-for-review');
+        Route::post('quotes/{quote}/approve', [QuoteController::class, 'approve'])
+            ->name('quotes.approve');
+        Route::post('quotes/{quote}/request-changes', [QuoteController::class, 'requestChanges'])
+            ->name('quotes.request-changes');
         Route::post('quotes/{quote}/send', [QuoteController::class, 'send'])
             ->name('quotes.send');
         Route::post('quotes/{quote}/accept', [QuoteController::class, 'accept'])
             ->name('quotes.accept');
         Route::post('quotes/{quote}/reject', [QuoteController::class, 'reject'])
             ->name('quotes.reject');
+        Route::post('quotes/{quote}/issue', [QuoteController::class, 'issue'])
+            ->name('quotes.issue');
+        Route::post('quotes/{quote}/withdraw', [QuoteController::class, 'withdraw'])
+            ->name('quotes.withdraw');
+        Route::post('quotes/{quote}/create-new-version', [QuoteController::class, 'createNewVersion'])
+            ->name('quotes.create-new-version');
         Route::post('quotes/{quote}/convert-to-policy', [QuoteController::class, 'convertToPolicy'])
             ->name('quotes.convert-to-policy');
         Route::post('quotes/{quote}/duplicate', [QuoteController::class, 'duplicate'])
             ->name('quotes.duplicate');
         Route::post('quotes/{quote}/extend-validity', [QuoteController::class, 'extendValidity'])
             ->name('quotes.extend-validity');
+        Route::get('quotes/{quote}/download', [QuoteController::class, 'download'])
+            ->name('quotes.download');
+        Route::get('quotes/{quote}/preview', [QuoteController::class, 'preview'])
+            ->name('quotes.preview');
+        Route::get('quotes/{quote}/html-preview', [QuoteController::class, 'htmlPreview'])
+            ->name('quotes.html-preview');
+        Route::post('quotes/calculate-premiums', [QuoteController::class, 'calculatePremiums'])
+            ->name('quotes.calculate-premiums');
         Route::get('quotes-export/pdf', [QuoteController::class, 'exportPdf'])
             ->name('quotes.export-pdf');
         Route::get('api/quotes/expiring-soon', [QuoteController::class, 'expiringSoon'])
@@ -499,7 +521,7 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
         });
 
         // Renewal Management
-        Route::resource('renewals', RenewalController::class)->except('show');
+        Route::resource('renewals', RenewalController::class)->parameters(['renewals' => 'policy'])->except('show');
         Route::get('renewals/{policy}', [RenewalController::class, 'show'])
             ->name('renewals.show');
         Route::post('renewals/{policy}/process', [RenewalController::class, 'processRenewal'])

@@ -38,6 +38,13 @@ class PolicyIssuanceService
             $policyData['source_type'] = Policy::SOURCE_DIRECT_ISSUANCE;
             $policyData['issued_by_id'] = $creator->id;
 
+            $policyData['premium_amount'] = isset($policyData['premium_amount']) && $policyData['premium_amount'] !== '' ? (float) $policyData['premium_amount'] : null;
+            $policyData['sum_insured'] = isset($policyData['sum_insured']) && $policyData['sum_insured'] !== '' ? (float) $policyData['sum_insured'] : null;
+            $policyData['commission_amount'] = isset($policyData['commission_amount']) && $policyData['commission_amount'] !== '' ? (float) $policyData['commission_amount'] : 0.00;
+            $policyData['commission_rate'] = isset($policyData['commission_rate']) && $policyData['commission_rate'] !== '' ? (float) $policyData['commission_rate'] : 0.00;
+            $policyData['total_amount'] = (float) (($policyData['premium_amount'] ?? 0) + ($policyData['commission_amount'] ?? 0));
+            $policyData['net_premium'] = (float) (($policyData['premium_amount'] ?? 0) - ($policyData['commission_amount'] ?? 0));
+
             // Determine if approval is required based on user role and policy amount
             if ($this->requiresApproval($creator, $policyData['total_amount'])) {
                 $policyData['approval_status'] = Policy::APPROVAL_PENDING;
@@ -107,6 +114,13 @@ class PolicyIssuanceService
             $policyData['approval_status'] = Policy::APPROVAL_NOT_REQUIRED;
             $policyData['is_policy_issued'] = true;
             $policyData['issued_at'] = now();
+
+            $policyData['premium_amount'] = isset($policyData['premium_amount']) && $policyData['premium_amount'] !== '' ? (float) $policyData['premium_amount'] : null;
+            $policyData['sum_insured'] = isset($policyData['sum_insured']) && $policyData['sum_insured'] !== '' ? (float) $policyData['sum_insured'] : null;
+            $policyData['commission_amount'] = isset($policyData['commission_amount']) && $policyData['commission_amount'] !== '' ? (float) $policyData['commission_amount'] : 0.00;
+            $policyData['commission_rate'] = isset($policyData['commission_rate']) && $policyData['commission_rate'] !== '' ? (float) $policyData['commission_rate'] : 0.00;
+            $policyData['total_amount'] = (float) (($policyData['premium_amount'] ?? 0) + ($policyData['commission_amount'] ?? 0));
+            $policyData['net_premium'] = (float) (($policyData['premium_amount'] ?? 0) - ($policyData['commission_amount'] ?? 0));
 
             if ($scheduleFile) {
                 $path = $scheduleFile->store("tenants/{$recorder->tenant_id}/policies/schedules", 'public');

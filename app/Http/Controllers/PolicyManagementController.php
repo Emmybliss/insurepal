@@ -297,7 +297,7 @@ class PolicyManagementController extends Controller
                 'insurer_email', 'insurer_phone', 'risks',
             ]);
 
-            $policyData['total_amount'] = $policyData['premium_amount'] + ($policyData['commission_amount'] ?? 0);
+            $policyData['total_amount'] = ($policyData['premium_amount'] ?? 0) + ($policyData['commission_amount'] ?? 0);
 
             $policy = $this->policyIssuanceService->createDirectPolicy($policyData, Auth::user());
 
@@ -305,7 +305,6 @@ class PolicyManagementController extends Controller
                 ->with('success', 'Policy created successfully.');
         } catch (\Exception $e) {
             Log::error('Error creating policy: '.$e->getMessage());
-            dd(old()); // place here if you want to check old input
 
             return back()
                 ->withInput()
@@ -514,6 +513,18 @@ class PolicyManagementController extends Controller
         $approvals = PolicyApproval::query()
             ->where('tenant_id', $tenantId)
             ->with(['policy.customer', 'policy.policyProduct', 'requestedBy', 'approvedBy'])
+            ->when($request->search, fn ($query, $search) => $query->where(function ($q) use ($search) {
+                $q->whereHas('policy', fn ($p) => $p->where('policy_number', 'like', "%{$search}%")
+                    ->orWhere('internal_reference', 'like', "%{$search}%")
+                )
+                    ->orWhereHas('policy.customer', fn ($c) => $c->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                    )
+                    ->orWhereHas('requestedBy', fn ($r) => $r->where('name', 'like', "%{$search}%"))
+                    ->orWhere('request_notes', 'like', "%{$search}%");
+            }))
             ->when($request->status, fn ($query, $status) => $query->where('status', $status))
             ->when($request->approval_type, fn ($query, $type) => $query->where('approval_type', $type))
             ->latest('requested_at')
@@ -530,7 +541,7 @@ class PolicyManagementController extends Controller
         return Inertia::render('policies/Approvals', [
             'approvals' => $approvals,
             'stats' => $stats,
-            'filters' => $request->only(['status', 'approval_type']),
+            'filters' => $request->only(['search', 'status', 'approval_type']),
         ]);
     }
 

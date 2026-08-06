@@ -5,16 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppSidebarLayout from '@/layouts/app/app-sidebar-layout';
+import { Customer, PaginatedData } from '@/types/core';
 import { Head, Link, router } from '@inertiajs/react';
 import { Check, CheckCircle, Clock, Eye, FileText, Filter, MoreHorizontal, X, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 
-interface PolicyApproval {
+interface Approval {
     id: number;
     status: string;
     approval_type: string;
@@ -56,16 +58,13 @@ interface Stats {
 }
 
 interface Filters {
+    search?: string;
     status?: string;
     approval_type?: string;
 }
 
 interface Props {
-    approvals: {
-        data: PolicyApproval[];
-        links: any[];
-        meta: any;
-    };
+    approvals: PaginatedData<Approval>;
     stats: Stats;
     filters: Filters;
 }
@@ -87,29 +86,29 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function Approvals({ approvals, stats, filters }: Props) {
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [approvalTypeFilter, setApprovalTypeFilter] = useState(filters.approval_type || '');
-    const [selectedApproval, setSelectedApproval] = useState<PolicyApproval | null>(null);
+    const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [showApprovalDialog, setShowApprovalDialog] = useState(false);
     const [showRejectionDialog, setShowRejectionDialog] = useState(false);
 
-    const handleSearch = () => {
+    const search = (searchOverride?: string, statusOverride?: string, approvalTypeOverride?: string) => {
         router.get(
             route('policy-approvals.index'),
             {
-                status: statusFilter,
-                approval_type: approvalTypeFilter,
+                search: searchOverride !== undefined ? searchOverride : searchTerm || undefined,
+                status: statusOverride !== undefined ? statusOverride : statusFilter || undefined,
+                approval_type: approvalTypeOverride !== undefined ? approvalTypeOverride : approvalTypeFilter || undefined,
             },
-            {
-                preserveState: true,
-                replace: true,
-            },
+            { preserveState: true, replace: true },
         );
     };
 
     const clearFilters = () => {
+        setSearchTerm('');
         setStatusFilter('');
         setApprovalTypeFilter('');
         router.get(route('policy-approvals.index'));
@@ -247,10 +246,27 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="search">Search</Label>
+                                <SearchInput
+                                    placeholder="Policy number, customer..."
+                                    value={searchTerm}
+                                    onChange={(val) => {
+                                        setSearchTerm(val);
+                                        search(val, statusFilter, approvalTypeFilter);
+                                    }}
+                                />
+                            </div>
                             <div className="space-y-2">
                                 <Label>Status</Label>
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={(val) => {
+                                        setStatusFilter(val);
+                                        search(searchTerm, val, approvalTypeFilter);
+                                    }}
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
@@ -264,7 +280,13 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                             </div>
                             <div className="space-y-2">
                                 <Label>Approval Type</Label>
-                                <Select value={approvalTypeFilter} onValueChange={setApprovalTypeFilter}>
+                                <Select
+                                    value={approvalTypeFilter}
+                                    onValueChange={(val) => {
+                                        setApprovalTypeFilter(val);
+                                        search(searchTerm, statusFilter, val);
+                                    }}
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
@@ -276,11 +298,8 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex items-end space-x-2">
-                                <Button onClick={handleSearch} className="flex-1">
-                                    Apply Filters
-                                </Button>
-                                <Button variant="outline" onClick={clearFilters}>
+                            <div className="flex items-end">
+                                <Button variant="outline" onClick={clearFilters} className="w-full">
                                     Clear
                                 </Button>
                             </div>
@@ -292,7 +311,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Approval Requests</CardTitle>
-                        <CardDescription>{approvals.meta?.total} approval requests found</CardDescription>
+                        <CardDescription>{approvals?.total} approval requests found</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -394,7 +413,7 @@ export default function Approvals({ approvals, stats, filters }: Props) {
                 </Card>
 
                 {/* Pagination */}
-                {approvals.data.length > 0 && approvals.meta?.links && <Pagination links={approvals.meta.links} meta={approvals.meta} />}
+                {approvals?.data?.length > 0 && approvals?.links && <Pagination links={approvals?.links} meta={approvals as any} />}
             </div>
 
             {/* Approval Dialog */}

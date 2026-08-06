@@ -31,6 +31,7 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import CreateFinancialNoteModal from './CreateFinancialNoteModal';
+import { cn } from '@/lib/utils';
 
 interface PolicyType {
     id: number;

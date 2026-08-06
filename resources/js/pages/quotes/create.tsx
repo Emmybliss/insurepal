@@ -1,578 +1,495 @@
+import RiskScheduleItem from '@/components/broker-slips/RiskScheduleItem';
+import FinancialSummary from '@/components/broker-slips/FinancialSummary';
 import CustomerCreateModal from '@/components/customers/CustomerCreateModal';
-import { Badge } from '@/components/ui/badge';
+import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Command, CommandGroup, CommandInput, CommandList } from '@/components/ui/command';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router, useForm } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
+import { Head, Link, useForm } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { Calculator, Car, Heart, Home, Plus, Save, Send, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { Check, ChevronsUpDown, PlusCircle, Save, Send } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
+type RiskMode = 'single' | 'scheduled' | 'mixed';
 
 interface Customer {
     id: number;
-    display_name: string;
+    type: string;
+    first_name: string;
+    last_name: string;
+    company_name: string;
     email: string;
-    phone: string;
-    address: string;
-    type: 'individual' | 'corporate';
 }
 
-interface InsuranceProduct {
+interface PolicyType {
     id: number;
     name: string;
-    type: string;
-    description: string;
-    base_premium: number;
-    commission_rate: number;
-    coverage_options: any;
-    form_fields: any;
 }
 
-interface Props {
-    customers: Customer[];
-    products: InsuranceProduct[];
-    customer?: Customer;
-    product?: InsuranceProduct;
+interface PolicyClass {
+    id: number;
+    name: string;
+    risk_mode?: string;
+    policy_type_id?: number;
+}
+
+interface PolicyProduct {
+    id: number;
+    name: string;
+    coverage_label?: string;
+    policy_class?: PolicyClass;
+    base_premium?: string | number;
+    default_rate_basis?: string;
+}
+
+interface QuoteRisk {
+    policy_class_id: string;
+    policy_product_id: string;
+    description: string;
+    coverage_amount: string;
+    rate: string;
+    rate_basis: string;
+    premium: string;
+    dynamic_fields: Record<string, any>;
+}
+
+interface QuoteClause {
+    clause_type: string;
+    title: string;
+    content: string;
+    is_standard: boolean;
 }
 
 interface FormData {
     customer_id: string;
-    insurance_product_id: string;
-    coverage_amount: string;
-    premium_amount: string;
-    commission_amount: string;
+    currency: string;
+    period_start: string;
+    period_end: string;
     valid_until: string;
+    claim_payment_condition: string;
+    commission_rate: string;
+    fees: string;
+    tax_rate: string;
+    discount: string;
+    policy_class_id: string;
+    insurance_product_id: string;
     notes: string;
-    coverage_details: Record<string, any>;
-    form_data: Record<string, any>;
+    risks: QuoteRisk[];
+    clauses: QuoteClause[];
 }
 
-export default function Create({ customers, products, customer, product }: Props) {
-    const [customerList, setCustomerList] = useState<Customer[]>(customers);
-    const [customerModalOpen, setCustomerModalOpen] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState<InsuranceProduct | null>(product || null);
-    const [calculatedPremium, setCalculatedPremium] = useState<number>(0);
-    const [calculatedCommission, setCalculatedCommission] = useState<number>(0);
+interface Props {
+    customers: Customer[];
+    policyTypes: PolicyType[];
+    policyClasses: PolicyClass[];
+    policyProducts: PolicyProduct[];
+    selectedCustomer?: Customer;
+    defaultValidUntil?: string;
+}
+
+function createEmptyRisk(classId: string, productId: string, product?: PolicyProduct): QuoteRisk {
+    return {
+        policy_class_id: classId,
+        policy_product_id: productId,
+        description: '',
+        coverage_amount: '',
+        rate: product?.base_premium?.toString() || '',
+        rate_basis: product?.default_rate_basis || 'percentage',
+        premium: '',
+        dynamic_fields: {},
+    };
+}
+
+export default function Create({ customers, policyTypes, policyClasses, policyProducts, selectedCustomer, defaultValidUntil }: Props) {
+    const [customerList, setCustomerList] = useState<Customer[]>(customers || []);
+    const [selectedTypeId, setSelectedTypeId] = useState<string>('');
+    const [typeSearchOpen, setTypeSearchOpen] = useState(false);
+    const [typeSearchQuery, setTypeSearchQuery] = useState('');
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [classSearchOpen, setClassSearchOpen] = useState(false);
+    const [classSearchQuery, setClassSearchQuery] = useState('');
 
     const { data, setData, post, processing, errors } = useForm<FormData>({
-        customer_id: customer?.id?.toString() || '',
-        insurance_product_id: product?.id?.toString() || '',
-        coverage_amount: '',
-        premium_amount: '',
-        commission_amount: '',
-        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        customer_id: selectedCustomer?.id?.toString() || '',
+        currency: 'NGN',
+        period_start: dayjs().format('YYYY-MM-DD'),
+        period_end: dayjs().add(1, 'year').format('YYYY-MM-DD'),
+        valid_until: defaultValidUntil || dayjs().add(30, 'day').format('YYYY-MM-DD'),
+        claim_payment_condition: '',
+        commission_rate: '',
+        fees: '',
+        tax_rate: '',
+        discount: '',
+        policy_class_id: '',
+        insurance_product_id: '',
         notes: '',
-        coverage_details: {},
-        form_data: {},
+        risks: [] as QuoteRisk[],
+        clauses: [] as QuoteClause[],
     });
 
-    const getProductIcon = (productType: string) => {
-        switch (productType?.toLowerCase()) {
-            case 'auto':
-            case 'motor':
-                return <Car className="h-5 w-5" />;
-            case 'property':
-            case 'home':
-                return <Home className="h-5 w-5" />;
-            case 'life':
-                return <Heart className="h-5 w-5" />;
-            default:
-                return <User className="h-5 w-5" />;
+    const selectedClass = policyClasses.find((c) => c.id.toString() === selectedClassId);
+    const riskMode: RiskMode = (selectedClass?.risk_mode as RiskMode) || 'single';
+
+    const filteredClasses = policyClasses.filter((c) => {
+        if (c.policy_type_id?.toString() !== selectedTypeId) return false;
+        return !classSearchQuery || c.name.toLowerCase().includes(classSearchQuery.toLowerCase());
+    });
+
+    const handleCustomerCreated = (newCustomer: import('@/types').Customer) => {
+        const adapted: Customer = {
+            id: newCustomer.id,
+            type: newCustomer.type,
+            first_name: newCustomer.first_name,
+            last_name: newCustomer.last_name,
+            company_name: newCustomer.company_name,
+            email: newCustomer.email,
+        };
+        setCustomerList((prev) => [...prev, adapted]);
+        setData((prev) => ({ ...prev, customer_id: adapted.id.toString() }));
+    };
+
+    useEffect(() => {
+        if (riskMode === 'single' && selectedClassId && data.risks.length === 0) {
+            setData((prev) => ({
+                ...prev,
+                risks: [createEmptyRisk(selectedClassId, '', undefined)],
+            }));
         }
+    }, [riskMode, selectedClassId, data.risks.length, setData]);
+
+    const handleRiskChange = (index: number, updates: Partial<QuoteRisk>) => {
+        setData((prev) => ({
+            ...prev,
+            risks: prev.risks.map((risk, i) => (i === index ? { ...risk, ...updates } : risk)),
+        }));
     };
 
-    const calculatePremium = () => {
-        if (!selectedProduct || !data.coverage_amount) return;
-
-        const coverageAmount = parseFloat(data.coverage_amount);
-        if (isNaN(coverageAmount)) return;
-
-        // Basic premium calculation based on product base premium and coverage amount
-        const basePremium = selectedProduct.base_premium || 0;
-        let premium = basePremium;
-
-        // For percentage-based products
-        if (basePremium < 1) {
-            premium = coverageAmount * basePremium;
-        } else {
-            // For fixed premium products, add coverage factor
-            premium = basePremium + coverageAmount * 0.001; // 0.1% of coverage amount
-        }
-
-        // Apply form data multipliers if any
-        const formMultiplier = calculateFormMultiplier();
-        premium *= formMultiplier;
-
-        const commission = premium * (selectedProduct.commission_rate || 0.1);
-
-        setCalculatedPremium(Math.round(premium * 100) / 100);
-        setCalculatedCommission(Math.round(commission * 100) / 100);
-        setData('premium_amount', (Math.round(premium * 100) / 100).toString());
-        setData('commission_amount', (Math.round(commission * 100) / 100).toString());
+    const addRisk = () => {
+        setData((prev) => ({
+            ...prev,
+            risks: [...prev.risks, createEmptyRisk(selectedClassId, '', undefined)],
+        }));
     };
 
-    const calculateFormMultiplier = (): number => {
-        if (!selectedProduct?.form_fields) return 1;
-
-        let multiplier = 1;
-
-        // Example risk multipliers based on form data
-        Object.entries(data.form_data).forEach(([key, value]) => {
-            const field = selectedProduct.form_fields.find((f: any) => f.key === key);
-            if (field && field.risk_multiplier && value) {
-                if (typeof field.risk_multiplier === 'object') {
-                    multiplier *= field.risk_multiplier[value] || 1;
-                } else {
-                    multiplier *= field.risk_multiplier;
-                }
-            }
-        });
-
-        return multiplier;
+    const removeRisk = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            risks: prev.risks.filter((_, i) => i !== index),
+        }));
     };
 
-    const handleProductChange = (productId: string) => {
-        const product = products.find((p) => p.id.toString() === productId);
-        setSelectedProduct(product || null);
-        setData('insurance_product_id', productId);
-
-        if (product) {
-            // Reset form data for new product
-            setData('form_data', {});
-            setData('coverage_details', {});
-        }
-    };
-
-    const handleFormFieldChange = (fieldKey: string, value: any) => {
-        setData('form_data', {
-            ...data.form_data,
-            [fieldKey]: value,
-        });
-    };
-
-    const handleCoverageDetailChange = (key: string, value: any) => {
-        setData('coverage_details', {
-            ...data.coverage_details,
-            [key]: value,
-        });
-    };
-
-    const handleSubmit = (e: React.FormEvent, action: 'draft' | 'send' = 'draft') => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const submitData = {
-            ...data,
-            action,
-        };
-
         post(route('quotes.store'), {
-            data: submitData,
             onSuccess: () => {
-                toast.success(action === 'draft' ? 'Quote has been saved as draft' : 'Quote has been sent to customer');
-                router.visit(route('quotes.index'));
+                toast.success('Customer quote created successfully');
             },
-            onError: (errors) => {
+            onError: (errs) => {
+                console.log('Failed to create quote', errs);
                 toast.error('Failed to create quote. Please check the form and try again.');
             },
         });
     };
 
-    const handleCustomerCreated = (newCustomer: import('@/types').Customer) => {
-        const adapted: Customer = {
-            id: newCustomer.id,
-            display_name: newCustomer.display_name,
-            email: newCustomer.email,
-            phone: newCustomer.phone ?? '',
-            address: newCustomer.address ?? '',
-            type: newCustomer.type,
-        };
-        setCustomerList((prev) => [...prev, adapted]);
-        setData('customer_id', adapted.id.toString());
-    };
-
-    // Auto-calculate premium when coverage amount or form data changes
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            calculatePremium();
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [data.coverage_amount, data.form_data, selectedProduct]);
-
-    const renderFormFields = () => {
-        if (!selectedProduct?.form_fields) return null;
-
-        return selectedProduct.form_fields.map((field: any, index: number) => (
-            <div key={index} className="space-y-2">
-                <Label htmlFor={field.key}>{field.label}</Label>
-                {field.type === 'select' ? (
-                    <Select value={data.form_data[field.key] || ''} onValueChange={(value) => handleFormFieldChange(field.key, value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {field.options?.map((option: any, optIndex: number) => (
-                                <SelectItem key={optIndex} value={option.value}>
-                                    {option.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                ) : field.type === 'textarea' ? (
-                    <Textarea
-                        id={field.key}
-                        value={data.form_data[field.key] || ''}
-                        onChange={(e) => handleFormFieldChange(field.key, e.target.value)}
-                        placeholder={field.placeholder}
-                        className={errors[`form_data.${field.key}`] ? 'border-red-500' : ''}
-                    />
-                ) : (
-                    <Input
-                        id={field.key}
-                        type={field.type || 'text'}
-                        value={data.form_data[field.key] || ''}
-                        onChange={(e) => handleFormFieldChange(field.key, e.target.value)}
-                        placeholder={field.placeholder}
-                        className={errors[`form_data.${field.key}`] ? 'border-red-500' : ''}
-                    />
-                )}
-                {errors[`form_data.${field.key}`] && <p className="text-sm text-red-600">{errors[`form_data.${field.key}`]}</p>}
-                {field.description && <p className="text-sm text-muted-foreground">{field.description}</p>}
-            </div>
-        ));
-    };
-
-    const renderCoverageOptions = () => {
-        if (!selectedProduct?.coverage_options) return null;
-
-        return Object.entries(selectedProduct.coverage_options).map(([key, option]: [string, any]) => (
-            <div key={key} className="space-y-2">
-                <Label htmlFor={`coverage_${key}`}>{option.label}</Label>
-                {option.type === 'boolean' ? (
-                    <Select
-                        value={data.coverage_details[key]?.toString() || 'false'}
-                        onValueChange={(value) => handleCoverageDetailChange(key, value === 'true')}
-                    >
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="false">No</SelectItem>
-                            <SelectItem value="true">Yes</SelectItem>
-                        </SelectContent>
-                    </Select>
-                ) : option.type === 'select' ? (
-                    <Select value={data.coverage_details[key] || ''} onValueChange={(value) => handleCoverageDetailChange(key, value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={`Select ${option.label}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {option.options?.map((opt: any, optIndex: number) => (
-                                <SelectItem key={optIndex} value={opt.value}>
-                                    {opt.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                ) : (
-                    <Input
-                        id={`coverage_${key}`}
-                        type={option.type || 'text'}
-                        value={data.coverage_details[key] || ''}
-                        onChange={(e) => handleCoverageDetailChange(key, e.target.value)}
-                        placeholder={option.placeholder}
-                    />
-                )}
-                {option.description && <p className="text-sm text-muted-foreground">{option.description}</p>}
-            </div>
-        ));
-    };
-
-    console.log(customers);
     return (
         <AppLayout>
-            <Head title="Create Quote" />
+            <Head title="Create Customer Quote" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <form onSubmit={(e) => handleSubmit(e, 'draft')} className="space-y-6">
-                        {/* Customer and Product Selection */}
+            <div className="space-y-6">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight">Create Customer Quote</h1>
+                    <p className="text-muted-foreground">
+                        Configure customer details, policy class, risk schedule, premium details, and coverage terms.
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Customer & Policy Details</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label>Customer / Proposer *</Label>
+                                    <CustomerSearchSelect
+                                        value={data.customer_id}
+                                        initialCustomers={customerList as any}
+                                        onChange={(customerId) => setData((prev) => ({ ...prev, customer_id: customerId }))}
+                                    />
+                                    {errors.customer_id && <p className="mt-1 text-sm text-red-600">{errors.customer_id}</p>}
+                                </div>
+
+                                <div>
+                                    <Label>Currency</Label>
+                                    <Select value={data.currency} onValueChange={(value) => setData((prev) => ({ ...prev, currency: value }))}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NGN">NGN (₦)</SelectItem>
+                                            <SelectItem value="USD">USD ($)</SelectItem>
+                                            <SelectItem value="EUR">EUR (€)</SelectItem>
+                                            <SelectItem value="GBP">GBP (£)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label>Policy Type *</Label>
+                                    <Popover open={typeSearchOpen} onOpenChange={setTypeSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" role="combobox" className="w-full justify-between">
+                                                {selectedTypeId
+                                                    ? policyTypes.find((t) => t.id.toString() === selectedTypeId)?.name
+                                                    : 'Select policy type...'}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Search types..." value={typeSearchQuery} onValueChange={setTypeSearchQuery} />
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {policyTypes
+                                                            .filter((t) => !typeSearchQuery || t.name.toLowerCase().includes(typeSearchQuery.toLowerCase()))
+                                                            .map((t) => (
+                                                                <div
+                                                                    key={t.id}
+                                                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                                                                    onClick={() => {
+                                                                        setSelectedTypeId(t.id.toString());
+                                                                        setSelectedClassId('');
+                                                                        setData((prev) => ({ ...prev, risks: [] }));
+                                                                        setTypeSearchOpen(false);
+                                                                    }}
+                                                                >
+                                                                    <Check className={cn('h-4 w-4', selectedTypeId === t.id.toString() ? 'opacity-100' : 'opacity-0')} />
+                                                                    {t.name}
+                                                                </div>
+                                                            ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+
+                                <div>
+                                    <Label>Policy Class *</Label>
+                                    <Popover open={classSearchOpen} onOpenChange={setClassSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" role="combobox" className="w-full justify-between" disabled={!selectedTypeId}>
+                                                {selectedClassId
+                                                    ? policyClasses.find((c) => c.id.toString() === selectedClassId)?.name
+                                                    : selectedTypeId ? 'Select class...' : 'Select type first'}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Search classes..." value={classSearchQuery} onValueChange={setClassSearchQuery} />
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {filteredClasses.map((c) => (
+                                                            <div
+                                                                key={c.id}
+                                                                className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                                                                onClick={() => {
+                                                                    setSelectedClassId(c.id.toString());
+                                                                    setData((prev) => ({ ...prev, policy_class_id: c.id.toString(), risks: [] }));
+                                                                    setClassSearchOpen(false);
+                                                                }}
+                                                            >
+                                                                <Check className={cn('h-4 w-4', selectedClassId === c.id.toString() ? 'opacity-100' : 'opacity-0')} />
+                                                                {c.name}
+                                                            </div>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <Label>Proposed Start Date</Label>
+                                    <DatePickerSimple
+                                        date={data.period_start ? new Date(data.period_start) : undefined}
+                                        onSelect={(date) => setData((prev) => ({ ...prev, period_start: date ? dayjs(date).format('YYYY-MM-DD') : '' }))}
+                                        placeholder="Start date"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Proposed End Date</Label>
+                                    <DatePickerSimple
+                                        date={data.period_end ? new Date(data.period_end) : undefined}
+                                        onSelect={(date) => setData((prev) => ({ ...prev, period_end: date ? dayjs(date).format('YYYY-MM-DD') : '' }))}
+                                        placeholder="End date"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Quote Valid Until *</Label>
+                                    <DatePickerSimple
+                                        date={data.valid_until ? new Date(data.valid_until) : undefined}
+                                        onSelect={(date) => setData((prev) => ({ ...prev, valid_until: date ? dayjs(date).format('YYYY-MM-DD') : '' }))}
+                                        placeholder="Validity date"
+                                    />
+                                    {errors.valid_until && <p className="mt-1 text-sm text-red-600">{errors.valid_until}</p>}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {selectedClassId ? (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Basic Information</CardTitle>
-                                <CardDescription>Select the customer and insurance product for this quote</CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>{riskMode === 'single' ? 'Coverage Details' : 'Risk Schedule'}</CardTitle>
+                                    {riskMode !== 'single' && (
+                                        <Button type="button" variant="outline" size="sm" onClick={addRisk}>
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Add Risk Item
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="customer_id">Customer *</Label>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1">
-                                                <Select
-                                                    value={data.customer_id}
-                                                    onValueChange={(value) => setData('customer_id', value)}
-                                                    disabled={!!customer}
-                                                >
-                                                    <SelectTrigger className={errors.customer_id ? 'border-red-500' : ''}>
-                                                        <SelectValue placeholder="Select customer" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {customerList.map((customer) => (
-                                                            <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                                <div className="flex items-center space-x-2">
-                                                                    <User className="h-4 w-4" />
-                                                                    <span>{customer.display_name}</span>
-                                                                    <Badge variant="outline" className="ml-2">
-                                                                        {customer.type}
-                                                                    </Badge>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setCustomerModalOpen(true)}
-                                                className="mt-0 shrink-0 self-start"
-                                            >
-                                                <Plus className="mr-1 h-4 w-4" />
-                                                Add New
-                                            </Button>
-                                        </div>
-                                        {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
-                                        <CustomerCreateModal
-                                            open={customerModalOpen}
-                                            onOpenChange={setCustomerModalOpen}
-                                            onCustomerCreated={handleCustomerCreated}
+                                {data.risks.map((risk, index) => (
+                                    <RiskScheduleItem
+                                        key={index}
+                                        index={index}
+                                        risk={risk}
+                                        riskMode={riskMode}
+                                        policyTypes={policyTypes}
+                                        policyClasses={policyClasses}
+                                        policyProducts={policyProducts}
+                                        onChange={handleRiskChange}
+                                        onRemove={riskMode === 'single' ? () => {} : removeRisk}
+                                        errors={errors}
+                                    />
+                                ))}
+
+                                <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-4">
+                                    <div>
+                                        <Label htmlFor="commission_rate">Commission Rate (%)</Label>
+                                        <Input
+                                            id="commission_rate"
+                                            type="number"
+                                            step="any"
+                                            value={data.commission_rate}
+                                            onChange={(e) => setData((prev) => ({ ...prev, commission_rate: e.target.value }))}
+                                            placeholder="0.00"
                                         />
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="insurance_product_id">Insurance Product *</Label>
-                                        <Select value={data.insurance_product_id} onValueChange={handleProductChange} disabled={!!product}>
-                                            <SelectTrigger className={errors.insurance_product_id ? 'border-red-500' : ''}>
-                                                <SelectValue placeholder="Select product" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {products.map((product) => (
-                                                    <SelectItem key={product.id} value={product.id.toString()}>
-                                                        <div className="flex items-center space-x-2">
-                                                            {getProductIcon(product.type)}
-                                                            <span>{product.name}</span>
-                                                            <Badge variant="secondary" className="ml-2">
-                                                                {product.type}
-                                                            </Badge>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.insurance_product_id && <p className="text-sm text-red-600">{errors.insurance_product_id}</p>}
+                                    <div>
+                                        <Label htmlFor="fees">Additional Fees</Label>
+                                        <Input
+                                            id="fees"
+                                            type="number"
+                                            step="any"
+                                            value={data.fees}
+                                            onChange={(e) => setData((prev) => ({ ...prev, fees: e.target.value }))}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="tax_rate">Tax Rate (%)</Label>
+                                        <Input
+                                            id="tax_rate"
+                                            type="number"
+                                            step="any"
+                                            value={data.tax_rate}
+                                            onChange={(e) => setData((prev) => ({ ...prev, tax_rate: e.target.value }))}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="discount">Discount</Label>
+                                        <Input
+                                            id="discount"
+                                            type="number"
+                                            step="any"
+                                            value={data.discount}
+                                            onChange={(e) => setData((prev) => ({ ...prev, discount: e.target.value }))}
+                                            placeholder="0.00"
+                                        />
                                     </div>
                                 </div>
 
-                                {selectedProduct && (
-                                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                                        <div className="flex items-start space-x-3">
-                                            {getProductIcon(selectedProduct.type)}
-                                            <div>
-                                                <h4 className="font-medium text-blue-900">{selectedProduct.name}</h4>
-                                                <p className="text-sm text-blue-700">{selectedProduct.description}</p>
-                                                <div className="mt-2 flex items-center space-x-4 text-sm text-blue-600">
-                                                    <span>Base Premium: ₦{selectedProduct.base_premium?.toLocaleString()}</span>
-                                                    <span>Commission: {(selectedProduct.commission_rate || 0) * 100}%</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                <FinancialSummary
+                                    risks={data.risks}
+                                    commissionRate={data.commission_rate}
+                                    fees={data.fees}
+                                    taxRate={data.tax_rate}
+                                    currency={data.currency}
+                                />
                             </CardContent>
                         </Card>
-
-                        {/* Coverage Details */}
-                        {selectedProduct && (
-                            <>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Coverage Details</CardTitle>
-                                        <CardDescription>Specify the coverage amount and options</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="coverage_amount">Coverage Amount (₦) *</Label>
-                                                <Input
-                                                    id="coverage_amount"
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={data.coverage_amount}
-                                                    onChange={(e) => setData('coverage_amount', e.target.value)}
-                                                    placeholder="Enter coverage amount"
-                                                    className={errors.coverage_amount ? 'border-red-500' : ''}
-                                                />
-                                                {errors.coverage_amount && <p className="text-sm text-red-600">{errors.coverage_amount}</p>}
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="valid_until">Valid Until *</Label>
-                                                <DatePickerSimple
-                                                    date={data.valid_until ? new Date(data.valid_until) : undefined}
-                                                    onSelect={(date) => setData('valid_until', date ? dayjs(date).format('YYYY-MM-DD') : '')}
-                                                    placeholder="Select validity date"
-                                                />
-                                                {errors.valid_until && <p className="text-sm text-red-600">{errors.valid_until}</p>}
-                                            </div>
-                                        </div>
-
-                                        {selectedProduct.coverage_options && (
-                                            <>
-                                                <Separator />
-                                                <div>
-                                                    <h4 className="mb-3 font-medium">Coverage Options</h4>
-                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{renderCoverageOptions()}</div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                {/* Product-specific Form Fields */}
-                                {selectedProduct.form_fields && selectedProduct.form_fields.length > 0 && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Additional Information</CardTitle>
-                                            <CardDescription>Product-specific details for accurate pricing</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{renderFormFields()}</div>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {/* Premium Calculation */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center space-x-2">
-                                            <Calculator className="h-5 w-5" />
-                                            <span>Premium Calculation</span>
-                                        </CardTitle>
-                                        <CardDescription>Calculated premium and commission amounts</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="premium_amount">Premium Amount (₦)</Label>
-                                                <div className="relative">
-                                                    <Input
-                                                        id="premium_amount"
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={data.premium_amount}
-                                                        onChange={(e) => setData('premium_amount', e.target.value)}
-                                                        className={`bg-gray-50 ${errors.premium_amount ? 'border-red-500' : ''}`}
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={calculatePremium}
-                                                        className="absolute top-1/2 right-2 h-6 -translate-y-1/2 px-2"
-                                                    >
-                                                        <Calculator className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                                {errors.premium_amount && <p className="text-sm text-red-600">{errors.premium_amount}</p>}
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="commission_amount">Commission Amount (₦)</Label>
-                                                <Input
-                                                    id="commission_amount"
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={data.commission_amount}
-                                                    onChange={(e) => setData('commission_amount', e.target.value)}
-                                                    className={`bg-gray-50 ${errors.commission_amount ? 'border-red-500' : ''}`}
-                                                    readOnly
-                                                />
-                                                {errors.commission_amount && <p className="text-sm text-red-600">{errors.commission_amount}</p>}
-                                            </div>
-                                        </div>
-
-                                        {(calculatedPremium > 0 || calculatedCommission > 0) && (
-                                            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-green-700">Calculated Premium:</span>
-                                                    <span className="font-medium text-green-900">₦{calculatedPremium.toLocaleString()}</span>
-                                                </div>
-                                                <div className="mt-1 flex items-center justify-between text-sm">
-                                                    <span className="text-green-700">Commission:</span>
-                                                    <span className="font-medium text-green-900">₦{calculatedCommission.toLocaleString()}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </>
-                        )}
-
-                        {/* Notes */}
+                    ) : (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Additional Notes</CardTitle>
-                                <CardDescription>Any additional information or special terms</CardDescription>
+                                <CardTitle>Risk Schedule</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-2">
-                                    <Label htmlFor="notes">Notes</Label>
-                                    <Textarea
-                                        id="notes"
-                                        value={data.notes}
-                                        onChange={(e) => setData('notes', e.target.value)}
-                                        placeholder="Enter any additional notes or special terms..."
-                                        rows={4}
-                                        className={errors.notes ? 'border-red-500' : ''}
-                                    />
-                                    {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
-                                </div>
+                                <p className="text-sm text-muted-foreground">Select a Policy Type and Policy Class to configure risk items and coverage details.</p>
                             </CardContent>
                         </Card>
+                    )}
 
-                        {/* Action Buttons */}
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="flex items-center justify-end space-x-4">
-                                    <Button type="button" variant="outline" onClick={() => router.visit(route('quotes.index'))} disabled={processing}>
-                                        Cancel
-                                    </Button>
-                                    <Button type="submit" variant="outline" disabled={processing || !selectedProduct}>
-                                        <Save className="mr-2 h-4 w-4" />
-                                        {processing ? 'Saving...' : 'Save as Draft'}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        onClick={(e) => handleSubmit(e, 'send')}
-                                        disabled={processing || !selectedProduct}
-                                        className="bg-blue-600 hover:bg-blue-700"
-                                    >
-                                        <Send className="mr-2 h-4 w-4" />
-                                        {processing ? 'Sending...' : 'Save & Send Quote'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </form>
-                </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Terms & Payment Notes</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <Label htmlFor="claim_payment_condition">Payment & Warranty Conditions</Label>
+                                <Textarea
+                                    id="claim_payment_condition"
+                                    value={data.claim_payment_condition}
+                                    onChange={(e) => setData((prev) => ({ ...prev, claim_payment_condition: e.target.value }))}
+                                    placeholder="e.g., Premium payment warranty 30 days from inception date..."
+                                    rows={3}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="notes">Special Notes for Customer</Label>
+                                <Textarea
+                                    id="notes"
+                                    value={data.notes}
+                                    onChange={(e) => setData((prev) => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Enter additional notes or terms to display on the quote document..."
+                                    rows={3}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="flex justify-end space-x-4">
+                        <Link href={route('quotes.index')}>
+                            <Button type="button" variant="outline">
+                                Cancel
+                            </Button>
+                        </Link>
+                        <Button type="submit" disabled={processing}>
+                            {processing ? 'Creating...' : 'Create Customer Quote'}
+                        </Button>
+                    </div>
+                </form>
             </div>
         </AppLayout>
     );

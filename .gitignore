@@ -26,8 +26,8 @@ storage/logs/*
 
 storage/debugbar
 
-# /public/storage
-# /public/build
+/public/storage
+/public/build
 
 .phpunit.result.cache
 .phpunit.cache

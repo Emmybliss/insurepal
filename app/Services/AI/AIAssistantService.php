@@ -23,6 +23,8 @@ class AIAssistantService
         $intent = $this->parseIntent($message);
 
         if ($intent && $this->toolRegistry->hasTool($intent['tool'])) {
+            $intent['user_message'] = $message;
+
             return $this->executionEngine->execute($user, $conversation, $intent);
         }
 
@@ -47,6 +49,7 @@ class AIAssistantService
     private function parseIntent(string $message): ?array
     {
         $patterns = [
+            '/broker slip|placement slip|create.*slip/i' => ['tool' => 'generate_quote', 'requires_approval' => false],
             '/create debit note/i' => ['tool' => 'create_debit_note', 'requires_approval' => true],
             '/create credit note/i' => ['tool' => 'create_credit_note', 'requires_approval' => true],
             '/issue policy/i' => ['tool' => 'issue_policy', 'requires_approval' => true],
@@ -55,7 +58,7 @@ class AIAssistantService
             '/approve claim/i' => ['tool' => 'approve_claim', 'requires_approval' => true],
             '/search customer/i' => ['tool' => 'search_customer', 'requires_approval' => false],
             '/search policy/i' => ['tool' => 'search_policy', 'requires_approval' => false],
-            '/generate quote/i' => ['tool' => 'generate_quote', 'requires_approval' => false],
+            '/generate quote|create quote/i' => ['tool' => 'generate_quote', 'requires_approval' => false],
             '/calculate premium/i' => ['tool' => 'calculate_premium', 'requires_approval' => false],
             '/generate report/i' => ['tool' => 'generate_report', 'requires_approval' => true],
         ];

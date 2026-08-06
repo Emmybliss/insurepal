@@ -137,7 +137,7 @@ class StoreQuoteRequest extends FormRequest
     private function validateFormData($validator, array $formFields, array $formData): void
     {
         foreach ($formFields as $field) {
-            $fieldName = $field['name'] ?? null;
+            $fieldName = $field['key'] ?? $field['name'] ?? null;
             $required = $field['required'] ?? false;
             $type = $field['type'] ?? 'text';
 

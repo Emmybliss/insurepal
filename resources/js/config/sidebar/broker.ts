@@ -2,6 +2,7 @@ import { type NavItem } from '@/types';
 import {
     Banknote,
     BarChart3,
+    Bot,
     Building2,
     Calendar,
     ClipboardList,
@@ -32,11 +33,11 @@ export function getBrokerNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Trans
         icon: LayoutGrid,
     });
 
-    // items.push({
-    //     title: t('AI Assistant'),
-    //     href: route('ai-assistant.index'),
-    //     icon: Bot,
-    // });
+    items.push({
+        title: t('AI Assistant'),
+        href: route('ai-assistant.index'),
+        icon: Bot,
+    });
 
     if (can('view_customers')) {
         items.push({

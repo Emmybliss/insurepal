@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
-use App\Models\InsuranceProduct;
+use App\Enums\QuoteStatus;
 use App\Models\Policy;
 use App\Models\Quote;
+use App\Models\QuoteApproval;
+use App\Models\QuoteClause;
+use App\Models\QuoteEmailLog;
+use App\Models\QuoteRisk;
+use App\Models\QuoteVersion;
 use App\Models\User;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,9 +18,6 @@ use Illuminate\Support\Facades\DB;
 
 class QuoteService
 {
-    /**
-     * Get paginated quotes with filters for a tenant.
-     */
     public function getQuotesForTenant(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = Quote::query()
@@ -24,136 +25,193 @@ class QuoteService
             ->with([
                 'customer:id,type,first_name,last_name,company_name,email',
                 'insuranceProduct:id,name,type',
+                'policyClass:id,name',
                 'createdBy:id,name',
             ])
             ->latest();
 
-        // Apply filters
         $query = $this->applyFilters($query, $filters);
 
         return $query->paginate($perPage)->withQueryString();
     }
 
-    /**
-     * Create a new quote.
-     */
-    public function createQuote(array $data, User $user): Quote
+    public function createQuote(array|User $arg1, array|User $arg2): Quote
     {
-        return DB::transaction(function () use ($data, $user) {
-            // Get insurance product for premium calculation
-            $product = InsuranceProduct::findOrFail($data['insurance_product_id']);
+        $data = is_array($arg1) ? $arg1 : $arg2;
+        $user = $arg1 instanceof User ? $arg1 : $arg2;
 
-            // Calculate premium based on form data and coverage
-            $premiumAmount = $this->calculatePremium($product, $data['coverage_details'], $data['form_data'] ?? []);
-            $commissionAmount = $this->calculateCommission($premiumAmount);
+        return DB::transaction(function () use ($data, $user) {
+            $tenantId = $user->tenant_id;
+
+            $grossPremium = $data['gross_premium'] ?? ($data['premium_amount'] ?? 0);
+            $commissionRate = $data['commission_rate'] ?? 0;
+            $commissionAmount = $data['commission_amount'] ?? round(($grossPremium * $commissionRate) / 100, 2);
+            $taxRate = $data['tax_rate'] ?? 0;
+            $taxAmount = $data['taxes'] ?? round(($grossPremium * $taxRate) / 100, 2);
+            $fees = $data['fees'] ?? 0;
+            $discount = $data['discount'] ?? 0;
+            $netPremium = $data['net_premium'] ?? ($grossPremium - $commissionAmount + $fees + $taxAmount - $discount);
+
+            $validUntil = $data['valid_until'] ?? now()->addDays(30);
+            $periodStart = $data['period_start'] ?? now();
+            $periodEnd = $data['period_end'] ?? now()->addYear();
 
             $quote = Quote::create([
-                'tenant_id' => $user->tenant_id,
+                'tenant_id' => $tenantId,
                 'customer_id' => $data['customer_id'],
-                'insurance_product_id' => $data['insurance_product_id'],
-                'status' => Quote::STATUS_DRAFT,
-                'coverage_details' => $data['coverage_details'],
-                'premium_amount' => $premiumAmount,
+                'insurance_product_id' => $data['insurance_product_id'] ?? null,
+                'policy_class_id' => $data['policy_class_id'] ?? null,
+                'policy_type_id' => $data['policy_type_id'] ?? null,
+                'placement_id' => $data['placement_id'] ?? null,
+                'currency' => $data['currency'] ?? 'NGN',
+                'sum_insured' => $data['sum_insured'] ?? 0,
+                'rate' => $data['rate'] ?? null,
+                'rate_basis' => $data['rate_basis'] ?? 'percentage',
+                'gross_premium' => $grossPremium,
+                'premium_amount' => $grossPremium,
+                'commission_rate' => $commissionRate,
                 'commission_amount' => $commissionAmount,
-                'total_amount' => $premiumAmount,
-                'valid_until' => $data['valid_until'],
-                'form_data' => $data['form_data'] ?? [],
+                'tax_rate' => $taxRate,
+                'taxes' => $taxAmount,
+                'fees' => $fees,
+                'discount' => $discount,
+                'net_premium' => $netPremium,
+                'total_amount' => $netPremium > 0 ? $netPremium : $grossPremium,
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+                'valid_until' => $validUntil,
+                'claim_payment_condition' => $data['claim_payment_condition'] ?? ($data['notes'] ?? null),
+                'coverage_details' => $data['coverage_details'] ?? null,
+                'form_data' => $data['form_data'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'internal_notes' => $data['internal_notes'] ?? null,
+                'status' => QuoteStatus::Draft->value,
                 'created_by' => $user->id,
             ]);
 
-            // Log activity
-            $this->logQuoteActivity($quote, 'created', 'Quote created');
-
-            return $quote->load(['customer', 'insuranceProduct', 'createdBy']);
-        });
-    }
-
-    /**
-     * Update an existing quote.
-     */
-    public function updateQuote(Quote $quote, array $data): Quote
-    {
-        return DB::transaction(function () use ($quote, $data) {
-            // Check if we need to recalculate premium
-            $shouldRecalculate = isset($data['coverage_details']) ||
-                                isset($data['form_data']) ||
-                                isset($data['insurance_product_id']);
-
-            if ($shouldRecalculate) {
-                $productId = $data['insurance_product_id'] ?? $quote->insurance_product_id;
-                $product = InsuranceProduct::findOrFail($productId);
-
-                $coverageDetails = $data['coverage_details'] ?? $quote->coverage_details;
-                $formData = $data['form_data'] ?? $quote->form_data;
-
-                $premiumAmount = $this->calculatePremium($product, $coverageDetails, $formData);
-                $commissionAmount = $this->calculateCommission($premiumAmount);
-
-                $data['premium_amount'] = $premiumAmount;
-                $data['commission_amount'] = $commissionAmount;
-                $data['total_amount'] = $premiumAmount;
+            if (! empty($data['risks'])) {
+                $this->syncRisks($quote, $data['risks']);
+            } elseif (! empty($data['items'])) {
+                $this->syncRisks($quote, $data['items']);
+            } elseif (! empty($data['coverage_details'])) {
+                // Synthesize legacy single risk if coverage details provided
+                $this->syncLegacyCoverageRisk($quote, $data);
             }
 
-            $quote->update($data);
+            if (! empty($data['clauses'])) {
+                $this->syncClauses($quote, $data['clauses']);
+            }
 
-            // Log activity
-            $this->logQuoteActivity($quote, 'updated', 'Quote updated');
+            $this->recalculateTotals($quote);
 
-            return $quote->load(['customer', 'insuranceProduct', 'createdBy']);
+            return $quote->load([
+                'customer',
+                'insuranceProduct',
+                'policyClass',
+                'risks',
+                'clauses',
+                'createdBy',
+            ]);
         });
     }
 
-    /**
-     * Delete a quote (soft delete).
-     */
+    public function updateQuote(Quote $quote, array $data): Quote
+    {
+        if ($quote->status === QuoteStatus::Converted->value || $quote->status === QuoteStatus::Superseded->value) {
+            throw new Exception('Cannot modify a quote in this status.');
+        }
+
+        return DB::transaction(function () use ($quote, $data) {
+            $quote->update($data);
+
+            if (isset($data['risks'])) {
+                $quote->risks()->delete();
+                $this->syncRisks($quote, $data['risks']);
+            } elseif (isset($data['items'])) {
+                $quote->risks()->delete();
+                $this->syncRisks($quote, $data['items']);
+            }
+
+            if (isset($data['clauses'])) {
+                $quote->clauses()->delete();
+                $this->syncClauses($quote, $data['clauses']);
+            }
+
+            $this->recalculateTotals($quote);
+
+            return $quote->fresh([
+                'customer',
+                'insuranceProduct',
+                'policyClass',
+                'risks',
+                'clauses',
+                'createdBy',
+            ]);
+        });
+    }
+
     public function deleteQuote(Quote $quote): bool
     {
         return DB::transaction(function () use ($quote) {
-            // Check if quote can be deleted
             if ($quote->policy) {
                 throw new Exception('Cannot delete quote that has been converted to a policy.');
             }
 
-            if ($quote->status === Quote::STATUS_ACCEPTED) {
-                throw new Exception('Cannot delete accepted quote.');
+            if ($quote->status === QuoteStatus::Accepted->value || $quote->status === QuoteStatus::Converted->value) {
+                throw new Exception('Cannot delete accepted or converted quote.');
             }
 
             $quote->delete();
-
-            // Log activity
-            $this->logQuoteActivity($quote, 'deleted', 'Quote deleted');
 
             return true;
         });
     }
 
-    /**
-     * Send quote to customer.
-     */
-    public function sendQuote(Quote $quote): bool
+    public function submitForReview(Quote $quote, User $user, ?string $notes = null): QuoteApproval
+    {
+        if ($quote->status !== QuoteStatus::Draft->value &&
+            $quote->status !== QuoteStatus::ChangesRequested->value) {
+            throw new Exception('Only draft quotes can be submitted for review.');
+        }
+
+        return DB::transaction(function () use ($quote, $user, $notes) {
+            $quote->update(['status' => QuoteStatus::PendingReview->value]);
+
+            return QuoteApproval::create([
+                'tenant_id' => $quote->tenant_id,
+                'quote_id' => $quote->id,
+                'requested_by' => $user->id,
+                'status' => QuoteApproval::STATUS_PENDING,
+                'request_notes' => $notes,
+            ]);
+        });
+    }
+
+    public function sendQuote(Quote $quote, ?User $user = null, array $emailData = []): bool
     {
         if (! $quote->canSend()) {
             throw new Exception('Quote cannot be sent in its current status.');
         }
 
-        return DB::transaction(function () use ($quote) {
+        $sender = $user ?? auth()->user();
+
+        return DB::transaction(function () use ($quote, $sender, $emailData) {
             $quote->markAsSent();
 
-            // Send email to customer (you would implement the mail class)
-            // Mail::to($quote->customer->email)->send(new QuoteSent($quote));
-
-            // Log activity
-            $this->logQuoteActivity($quote, 'sent', 'Quote sent to customer via email');
+            QuoteEmailLog::create([
+                'tenant_id' => $quote->tenant_id,
+                'quote_id' => $quote->id,
+                'sent_to' => $emailData['sent_to'] ?? ($quote->customer->email ?? 'customer@example.com'),
+                'subject' => $emailData['subject'] ?? "Insurance Quote #{$quote->quote_number}",
+                'body' => $emailData['body'] ?? null,
+                'sent_by' => $sender ? $sender->id : $quote->created_by,
+                'sent_at' => now(),
+            ]);
 
             return true;
         });
     }
 
-    /**
-     * Accept a quote.
-     */
     public function acceptQuote(Quote $quote, ?string $reason = null): Quote
     {
         if (! $quote->canAccept()) {
@@ -165,9 +223,6 @@ class QuoteService
         return $quote;
     }
 
-    /**
-     * Reject a quote.
-     */
     public function rejectQuote(Quote $quote, ?string $reason = null): Quote
     {
         if (! $quote->canReject()) {
@@ -179,9 +234,70 @@ class QuoteService
         return $quote;
     }
 
-    /**
-     * Convert quote to policy.
-     */
+    public function issueQuote(Quote $quote, User $user): Quote
+    {
+        return DB::transaction(function () use ($quote, $user) {
+            $snapshot = $this->buildSnapshot($quote, $user);
+            $checksum = hash('sha256', json_encode($snapshot));
+
+            $quote->update([
+                'status' => QuoteStatus::Approved->value,
+                'snapshot_json' => $snapshot,
+                'checksum' => $checksum,
+                'issued_at' => now(),
+                'issued_by' => $user->id,
+            ]);
+
+            QuoteVersion::create([
+                'tenant_id' => $quote->tenant_id,
+                'quote_id' => $quote->id,
+                'version' => $quote->version,
+                'snapshot_json' => $snapshot,
+                'pdf_path' => $quote->pdf_path,
+                'checksum' => $checksum,
+                'created_by' => $user->id,
+            ]);
+
+            return $quote->fresh([
+                'customer',
+                'insuranceProduct',
+                'risks',
+                'clauses',
+                'versions',
+            ]);
+        });
+    }
+
+    public function createNewVersion(Quote $quote): Quote
+    {
+        return DB::transaction(function () use ($quote) {
+            $newVersion = $quote->replicate();
+            $newVersion->version = $quote->version + 1;
+            $newVersion->status = QuoteStatus::Draft->value;
+            $newVersion->issued_at = null;
+            $newVersion->issued_by = null;
+            $newVersion->approved_by = null;
+            $newVersion->reviewed_by = null;
+            $newVersion->signed_by = null;
+            $newVersion->pdf_path = null;
+            $newVersion->checksum = null;
+            $newVersion->snapshot_json = null;
+            $newVersion->quote_number = null;
+            $newVersion->save();
+
+            $quote->update(['status' => QuoteStatus::Superseded->value]);
+
+            return $newVersion->fresh(['customer', 'insuranceProduct']);
+        });
+    }
+
+    public function withdrawQuote(Quote $quote): Quote
+    {
+        $quote->update(['status' => QuoteStatus::Withdrawn->value]);
+
+        return $quote->fresh();
+    }
+
     public function convertToPolicy(Quote $quote, User $user): Policy
     {
         if (! $quote->canConvertToPolicy()) {
@@ -196,39 +312,29 @@ class QuoteService
                 'insurance_product_id' => $quote->insurance_product_id,
                 'policy_number' => $this->generatePolicyNumber(),
                 'status' => 'active',
-                'effective_date' => now(),
-                'expiry_date' => now()->addYear(),
-                'coverage_details' => $quote->coverage_details,
-                'premium_amount' => $quote->premium_amount,
+                'effective_date' => $quote->period_start ?? now(),
+                'expiry_date' => $quote->period_end ?? now()->addYear(),
+                'coverage_details' => $quote->coverage_details ?? [],
+                'premium_amount' => $quote->gross_premium,
                 'commission_amount' => $quote->commission_amount,
-                'total_amount' => $quote->total_amount,
-                'form_data' => $quote->form_data,
+                'total_amount' => $quote->net_premium > 0 ? $quote->net_premium : $quote->total_amount,
+                'form_data' => $quote->form_data ?? [],
                 'created_by' => $user->id,
             ]);
 
-            // Log activity for quote
-            $this->logQuoteActivity($quote, 'converted_to_policy', "Quote converted to policy #{$policy->policy_number}");
+            $quote->update(['status' => QuoteStatus::Converted->value]);
 
             return $policy->load(['customer', 'insuranceProduct', 'quote']);
         });
     }
 
-    /**
-     * Duplicate a quote.
-     */
     public function duplicateQuote(Quote $quote): Quote
     {
         $newQuote = $quote->duplicate();
 
-        // Log activity
-        $this->logQuoteActivity($newQuote, 'duplicated', "Duplicated from quote #{$quote->quote_number}");
-
         return $newQuote->load(['customer', 'insuranceProduct', 'createdBy']);
     }
 
-    /**
-     * Extend quote validity.
-     */
     public function extendQuoteValidity(Quote $quote, int $days = 30): Quote
     {
         $quote->extendValidity($days);
@@ -236,30 +342,24 @@ class QuoteService
         return $quote;
     }
 
-    /**
-     * Get quote statistics for dashboard.
-     */
     public function getQuoteStatistics(int $tenantId): array
     {
         $baseQuery = Quote::forTenant($tenantId);
 
         return [
             'total' => $baseQuery->count(),
-            'draft' => $baseQuery->byStatus(Quote::STATUS_DRAFT)->count(),
-            'sent' => $baseQuery->byStatus(Quote::STATUS_SENT)->count(),
-            'accepted' => $baseQuery->byStatus(Quote::STATUS_ACCEPTED)->count(),
-            'rejected' => $baseQuery->byStatus(Quote::STATUS_REJECTED)->count(),
-            'expired' => $baseQuery->byStatus(Quote::STATUS_EXPIRED)->count(),
+            'draft' => $baseQuery->byStatus(QuoteStatus::Draft)->count(),
+            'sent' => $baseQuery->byStatus(QuoteStatus::Sent)->count(),
+            'accepted' => $baseQuery->byStatus(QuoteStatus::Accepted)->count(),
+            'rejected' => $baseQuery->byStatus(QuoteStatus::Rejected)->count(),
+            'expired' => $baseQuery->byStatus(QuoteStatus::Expired)->count(),
             'expiring_soon' => $baseQuery->expiringWithin(7)->count(),
-            'total_value' => $baseQuery->sum('total_amount'),
-            'average_value' => $baseQuery->avg('total_amount') ?? 0,
+            'total_value' => $baseQuery->sum('net_premium'),
+            'average_value' => $baseQuery->avg('net_premium') ?? 0,
             'conversion_rate' => $this->calculateConversionRate($tenantId),
         ];
     }
 
-    /**
-     * Get quotes expiring within specified days.
-     */
     public function getExpiringQuotes(User $user, int $days = 7): \Illuminate\Database\Eloquent\Collection
     {
         return Quote::forTenant($user->tenant_id)
@@ -268,15 +368,12 @@ class QuoteService
             ->get();
     }
 
-    /**
-     * Mark expired quotes as expired.
-     */
     public function markExpiredQuotes(): int
     {
         $expiredCount = 0;
 
         $expiredQuotes = Quote::where('valid_until', '<', now())
-            ->where('status', Quote::STATUS_SENT)
+            ->where('status', QuoteStatus::Sent->value)
             ->get();
 
         foreach ($expiredQuotes as $quote) {
@@ -287,9 +384,165 @@ class QuoteService
         return $expiredCount;
     }
 
-    /**
-     * Apply filters to the query.
-     */
+    private function syncRisks(Quote $quote, array $risks): void
+    {
+        foreach ($risks as $index => $risk) {
+            $policyProductId = $risk['policy_product_id'] ?? null;
+            if (! $policyProductId && ! empty($quote->insurance_product_id)) {
+                if (DB::table('policy_products')->where('id', $quote->insurance_product_id)->exists()) {
+                    $policyProductId = $quote->insurance_product_id;
+                }
+            }
+
+            QuoteRisk::create([
+                'tenant_id' => $quote->tenant_id,
+                'quote_id' => $quote->id,
+                'policy_class_id' => $risk['policy_class_id'] ?? $quote->policy_class_id,
+                'policy_product_id' => $policyProductId,
+                'description' => $risk['description'] ?? null,
+                'identifier' => $risk['identifier'] ?? null,
+                'location' => $risk['location'] ?? null,
+                'quantity' => $risk['quantity'] ?? null,
+                'coverage_amount' => $risk['coverage_amount'] ?? ($risk['sum_insured'] ?? 0),
+                'rate' => $risk['rate'] ?? null,
+                'rate_basis' => $risk['rate_basis'] ?? null,
+                'premium' => $risk['premium'] ?? null,
+                'net_premium' => 0,
+                'commission_rate' => null,
+                'commission_amount' => null,
+                'taxes' => null,
+                'fees' => null,
+                'dynamic_fields' => $risk['dynamic_fields'] ?? ($risk['risk_data'] ?? null),
+                'metadata' => $risk['metadata'] ?? null,
+                'inception_date' => $risk['inception_date'] ?? null,
+                'expiry_date' => $risk['expiry_date'] ?? null,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    private function syncLegacyCoverageRisk(Quote $quote, array $data): void
+    {
+        $sumInsured = 0;
+        if (is_array($data['coverage_details'])) {
+            foreach ($data['coverage_details'] as $coverage) {
+                if (isset($coverage['amount']) && is_numeric($coverage['amount'])) {
+                    $sumInsured += (float) $coverage['amount'];
+                }
+            }
+        }
+
+        $policyProductId = null;
+        if (! empty($quote->insurance_product_id) && DB::table('policy_products')->where('id', $quote->insurance_product_id)->exists()) {
+            $policyProductId = $quote->insurance_product_id;
+        }
+
+        QuoteRisk::create([
+            'tenant_id' => $quote->tenant_id,
+            'quote_id' => $quote->id,
+            'policy_product_id' => $policyProductId,
+            'description' => 'Primary Coverage Risk',
+            'coverage_amount' => $sumInsured > 0 ? $sumInsured : ($quote->sum_insured ?? 0),
+            'premium' => $quote->gross_premium,
+            'sort_order' => 0,
+        ]);
+    }
+
+    private function syncClauses(Quote $quote, array $clauses): void
+    {
+        foreach ($clauses as $index => $clause) {
+            QuoteClause::create([
+                'tenant_id' => $quote->tenant_id,
+                'quote_id' => $quote->id,
+                'clause_type' => $clause['clause_type'] ?? 'clause',
+                'title' => $clause['title'],
+                'content' => $clause['content'],
+                'is_standard' => $clause['is_standard'] ?? false,
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    private function recalculateTotals(Quote $quote): void
+    {
+        $quote->load('risks');
+
+        if ($quote->risks->isNotEmpty()) {
+            $sumInsured = (float) $quote->risks->sum('coverage_amount');
+            $grossPremium = (float) $quote->risks->sum('premium');
+        } else {
+            $sumInsured = (float) $quote->sum_insured;
+            $grossPremium = (float) $quote->gross_premium;
+        }
+
+        $commissionRate = (float) ($quote->commission_rate ?? 0);
+        $commissionAmount = round(($grossPremium * $commissionRate) / 100, 2);
+
+        $taxRate = (float) ($quote->tax_rate ?? 0);
+        $taxAmount = round(($grossPremium * $taxRate) / 100, 2);
+
+        $fees = (float) ($quote->fees ?? 0);
+        $discount = (float) ($quote->discount ?? 0);
+
+        $netPremium = round(max($grossPremium - $commissionAmount + $taxAmount + $fees - $discount, 0), 2);
+
+        $quote->withoutEvents(fn () => $quote->update([
+            'sum_insured' => $sumInsured,
+            'gross_premium' => $grossPremium,
+            'premium_amount' => $grossPremium,
+            'commission_amount' => $commissionAmount,
+            'taxes' => $taxAmount,
+            'net_premium' => $netPremium,
+            'total_amount' => $netPremium > 0 ? $netPremium : $grossPremium,
+        ]));
+    }
+
+    public function buildSnapshot(Quote $quote, User $user): array
+    {
+        $quote->loadMissing([
+            'customer',
+            'insuranceProduct',
+            'policyClass',
+            'risks',
+            'clauses',
+            'createdBy',
+        ]);
+
+        return [
+            'quote' => $quote->toArray(),
+            'customer' => $quote->customer?->toArray(),
+            'product' => $quote->insuranceProduct?->toArray(),
+            'risks' => $quote->risks->toArray(),
+            'clauses' => $quote->clauses->toArray(),
+            'issued_at' => now()->toIso8601String(),
+            'issued_by' => $user->toArray(),
+        ];
+    }
+
+    public function buildSnapshotForVerification(Quote $quote): array
+    {
+        $quote->loadMissing([
+            'customer',
+            'insuranceProduct',
+            'policyClass',
+            'risks',
+            'clauses',
+            'createdBy',
+        ]);
+
+        $issuer = $quote->issuedBy ?? $quote->createdBy;
+
+        return [
+            'quote' => $quote->toArray(),
+            'customer' => $quote->customer?->toArray(),
+            'product' => $quote->insuranceProduct?->toArray(),
+            'risks' => $quote->risks->toArray(),
+            'clauses' => $quote->clauses->toArray(),
+            'issued_at' => $quote->issued_at?->toIso8601String() ?? now()->toIso8601String(),
+            'issued_by' => $issuer?->toArray(),
+        ];
+    }
+
     private function applyFilters(Builder $query, array $filters): Builder
     {
         if (! empty($filters['search'])) {
@@ -327,51 +580,10 @@ class QuoteService
         return $query;
     }
 
-    /**
-     * Calculate premium based on product, coverage, and form data.
-     */
-    private function calculatePremium(InsuranceProduct $product, array $coverageDetails, array $formData = []): float
-    {
-        // Start with base premium calculation from product
-        $basePremium = $product->calculatePremium($formData);
-
-        // Apply coverage-based calculations
-        $coverageMultiplier = 1.0;
-        $totalCoverageAmount = 0;
-
-        foreach ($coverageDetails as $coverage) {
-            if (isset($coverage['amount']) && is_numeric($coverage['amount'])) {
-                $totalCoverageAmount += (float) $coverage['amount'];
-            }
-        }
-
-        // Apply coverage-based premium calculation (example: 0.1% of total coverage)
-        $coveragePremium = $totalCoverageAmount * 0.001;
-
-        // Combine base premium and coverage premium
-        $totalPremium = $basePremium + $coveragePremium;
-
-        // Apply minimum premium rules
-        $minimumPremium = $product->base_premium * 0.5; // Minimum 50% of base premium
-
-        return max($totalPremium, $minimumPremium);
-    }
-
-    /**
-     * Calculate commission based on premium amount.
-     */
-    private function calculateCommission(float $premiumAmount, float $rate = 0.10): float
-    {
-        return $premiumAmount * $rate;
-    }
-
-    /**
-     * Calculate conversion rate from sent quotes to accepted.
-     */
     private function calculateConversionRate(int $tenantId): float
     {
-        $sentQuotes = Quote::forTenant($tenantId)->byStatus(Quote::STATUS_SENT)->count();
-        $acceptedQuotes = Quote::forTenant($tenantId)->byStatus(Quote::STATUS_ACCEPTED)->count();
+        $sentQuotes = Quote::forTenant($tenantId)->byStatus(QuoteStatus::Sent)->count();
+        $acceptedQuotes = Quote::forTenant($tenantId)->byStatus(QuoteStatus::Accepted)->count();
 
         if ($sentQuotes === 0) {
             return 0;
@@ -380,9 +592,6 @@ class QuoteService
         return round(($acceptedQuotes / $sentQuotes) * 100, 2);
     }
 
-    /**
-     * Generate a policy number.
-     */
     private function generatePolicyNumber(): string
     {
         $prefix = 'POL';
@@ -390,15 +599,5 @@ class QuoteService
         $sequence = Policy::whereYear('created_at', $year)->count() + 1;
 
         return $prefix.$year.str_pad($sequence, 6, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Log quote activity (placeholder for activity logging).
-     */
-    private function logQuoteActivity(Quote $quote, string $action, string $description): void
-    {
-        // This would require a QuoteActivity model
-        // You can implement this based on your activity logging requirements
-        // For now, this is a placeholder
     }
 }

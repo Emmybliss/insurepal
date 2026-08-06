@@ -15,12 +15,14 @@ interface PolicyNumberSearchSelectProps {
     disabled?: boolean;
 }
 
+const DEFAULT_EMPTY_POLICIES: Policy[] = [];
+
 export function PolicyNumberSearchSelect({
     policyIdValue,
     policyNumberValue,
     customerId,
     onPolicySelect,
-    initialPolicies = [],
+    initialPolicies = DEFAULT_EMPTY_POLICIES,
     disabled = false,
 }: PolicyNumberSearchSelectProps) {
     const [open, setOpen] = useState(false);
@@ -32,16 +34,20 @@ export function PolicyNumberSearchSelect({
     // Only populate policies belonging to the selected customer
     useEffect(() => {
         if (!customerId) {
-            setPolicies([]);
-            setSelectedPolicy(null);
+            setPolicies((prev) => (prev.length === 0 ? prev : []));
+            setSelectedPolicy((prev) => (prev === null ? prev : null));
             return;
         }
 
         if (initialPolicies && initialPolicies.length > 0) {
             const filtered = initialPolicies.filter((p) => p.customer_id?.toString() === customerId.toString());
-            setPolicies(filtered);
+            setPolicies((prev) => {
+                const prevIds = prev.map((p) => p.id).join(',');
+                const nextIds = filtered.map((p) => p.id).join(',');
+                return prevIds === nextIds ? prev : filtered;
+            });
         } else {
-            setPolicies([]);
+            setPolicies((prev) => (prev.length === 0 ? prev : []));
         }
     }, [initialPolicies, customerId]);
 
@@ -50,10 +56,10 @@ export function PolicyNumberSearchSelect({
         if (policyIdValue && customerId) {
             const found = policies.find((p) => p.id.toString() === policyIdValue.toString());
             if (found) {
-                setSelectedPolicy(found);
+                setSelectedPolicy((prev) => (prev?.id === found.id ? prev : found));
             }
         } else {
-            setSelectedPolicy(null);
+            setSelectedPolicy((prev) => (prev === null ? prev : null));
         }
     }, [policyIdValue, policies, customerId]);
 

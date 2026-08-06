@@ -116,11 +116,13 @@ class CommissionQueryService
             ? "strftime('%Y-%m', posting_date)"
             : "DATE_FORMAT(posting_date, '%Y-%m')";
 
-        return CommissionEntry::where('tenant_id', $tenantId)
+        return CommissionEntry::where('commission_entries.tenant_id', $tenantId)
             ->whereBetween('posting_date', [$from->toDateString(), $to->toDateString()])
+            ->leftJoin('policies', 'commission_entries.policy_id', '=', 'policies.id')
             ->select(
                 DB::raw("{$dateExpr} as label"),
-                DB::raw('SUM(amount) as value'),
+                DB::raw('SUM(commission_entries.amount) as value'),
+                DB::raw('SUM(COALESCE(policies.premium_amount, 0)) as premium'),
             )
             ->groupBy(DB::raw($dateExpr))
             ->orderBy('label')
@@ -136,6 +138,7 @@ class CommissionQueryService
             ->select(
                 'policy_classes.name as label',
                 DB::raw('SUM(commission_entries.amount) as value'),
+                DB::raw('SUM(COALESCE(policies.premium_amount, 0)) as premium'),
             )
             ->groupBy('policy_classes.name')
             ->orderBy('value', 'desc')
@@ -151,6 +154,7 @@ class CommissionQueryService
             ->select(
                 'policy_products.name as label',
                 DB::raw('SUM(commission_entries.amount) as value'),
+                DB::raw('SUM(COALESCE(policies.premium_amount, 0)) as premium'),
             )
             ->groupBy('policy_products.name')
             ->orderBy('value', 'desc')

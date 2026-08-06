@@ -51,7 +51,7 @@ class SearchCustomerTool implements ToolContract
 
     public function authorize(User $user): bool
     {
-        return $user->can('view customers');
+        return $user->tenant_id !== null;
     }
 
     public function requiresApproval(): bool

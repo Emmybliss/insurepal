@@ -17,10 +17,10 @@ interface PaginationLinkType {
 
 interface PaginationMeta {
     current_page: number;
-    from: number;
+    from: number | null;
     last_page: number;
     per_page: number;
-    to: number;
+    to: number | null;
     total: number;
 }
 
@@ -52,14 +52,17 @@ export function Pagination({ links, meta }: PaginationProps) {
             const firstPageLink = pageLinks.find((link) => link.label === '1');
             items.push(
                 <PaginationItem key={1}>
-                    <PaginationLink
-                        size="default"
-                        href={firstPageLink?.url || '#'}
-                        isActive={false}
-                        {...(firstPageLink?.url ? { asChild: true } : {})}
-                    >
-                        {firstPageLink?.url ? <Link href={firstPageLink.url}>1</Link> : '1'}
-                    </PaginationLink>
+                    {firstPageLink?.url ? (
+                        <PaginationLink size="default" href={firstPageLink.url} isActive={false} asChild>
+                            <Link href={firstPageLink.url} preserveState preserveScroll>
+                                1
+                            </Link>
+                        </PaginationLink>
+                    ) : (
+                        <PaginationLink size="default" href="#" isActive={false} className="pointer-events-none opacity-50">
+                            1
+                        </PaginationLink>
+                    )}
                 </PaginationItem>,
             );
 
@@ -79,17 +82,21 @@ export function Pagination({ links, meta }: PaginationProps) {
 
         for (let page = startPage; page <= endPage; page++) {
             const pageLink = pageLinks.find((link) => link.label === page.toString());
+            const isCurrent = page === currentPage;
             if (pageLink) {
                 items.push(
                     <PaginationItem key={page}>
-                        <PaginationLink
-                            size="default"
-                            href={pageLink.url || '#'}
-                            isActive={page === currentPage}
-                            {...(pageLink.url ? { asChild: true } : {})}
-                        >
-                            {pageLink.url ? <Link href={pageLink.url}>{page}</Link> : page}
-                        </PaginationLink>
+                        {pageLink.url && !isCurrent ? (
+                            <PaginationLink size="default" href={pageLink.url} isActive={isCurrent} asChild>
+                                <Link href={pageLink.url} preserveState preserveScroll>
+                                    {page}
+                                </Link>
+                            </PaginationLink>
+                        ) : (
+                            <PaginationLink size="default" href="#" isActive={isCurrent} className={!isCurrent ? "pointer-events-none opacity-50" : ""}>
+                                {page}
+                            </PaginationLink>
+                        )}
                     </PaginationItem>,
                 );
             }
@@ -109,9 +116,17 @@ export function Pagination({ links, meta }: PaginationProps) {
             const lastPageLink = pageLinks.find((link) => link.label === lastPage.toString());
             items.push(
                 <PaginationItem key={lastPage}>
-                    <PaginationLink size="default" href={lastPageLink?.url || '#'} isActive={false} {...(lastPageLink?.url ? { asChild: true } : {})}>
-                        {lastPageLink?.url ? <Link href={lastPageLink.url}>{lastPage}</Link> : lastPage}
-                    </PaginationLink>
+                    {lastPageLink?.url ? (
+                        <PaginationLink size="default" href={lastPageLink.url} isActive={false} asChild>
+                            <Link href={lastPageLink.url} preserveState preserveScroll>
+                                {lastPage}
+                            </Link>
+                        </PaginationLink>
+                    ) : (
+                        <PaginationLink size="default" href="#" isActive={false} className="pointer-events-none opacity-50">
+                            {lastPage}
+                        </PaginationLink>
+                    )}
                 </PaginationItem>,
             );
         }
@@ -130,7 +145,9 @@ export function Pagination({ links, meta }: PaginationProps) {
                 <PaginationContent>
                     <PaginationItem>
                         {prevLink.url ? (
-                            <PaginationPrevious size="default" href={prevLink.url} />
+                            <PaginationPrevious size="default" href={prevLink.url} asChild>
+                                <Link href={prevLink.url} preserveState preserveScroll />
+                            </PaginationPrevious>
                         ) : (
                             <PaginationPrevious size="default" href="#" className="pointer-events-none opacity-50" />
                         )}
@@ -140,7 +157,9 @@ export function Pagination({ links, meta }: PaginationProps) {
 
                     <PaginationItem>
                         {nextLink.url ? (
-                            <PaginationNext size="default" href={nextLink.url} />
+                            <PaginationNext size="default" href={nextLink.url} asChild>
+                                <Link href={nextLink.url} preserveState preserveScroll />
+                            </PaginationNext>
                         ) : (
                             <PaginationNext size="default" href="#" className="pointer-events-none opacity-50" />
                         )}

@@ -1,14 +1,16 @@
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export interface CommissionChartItem {
     label: string;
     value: number;
+    premium?: number;
 }
 
 export interface CommissionChartData {
@@ -23,16 +25,18 @@ interface Props {
     to: string;
 }
 
-const COLORS = ['#6366f1', '#10b981', '#eab308', '#3b82f6', '#f43f5e', '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
+const COLORS = ['#8884d8', '#82ca9d', '#eab308', '#3b82f6', '#f43f5e', '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
 
-const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-        return `₦${(value / 1000000).toFixed(1)}M`;
+const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'number' ? value : Number(value ?? 0);
+    if (isNaN(num)) return '₦0';
+    if (num >= 1000000) {
+        return `₦${(num / 1000000).toFixed(1)}M`;
     }
-    if (value >= 1000) {
-        return `₦${(value / 1000).toFixed(1)}k`;
+    if (num >= 1000) {
+        return `₦${(num / 1000).toFixed(1)}k`;
     }
-    return `₦${value.toFixed(0)}`;
+    return `₦${num.toFixed(0)}`;
 };
 
 const groupByLabels: Record<string, string> = {
@@ -42,7 +46,21 @@ const groupByLabels: Record<string, string> = {
 };
 
 export function CommissionChart({ data, groupBy, from, to }: Props) {
-    const chartData = data?.data ?? [];
+    const sanitizedData = useMemo(() => {
+        const raw = data?.data ?? [];
+        const cleaned = raw.map((item) => ({
+            ...item,
+            label: String(item.label ?? ''),
+            value: isNaN(Number(item.value)) ? 0 : Number(item.value),
+            premium: isNaN(Number(item.premium)) ? 0 : Number(item.premium),
+        }));
+
+        if (groupBy === 'date') {
+            return [...cleaned].sort((a, b) => a.label.localeCompare(b.label));
+        }
+
+        return cleaned;
+    }, [data, groupBy]);
 
     const handleGroupByChange = (newGroupBy: string) => {
         router.get(route('dashboard'), { group_by: newGroupBy, from, to }, { preserveState: true, preserveScroll: true });
@@ -93,18 +111,18 @@ export function CommissionChart({ data, groupBy, from, to }: Props) {
     };
 
     const description =
-        groupBy === 'date' ? 'Monthly commission trends' : `Commission by ${groupBy === 'policy_class' ? 'policy class' : 'policy product'}`;
+        groupBy === 'date' ? 'Monthly commission & premium trends' : `Commission & premium by ${groupBy === 'policy_class' ? 'policy class' : 'policy product'}`;
 
     return (
         <Card className="lg:col-span-2">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle>Commission Chart</CardTitle>
+                        <CardTitle>Commission & Premium Chart</CardTitle>
                         <CardDescription>{description}</CardDescription>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                        {chartData.map((item, index) => (
+                        {sanitizedData.map((item, index) => (
                             <Badge
                                 key={item.label}
                                 variant="outline"
@@ -167,24 +185,69 @@ export function CommissionChart({ data, groupBy, from, to }: Props) {
                 </div>
             </CardHeader>
             <CardContent>
-                {chartData.length > 0 ? (
+                {sanitizedData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <AreaChart data={sanitizedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorCommission" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.35} />
+                                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorPremium" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.35} />
+                                    <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="hsl(var(--border))" className="opacity-40" />
                             <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} />
+                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={formatCurrency} width={70} />
                             <Tooltip
                                 contentStyle={{
                                     backgroundColor: 'hsl(var(--card))',
-                                    border: '1px solid hsl(var(--border))',
+                                    borderColor: 'hsl(var(--border))',
                                     borderRadius: '8px',
+                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                                    padding: '8px 12px',
                                 }}
-                                formatter={(value: number) => [formatCurrency(value), 'Commission']}
+                                itemStyle={{ fontSize: '12px', padding: '2px 0' }}
+                                labelStyle={{ fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: '4px' }}
+                                formatter={(val: any, name: any) => [formatCurrency(val), name]}
                                 labelFormatter={(label: string) => label}
                             />
                             <Legend />
-                            <Bar dataKey="value" name="Commission" fill={COLORS[0]} radius={[4, 4, 0, 0]} />
-                        </BarChart>
+                            <Area
+                                type="natural"
+                                dataKey="premium"
+                                name="Premium"
+                                stroke="#82ca9d"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#colorPremium)"
+                                connectNulls
+                                isAnimationActive={true}
+                                animationBegin={200}
+                                animationDuration={1200}
+                                animationEasing="ease-out"
+                                dot={false}
+                                activeDot={{ r: 5 }}
+                            />
+                            <Area
+                                type="natural"
+                                dataKey="value"
+                                name="Commission"
+                                stroke="#8884d8"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#colorCommission)"
+                                connectNulls
+                                isAnimationActive={true}
+                                animationBegin={200}
+                                animationDuration={1200}
+                                animationEasing="ease-out"
+                                dot={false}
+                                activeDot={{ r: 5 }}
+                            />
+                        </AreaChart>
                     </ResponsiveContainer>
                 ) : (
                     <div className="flex h-[300px] items-center justify-center text-muted-foreground">

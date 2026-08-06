@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->validateCsrfTokens(except: ['api/*']);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->statefulApi();
@@ -65,7 +66,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $status = $response->getStatusCode();
             $shouldRenderInertia = in_array($status, [500, 503, 404, 403, 419]);
 
-            if ($shouldRenderInertia) {
+            if ($shouldRenderInertia && ! $request->expectsJson() && ! $request->is('api/*')) {
                 // Render themed error page if not in local/testing OR if preview is requested
                 if (! app()->environment(['local', 'testing']) || $request->query('preview') == '1' || $status === 419) {
                     return Inertia\Inertia::render('error', ['status' => $status])

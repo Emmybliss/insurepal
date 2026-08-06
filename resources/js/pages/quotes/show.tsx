@@ -1,716 +1,650 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Calendar, CheckCircle, Clock, Copy, Download, Edit, FileText, Mail, RefreshCw, Send, Trash2, User, XCircle } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import {
+    AlertCircle,
+    ArrowRight,
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    Clock,
+    CreditCard,
+    Download,
+    Edit,
+    Eye,
+    FileText,
+    Globe,
+    Loader2,
+    Mail,
+    Send,
+    Shield,
+    User,
+    XCircle,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface Customer {
     id: number;
-    type: 'individual' | 'corporate';
-    first_name?: string;
-    last_name?: string;
+    first_name: string;
+    last_name: string;
     company_name?: string;
     email: string;
-    phone?: string;
-    address?: string;
-}
-
-interface InsuranceProduct {
-    id: number;
-    name: string;
-    type: string;
-    description?: string;
+    phone: string;
+    type: 'individual' | 'corporate';
 }
 
 interface User {
     id: number;
     name: string;
+    email: string;
 }
 
-interface Policy {
+interface QuoteRisk {
     id: number;
-    policy_number: string;
+    description: string;
+    identifier?: string;
+    location?: string;
+    coverage_amount: number;
+    rate: number;
+    rate_basis: 'percentage' | 'per_mille' | 'fixed';
+    premium: number;
+    taxes: number;
+    fees: number;
+    dynamic_fields: Record<string, any>;
+    policy_product_id?: number;
+    policy_product?: { id: number; name: string };
+}
+
+interface QuoteClause {
+    id: number;
+    clause_type: string;
+    title: string;
+    content: string;
+    is_standard: boolean;
+}
+
+interface QuoteVersion {
+    id: number;
+    version: number;
+    snapshot_json: Record<string, any>;
+    created_by?: User;
+    created_at: string;
+}
+
+interface QuoteApproval {
+    id: number;
     status: string;
+    request_notes?: string;
+    approval_notes?: string;
+    rejection_reason?: string;
+    changes_requested?: string;
+    requested_at: string;
+    reviewed_at?: string;
+    requestedBy?: User;
+    reviewedBy?: User;
+}
+
+interface QuoteEmailLog {
+    id: number;
+    recipient_email: string;
+    status: string;
+    sent_at: string;
 }
 
 interface Quote {
     id: number;
     quote_number: string;
-    status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
-    coverage_details: any[];
-    premium_amount: string;
-    commission_amount: string;
-    total_amount: string;
-    valid_until: string;
-    form_data: Record<string, any>;
+    version: number;
+    status: string;
+    currency: string;
+    period_start?: string;
+    period_end?: string;
+    valid_until?: string;
+    claim_payment_condition?: string;
     notes?: string;
-    internal_notes?: string;
-    customer: Customer;
-    insurance_product: InsuranceProduct;
-    created_by: User;
-    policy?: Policy;
+    issued_at?: string;
     created_at: string;
     updated_at: string;
-    sent_at?: string;
-    accepted_at?: string;
-    rejected_at?: string;
-    expired_at?: string;
-    formatted_premium_amount: string;
-    formatted_total_amount: string;
-    is_expired: boolean;
-    status_color: string;
-    customer_name: string;
+
+    sum_insured: number | string;
+    gross_premium: number | string;
+    commission_rate?: number | string;
+    commission_amount?: number | string;
+    fees?: number | string;
+    tax_rate?: number | string;
+    taxes?: number | string;
+    discount?: number | string;
+    net_premium?: number | string;
+    total_amount?: number | string;
+
+    customer?: Customer;
+    policy_class?: { id: number; name: string };
+    policy_type?: { id: number; name: string };
+    insurance_product?: { id: number; name: string };
+
+    risks: QuoteRisk[];
+    clauses: QuoteClause[];
+    versions: QuoteVersion[];
+    approvals: QuoteApproval[];
+    email_logs?: QuoteEmailLog[];
+
+    created_by?: User;
+    issued_by?: User;
+    approved_by?: User;
 }
 
 interface Props {
     quote: Quote;
-    canEdit: boolean;
-    canSend: boolean;
-    canAccept: boolean;
-    canReject: boolean;
-    canConvertToPolicy: boolean;
 }
 
-export default function QuoteShow({ quote, canEdit, canSend, canAccept, canReject, canConvertToPolicy }: Props) {
-    const [showActionModal, setShowActionModal] = useState<string | null>(null);
+const statusStyles: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+    pending_review: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+    changes_requested: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+    sent: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    accepted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    converted: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    superseded: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300',
+    withdrawn: 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-300',
+    expired: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+};
 
-    const {
-        data: acceptData,
-        setData: setAcceptData,
-        post: postAccept,
-        processing: acceptProcessing,
-    } = useForm({
-        reason: '',
-    });
+const statusIcons: Record<string, React.ReactNode> = {
+    draft: <FileText className="h-4 w-4" />,
+    pending_review: <Clock className="h-4 w-4" />,
+    approved: <CheckCircle className="h-4 w-4" />,
+    sent: <Send className="h-4 w-4" />,
+    accepted: <CheckCircle className="h-4 w-4" />,
+    rejected: <XCircle className="h-4 w-4" />,
+    converted: <ArrowRight className="h-4 w-4" />,
+    expired: <AlertCircle className="h-4 w-4" />,
+};
 
-    const {
-        data: rejectData,
-        setData: setRejectData,
-        post: postReject,
-        processing: rejectProcessing,
-    } = useForm({
-        reason: '',
-    });
+export default function Show({ quote }: Props) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [expandedClauses, setExpandedClauses] = useState<Set<number>>(new Set());
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [showApproveModal, setShowApproveModal] = useState(false);
+    const [showChangesModal, setShowChangesModal] = useState(false);
+    const [showSendModal, setShowSendModal] = useState(false);
+    const [actionNotes, setActionNotes] = useState('');
 
-    const {
-        data: extendData,
-        setData: setExtendData,
-        post: postExtend,
-        processing: extendProcessing,
-    } = useForm({
-        days: 30,
-    });
+    const handleDownload = async () => {
+        setIsDownloading(true);
+        try {
+            const response = await fetch(route('quotes.download', quote.id));
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${quote.quote_number}-v${quote.version}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            toast.error('Failed to download PDF');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-GB', {
+    const formatCurrency = (amount: number | string | null | undefined) => {
+        const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+        const cur = quote.currency || 'NGN';
+        if (numericAmount === null || numericAmount === undefined || isNaN(numericAmount)) return `${cur} 0.00`;
+        return `${cur} ${numericAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '—';
+        return new Date(dateString).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    const formatDateTime = (dateString?: string) => {
+        if (!dateString) return '—';
+        return new Date(dateString).toLocaleString('en-NG', {
             year: 'numeric',
-            month: 'long',
+            month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
         });
     };
 
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'draft':
-                return <FileText className="h-5 w-5 text-gray-500" />;
-            case 'sent':
-                return <Mail className="h-5 w-5 text-blue-500" />;
-            case 'accepted':
-                return <CheckCircle className="h-5 w-5 text-green-500" />;
-            case 'rejected':
-                return <XCircle className="h-5 w-5 text-red-500" />;
-            case 'expired':
-                return <Clock className="h-5 w-5 text-orange-500" />;
-            default:
-                return <FileText className="h-5 w-5 text-gray-500" />;
-        }
-    };
-
-    const getStatusBadgeVariant = (status: string) => {
-        switch (status) {
-            case 'draft':
-                return 'secondary';
-            case 'sent':
-                return 'default';
-            case 'accepted':
-                return 'default';
-            case 'rejected':
-                return 'destructive';
-            case 'expired':
-                return 'outline';
-            default:
-                return 'secondary';
-        }
-    };
-
-    const handleSendQuote = () => {
-        router.post(
-            route('quotes.send', quote.id),
-            {},
-            {
-                onSuccess: () => {
-                    toast.success('Quote has been sent to customer successfully');
-                },
-                onError: () => {
-                    toast.error('Failed to send quote');
-                },
-            },
-        );
-    };
-
-    const handleAcceptQuote = () => {
-        postAccept(route('quotes.accept', quote.id), {
-            onSuccess: () => {
-                toast.success('Quote has been accepted successfully');
-                setShowActionModal(null);
-            },
-            onError: () => {
-                toast.error('Failed to accept quote');
-            },
+    const toggleClause = (id: number) => {
+        setExpandedClauses((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
         });
     };
 
-    const handleRejectQuote = () => {
-        postReject(route('quotes.reject', quote.id), {
+    const getCustomerDisplayName = () => {
+        const c = quote.customer;
+        if (!c) return '—';
+        if (c.type === 'corporate') return c.company_name || `${c.first_name || ''} ${c.last_name || ''}`;
+        return `${c.first_name || ''} ${c.last_name || ''}`;
+    };
+
+    const handleAction = (endpoint: string, dataObj = {}) => {
+        setIsSubmitting(true);
+        router.post(route(endpoint, quote.id), dataObj, {
             onSuccess: () => {
-                toast.success('Quote has been rejected successfully');
-                setShowActionModal(null);
+                toast.success('Action executed successfully');
+                setShowSubmitModal(false);
+                setShowApproveModal(false);
+                setShowChangesModal(false);
+                setShowSendModal(false);
+                setActionNotes('');
             },
-            onError: () => {
-                toast.error('Failed to reject quote');
-            },
+            onError: () => toast.error('Action failed. Check logs.'),
+            onFinish: () => setIsSubmitting(false),
         });
-    };
-
-    const handleExtendValidity = () => {
-        postExtend(route('quotes.extend-validity', quote.id), {
-            onSuccess: () => {
-                toast.success(`Quote validity extended by ${extendData.days} days`);
-                setShowActionModal(null);
-            },
-            onError: () => {
-                toast.error('Failed to extend quote validity');
-            },
-        });
-    };
-
-    const handleDuplicate = () => {
-        router.post(
-            route('quotes.duplicate', quote.id),
-            {},
-            {
-                onSuccess: () => {
-                    toast.success('Quote has been duplicated successfully');
-                },
-                onError: () => {
-                    toast.error('Failed to duplicate quote');
-                },
-            },
-        );
-    };
-
-    const handleConvertToPolicy = () => {
-        router.post(
-            route('quotes.convert-to-policy', quote.id),
-            {},
-            {
-                onSuccess: () => {
-                    toast.success('Quote has been converted to policy successfully');
-                },
-                onError: () => {
-                    toast.error('Failed to convert quote to policy');
-                },
-            },
-        );
-    };
-
-    const handleDelete = () => {
-        if (confirm(`Are you sure you want to delete quote #${quote.quote_number}?`)) {
-            router.delete(route('quotes.destroy', quote.id), {
-                onSuccess: () => {
-                    toast.success('Quote has been deleted successfully');
-                    router.visit(route('quotes.index'));
-                },
-                onError: () => {
-                    toast.error('Failed to delete quote');
-                },
-            });
-        }
     };
 
     return (
         <AppLayout>
-            <Head title={`Quote #${quote.quote_number}`} />
+            <Head title={`Customer Quote: ${quote.quote_number}`} />
 
             <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <div>
-                            <div className="flex items-center space-x-3">
-                                {getStatusIcon(quote.status)}
-                                <h1 className="text-2xl font-semibold text-foreground">Quote #{quote.quote_number}</h1>
-                                <Badge variant={getStatusBadgeVariant(quote.status)}>
-                                    {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
-                                </Badge>
-                                {quote.is_expired && <Badge variant="destructive">Expired</Badge>}
-                            </div>
-                            <p className="text-muted-foreground">Created on {formatDate(quote.created_at)}</p>
+                {/* Header Toolbar */}
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <div className="mb-2 flex items-center gap-3">
+                            <h1 className="text-2xl font-bold tracking-tight">{quote.quote_number}</h1>
+                            <Badge className={`flex items-center gap-1 ${statusStyles[quote.status] || 'bg-gray-100 text-gray-800'}`}>
+                                {statusIcons[quote.status]}
+                                {quote?.status?.replace(/_/g, ' ').toUpperCase() || ''}
+                            </Badge>
+                            <Badge variant="outline">v{quote.version || 1}</Badge>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                            <span>
+                                Class/Product: <span className="font-medium">{quote.policy_class?.name || quote.insurance_product?.name || 'General Risk'}</span>
+                            </span>
+                            <span>•</span>
+                            <span>
+                                Customer: <span className="font-medium">{getCustomerDisplayName()}</span>
+                            </span>
+                            <span>•</span>
+                            <span>Created: {formatDate(quote.created_at)}</span>
+                            {quote.created_by && (
+                                <>
+                                    <span>•</span>
+                                    <span>
+                                        By: <span className="font-medium">{quote.created_by.name}</span>
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                        {canEdit && (
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2">
+                        {quote.status === 'draft' && (
+                            <Button onClick={() => setShowSubmitModal(true)} disabled={isSubmitting}>
+                                <Clock className="mr-2 h-4 w-4" />
+                                Submit for Review
+                            </Button>
+                        )}
+
+                        {quote.status === 'pending_review' && (
+                            <>
+                                <Button onClick={() => setShowApproveModal(true)} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
+                                </Button>
+                                <Button variant="outline" onClick={() => setShowChangesModal(true)} disabled={isSubmitting}>
+                                    <AlertCircle className="mr-2 h-4 w-4" />
+                                    Request Changes
+                                </Button>
+                            </>
+                        )}
+
+                        {['approved', 'draft'].includes(quote.status) && (
+                            <Button onClick={() => setShowSendModal(true)} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                                <Send className="mr-2 h-4 w-4" />
+                                Send to Customer
+                            </Button>
+                        )}
+
+                        {quote.status === 'sent' && (
+                            <>
+                                <Button onClick={() => handleAction('quotes.accept')} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Customer Accept
+                                </Button>
+                                <Button variant="destructive" onClick={() => handleAction('quotes.reject')} disabled={isSubmitting}>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Customer Reject
+                                </Button>
+                            </>
+                        )}
+
+                        {quote.status === 'accepted' && (
+                            <Button onClick={() => handleAction('quotes.convert-to-policy')} disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700">
+                                <ArrowRight className="mr-2 h-4 w-4" />
+                                Convert to Policy
+                            </Button>
+                        )}
+
+                        {['draft', 'pending_review', 'changes_requested'].includes(quote.status) && (
                             <Link href={route('quotes.edit', quote.id)}>
                                 <Button variant="outline">
                                     <Edit className="mr-2 h-4 w-4" />
-                                    Edit
+                                    Edit Quote
                                 </Button>
                             </Link>
                         )}
 
-                        {canSend && (
-                            <Button onClick={handleSendQuote}>
-                                <Send className="mr-2 h-4 w-4" />
-                                Send Quote
+                        {['approved', 'sent', 'accepted'].includes(quote.status) && (
+                            <Button variant="outline" onClick={() => handleAction('quotes.create-new-version')}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                New Version
                             </Button>
                         )}
 
-                        <Button variant="outline" onClick={handleDuplicate}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Duplicate
+                        <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
+                            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                            Download PDF
                         </Button>
 
-                        <Button variant="outline" onClick={() => window.print()}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
+                        <Button variant="outline" onClick={() => setShowPreviewModal(true)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview PDF
                         </Button>
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                {(canAccept || canReject || canConvertToPolicy) && (
+                <div className="grid gap-6 lg:grid-cols-3">
+                    {/* Customer & Coverage Details */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Quick Actions</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <Shield className="h-5 w-5" />
+                                Customer & Policy
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center space-x-2">
-                                {canAccept && (
-                                    <Button
-                                        variant="default"
-                                        className="bg-green-600 hover:bg-green-700"
-                                        onClick={() => setShowActionModal('accept')}
-                                    >
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        Accept Quote
-                                    </Button>
-                                )}
+                        <CardContent className="space-y-4">
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Customer Name</h4>
+                                <p className="font-medium">{getCustomerDisplayName()}</p>
+                                {quote.customer?.email && <p className="text-sm text-gray-500">{quote.customer.email}</p>}
+                                {quote.customer?.phone && <p className="text-sm text-gray-500">{quote.customer.phone}</p>}
+                            </div>
 
-                                {canReject && (
-                                    <Button variant="destructive" onClick={() => setShowActionModal('reject')}>
-                                        <XCircle className="mr-2 h-4 w-4" />
-                                        Reject Quote
-                                    </Button>
-                                )}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Class / Product</h4>
+                                <p className="font-medium">{quote.policy_class?.name || quote.insurance_product?.name || 'General Risk'}</p>
+                            </div>
 
-                                {canConvertToPolicy && (
-                                    <Button variant="default" onClick={handleConvertToPolicy}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Convert to Policy
-                                    </Button>
-                                )}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Coverage Period</h4>
+                                <p className="text-sm">
+                                    {formatDate(quote.period_start)} to {formatDate(quote.period_end)}
+                                </p>
+                            </div>
 
-                                {(quote.status === 'sent' || quote.status === 'expired') && (
-                                    <Button variant="outline" onClick={() => setShowActionModal('extend')}>
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        Extend Validity
-                                    </Button>
-                                )}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Quote Validity</h4>
+                                <p className="text-sm font-semibold text-blue-600">{formatDate(quote.valid_until)}</p>
+                            </div>
+
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Currency</h4>
+                                <div className="flex items-center gap-2">
+                                    <Globe className="h-4 w-4 text-gray-400" />
+                                    <span className="font-medium">{quote.currency || 'NGN'}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Financial Summary */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <CreditCard className="h-5 w-5" />
+                                Financial Summary
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-500">Total Sum Insured</span>
+                                <span className="font-medium">{formatCurrency(quote.sum_insured)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-500">Gross Premium</span>
+                                <span className="font-medium">{formatCurrency(quote.gross_premium)}</span>
+                            </div>
+                            {Number(quote.taxes) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Taxes (VAT/Duty)</span>
+                                    <span className="font-medium text-red-600">+{formatCurrency(quote.taxes)}</span>
+                                </div>
+                            )}
+                            {Number(quote.fees) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Issuance Fees</span>
+                                    <span className="font-medium text-red-600">+{formatCurrency(quote.fees)}</span>
+                                </div>
+                            )}
+                            {Number(quote.discount) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Discount</span>
+                                    <span className="font-medium text-green-600">-{formatCurrency(quote.discount)}</span>
+                                </div>
+                            )}
+                            <Separator />
+                            <div className="flex justify-between text-lg font-bold">
+                                <span>Total Net Payable</span>
+                                <span className="text-green-600">{formatCurrency(quote.net_premium || quote.total_amount || quote.gross_premium)}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Notes & Verification */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Verification & Notes
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {quote.claim_payment_condition && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-500">Payment & Coverage Condition</h4>
+                                    <p className="text-sm">{quote.claim_payment_condition}</p>
+                                </div>
+                            )}
+                            {quote.notes && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-500">Special Notes</h4>
+                                    <p className="text-sm">{quote.notes}</p>
+                                </div>
+                            )}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-500">Public Verification</h4>
+                                <a
+                                    href={route('quotes.verify', quote.id)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-blue-600 underline hover:text-blue-800"
+                                >
+                                    Open public verification portal
+                                </a>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Risk Schedule Table */}
+                {quote.risks && quote.risks.length > 0 && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Schedule of Insured Risks
+                                <Badge variant="outline">{quote.risks.length}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b text-left text-gray-500">
+                                            <th className="px-6 pb-3 font-medium">#</th>
+                                            <th className="px-6 pb-3 font-medium">Description</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Sum Insured</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Rate</th>
+                                            <th className="px-6 pb-3 text-right font-medium">Premium</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {quote.risks.map((item, idx) => (
+                                            <tr key={item.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3 text-gray-500">{idx + 1}</td>
+                                                <td className="px-6 py-3 font-medium">{item.description}</td>
+                                                <td className="px-6 py-3 text-right">{formatCurrency(item.coverage_amount)}</td>
+                                                <td className="px-6 py-3 text-right">{item.rate ? `${item.rate}%` : '—'}</td>
+                                                <td className="px-6 py-3 text-right font-medium">{formatCurrency(item.premium)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    {/* Main Content */}
-                    <div className="space-y-6 lg:col-span-2">
-                        {/* Customer Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <User className="h-5 w-5" />
-                                    <span>Customer Information</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">Name:</span>
-                                        <span className="font-medium">{quote.customer_name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">Type:</span>
-                                        <Badge variant="outline">{quote.customer.type.charAt(0).toUpperCase() + quote.customer.type.slice(1)}</Badge>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">Email:</span>
-                                        <span>{quote.customer.email}</span>
-                                    </div>
-                                    {quote.customer.phone && (
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-muted-foreground">Phone:</span>
-                                            <span>{quote.customer.phone}</span>
-                                        </div>
-                                    )}
-                                    {quote.customer.address && (
-                                        <div className="flex items-start justify-between">
-                                            <span className="text-sm font-medium text-muted-foreground">Address:</span>
-                                            <span className="max-w-xs text-right">{quote.customer.address}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Insurance Product */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Insurance Product</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">Product:</span>
-                                        <span className="font-medium">{quote.insurance_product.name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">Type:</span>
-                                        <Badge variant="secondary">{quote.insurance_product.type}</Badge>
-                                    </div>
-                                    {quote.insurance_product.description && (
-                                        <div className="pt-2">
-                                            <span className="text-sm font-medium text-muted-foreground">Description:</span>
-                                            <p className="mt-1 text-sm">{quote.insurance_product.description}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Coverage Details */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Coverage Details</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    {quote.coverage_details && quote.coverage_details.length > 0 ? (
-                                        quote.coverage_details.map((detail, index) => (
-                                            <div key={index} className="flex items-center justify-between border-b pb-2 last:border-b-0">
-                                                <div>
-                                                    <span className="font-medium">{detail.type}</span>
-                                                    {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
-                                                </div>
-                                                <span className="font-medium">₦{parseFloat(detail.amount || 0).toLocaleString()}</span>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-muted-foreground">No coverage details specified</p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Form Data */}
-                        {quote.form_data && Object.keys(quote.form_data).length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Additional Information</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-3">
-                                        {Object.entries(quote.form_data).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between">
-                                                <span className="text-sm font-medium text-muted-foreground capitalize">
-                                                    {key.replace(/_/g, ' ')}:
-                                                </span>
-                                                <span>{String(value)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Notes */}
-                        {(quote.notes || quote.internal_notes) && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Notes</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {quote.notes && (
-                                        <div>
-                                            <Label className="text-sm font-medium">Customer Notes</Label>
-                                            <p className="mt-1 rounded-md bg-muted p-3 text-sm">{quote.notes}</p>
-                                        </div>
-                                    )}
-                                    {quote.internal_notes && (
-                                        <div>
-                                            <Label className="text-sm font-medium">Internal Notes</Label>
-                                            <p className="mt-1 rounded-md bg-muted p-3 text-sm">{quote.internal_notes}</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Summary */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Quote Summary</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-muted-foreground">Premium Amount:</span>
-                                    <span className="font-semibold">{quote.formatted_premium_amount}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-muted-foreground">Commission:</span>
-                                    <span>₦{parseFloat(quote.commission_amount).toLocaleString()}</span>
-                                </div>
-                                <Separator />
-                                <div className="flex items-center justify-between">
-                                    <span className="text-base font-semibold">Total Amount:</span>
-                                    <span className="text-lg font-bold text-primary">{quote.formatted_total_amount}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Timeline */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <Calendar className="h-5 w-5" />
-                                    <span>Timeline</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex items-start space-x-3">
-                                    <div className="mt-2 h-2 w-2 rounded-full bg-blue-500"></div>
-                                    <div>
-                                        <p className="text-sm font-medium">Quote Created</p>
-                                        <p className="text-xs text-muted-foreground">{formatDate(quote.created_at)}</p>
-                                        <p className="text-xs text-muted-foreground">by {quote.created_by.name}</p>
-                                    </div>
-                                </div>
-
-                                {quote.sent_at && (
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-2 h-2 w-2 rounded-full bg-green-500"></div>
-                                        <div>
-                                            <p className="text-sm font-medium">Quote Sent</p>
-                                            <p className="text-xs text-muted-foreground">{formatDate(quote.sent_at)}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {quote.accepted_at && (
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-2 h-2 w-2 rounded-full bg-green-500"></div>
-                                        <div>
-                                            <p className="text-sm font-medium">Quote Accepted</p>
-                                            <p className="text-xs text-muted-foreground">{formatDate(quote.accepted_at)}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {quote.rejected_at && (
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-2 h-2 w-2 rounded-full bg-red-500"></div>
-                                        <div>
-                                            <p className="text-sm font-medium">Quote Rejected</p>
-                                            <p className="text-xs text-muted-foreground">{formatDate(quote.rejected_at)}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {quote.expired_at && (
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-2 h-2 w-2 rounded-full bg-orange-500"></div>
-                                        <div>
-                                            <p className="text-sm font-medium">Quote Expired</p>
-                                            <p className="text-xs text-muted-foreground">{formatDate(quote.expired_at)}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <Separator />
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="font-medium text-muted-foreground">Valid Until:</span>
-                                    <span className={`font-medium ${quote.is_expired ? 'text-destructive' : 'text-foreground'}`}>
-                                        {new Date(quote.valid_until).toLocaleDateString('en-GB')}
-                                    </span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Related Policy */}
-                        {quote.policy && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Related Policy</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-muted-foreground">Policy Number:</span>
-                                            <span className="font-medium">{quote.policy.policy_number}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                                            <Badge variant="default">{quote.policy.status}</Badge>
-                                        </div>
-                                        <div className="mt-3">
-                                            <Link href={route('policy-management.show', quote.policy.id)}>
-                                                <Button variant="outline" size="sm" className="w-full">
-                                                    View Policy
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Danger Zone */}
-                        {quote.status === 'draft' && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button variant="destructive" size="sm" className="w-full" onClick={handleDelete}>
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete Quote
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-                </div>
-
-                {/* Action Modals */}
-                {showActionModal === 'accept' && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                        <Card className="w-full max-w-md">
-                            <CardHeader>
-                                <CardTitle>Accept Quote</CardTitle>
-                                <CardDescription>Are you sure you want to accept this quote?</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="accept-reason">Reason (optional)</Label>
-                                    <Textarea
-                                        id="accept-reason"
-                                        value={acceptData.reason}
-                                        onChange={(e) => setAcceptData('reason', e.target.value)}
-                                        placeholder="Enter reason for accepting this quote..."
-                                    />
-                                </div>
-                                <div className="flex justify-end space-x-2">
-                                    <Button variant="outline" onClick={() => setShowActionModal(null)} disabled={acceptProcessing}>
-                                        Cancel
-                                    </Button>
-                                    <Button onClick={handleAcceptQuote} disabled={acceptProcessing} className="bg-green-600 hover:bg-green-700">
-                                        {acceptProcessing ? 'Accepting...' : 'Accept Quote'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-
-                {showActionModal === 'reject' && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                        <Card className="w-full max-w-md">
-                            <CardHeader>
-                                <CardTitle>Reject Quote</CardTitle>
-                                <CardDescription>Please provide a reason for rejecting this quote.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="reject-reason">Reason *</Label>
-                                    <Textarea
-                                        id="reject-reason"
-                                        value={rejectData.reason}
-                                        onChange={(e) => setRejectData('reason', e.target.value)}
-                                        placeholder="Enter reason for rejecting this quote..."
-                                        required
-                                    />
-                                </div>
-                                <div className="flex justify-end space-x-2">
-                                    <Button variant="outline" onClick={() => setShowActionModal(null)} disabled={rejectProcessing}>
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={handleRejectQuote}
-                                        disabled={rejectProcessing || !rejectData.reason.trim()}
+                {/* Clauses */}
+                {quote.clauses && quote.clauses.length > 0 && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Coverage Clauses & Endorsements
+                                <Badge variant="outline">{quote.clauses.length}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {quote.clauses.map((clause) => (
+                                <div key={clause.id} className="rounded-lg border">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleClause(clause.id)}
+                                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
                                     >
-                                        {rejectProcessing ? 'Rejecting...' : 'Reject Quote'}
-                                    </Button>
+                                        <span className="text-sm font-medium">{clause.title}</span>
+                                        {expandedClauses.has(clause.id) ? (
+                                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        ) : (
+                                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                                        )}
+                                    </button>
+                                    {expandedClauses.has(clause.id) && (
+                                        <div className="border-t px-4 py-3">
+                                            <p className="text-sm whitespace-pre-wrap">{clause.content}</p>
+                                        </div>
+                                    )}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-
-                {showActionModal === 'extend' && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                        <Card className="w-full max-w-md">
-                            <CardHeader>
-                                <CardTitle>Extend Quote Validity</CardTitle>
-                                <CardDescription>Extend the validity period of this quote.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="extend-days">Extend by (days)</Label>
-                                    <input
-                                        id="extend-days"
-                                        type="number"
-                                        min="1"
-                                        max="365"
-                                        value={extendData.days}
-                                        onChange={(e) => setExtendData('days', parseInt(e.target.value) || 30)}
-                                        className="w-full rounded-md border px-3 py-2"
-                                    />
-                                </div>
-                                <div className="flex justify-end space-x-2">
-                                    <Button variant="outline" onClick={() => setShowActionModal(null)} disabled={extendProcessing}>
-                                        Cancel
-                                    </Button>
-                                    <Button onClick={handleExtendValidity} disabled={extendProcessing}>
-                                        {extendProcessing ? 'Extending...' : 'Extend Validity'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                            ))}
+                        </CardContent>
+                    </Card>
                 )}
             </div>
+
+            {/* Preview PDF Modal */}
+            <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+                <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4">
+                    <DialogHeader>
+                        <DialogTitle>Quote Document Preview ({quote.quote_number})</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 w-full rounded border overflow-hidden">
+                        <iframe src={route('quotes.preview', quote.id)} className="w-full h-full" title="Quote PDF Preview" />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Action Modals */}
+            <Dialog open={showSubmitModal} onOpenChange={setShowSubmitModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Submit Quote for Review</DialogTitle>
+                        <DialogDescription>Submit this quote to your manager or underwriting team for approval.</DialogDescription>
+                    </DialogHeader>
+                    <Textarea
+                        placeholder="Optional review notes..."
+                        value={actionNotes}
+                        onChange={(e) => setActionNotes(e.target.value)}
+                        rows={3}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowSubmitModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={() => handleAction('quotes.submit-for-review', { notes: actionNotes })} disabled={isSubmitting}>
+                            Submit
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Approve Customer Quote</DialogTitle>
+                        <DialogDescription>Approve this quote for sending to the customer.</DialogDescription>
+                    </DialogHeader>
+                    <Textarea
+                        placeholder="Optional approval notes..."
+                        value={actionNotes}
+                        onChange={(e) => setActionNotes(e.target.value)}
+                        rows={3}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowApproveModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleAction('quotes.approve', { notes: actionNotes })} disabled={isSubmitting}>
+                            Approve Quote
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Send Quote to Customer</DialogTitle>
+                        <DialogDescription>Send this quote PDF directly to {quote.customer?.email || 'the customer'}.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowSendModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAction('quotes.send')} disabled={isSubmitting}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send Now
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
