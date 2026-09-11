@@ -260,7 +260,7 @@ export default function ReceiptsIndex({ receipts, stats, filters }: Props) {
                                     </thead>
                                     <tbody>
                                         {receipts.data?.map((receipt) => (
-                                            <tr key={receipt.id} className="border-b hover:bg-gray-50">
+                                            <tr key={receipt.id} className="border-b ">
                                                 <td className="px-4 py-3">
                                                     <div className="font-mono text-sm">{receipt.receipt_number}</div>
                                                 </td>
