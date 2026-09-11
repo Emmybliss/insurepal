@@ -25,15 +25,55 @@ class ReceiptController extends Controller
         $this->receiptService = $receiptService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $receipts = Receipt::with(['invoice', 'customer', 'policy', 'user'])
-            ->where('tenant_id', Auth::user()->tenant_id)
-            ->latest()
-            ->paginate(10);
+        $tenantId = Auth::user()->tenant_id;
+
+        $query = Receipt::with(['invoice', 'customer', 'policy', 'user'])
+            ->where('tenant_id', $tenantId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('receipt_number', 'like', "%{$search}%")
+                    ->orWhere('amount_paid', 'like', "%{$search}%")
+                    ->orWhere('payment_reference', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('company_name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('invoice', function ($iq) use ($search) {
+                        $iq->where('invoice_number', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status') && $request->input('status') !== 'all') {
+            $query->where('payment_status', $request->input('status'));
+        }
+
+        $receipts = $query->latest()->paginate(10)->withQueryString();
+
+        $totalReceipts = (float) Receipt::where('tenant_id', $tenantId)
+            ->where('payment_status', Receipt::STATUS_COMPLETED)
+            ->sum('amount_paid');
+
+        $totalRefunded = (float) Receipt::where('tenant_id', $tenantId)
+            ->where('payment_status', Receipt::STATUS_REFUNDED)
+            ->sum('amount_paid');
 
         return Inertia::render('Receipts/Index', [
             'receipts' => $receipts,
+            'stats' => [
+                'total_receipts' => $totalReceipts,
+                'total_refunded' => $totalRefunded,
+            ],
+            'filters' => [
+                'search' => $request->input('search', ''),
+                'status' => $request->input('status', ''),
+            ],
         ]);
     }
 

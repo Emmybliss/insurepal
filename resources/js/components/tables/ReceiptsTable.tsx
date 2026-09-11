@@ -4,8 +4,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
 import { Receipt } from '@/types/billing';
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Link } from '@inertiajs/react';
+import { Download, Eye, MoreHorizontal, Pencil } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ReceiptsTableProps {
     receipts: Receipt[];
@@ -29,6 +30,27 @@ const getStatusColor = (status: string) => {
 };
 
 export function ReceiptsTable({ receipts }: ReceiptsTableProps) {
+    const handleDownload = async (receiptId: number | string, receiptNumber: string) => {
+        try {
+            toast.loading('Downloading receipt PDF...', { id: `download-${receiptId}` });
+            const response = await fetch(route('receipts.download', receiptId));
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${receiptNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Download completed', { id: `download-${receiptId}` });
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to download PDF.', { id: `download-${receiptId}` });
+        }
+    };
+
     return (
         <Table>
             <TableHeader>
@@ -74,43 +96,27 @@ export function ReceiptsTable({ receipts }: ReceiptsTableProps) {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="h-8 w-8 p-0">
                                         <span className="sr-only">Open menu</span>
-                                        <EllipsisHorizontalIcon className="h-4 w-4" />
+                                        <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            window.location.href = route('receipts.show', receipt.id);
-                                        }}
-                                    >
-                                        View
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('receipts.show', receipt.id)}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            View
+                                        </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            // Handle print receipt
-                                        }}
-                                    >
-                                        Print
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('receipts.edit', receipt.id)}>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Edit
+                                        </Link>
                                     </DropdownMenuItem>
-                                    {receipt.status === 'pending' && (
-                                        <DropdownMenuItem
-                                            onClick={() => {
-                                                // Handle mark as completed
-                                            }}
-                                        >
-                                            Mark as Completed
-                                        </DropdownMenuItem>
-                                    )}
-                                    {['completed'].includes(receipt.status) && (
-                                        <DropdownMenuItem
-                                            onClick={() => {
-                                                // Handle refund
-                                            }}
-                                        >
-                                            Refund
-                                        </DropdownMenuItem>
-                                    )}
+                                    <DropdownMenuItem onClick={() => handleDownload(receipt.id, receipt.receipt_number)}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Download PDF
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>

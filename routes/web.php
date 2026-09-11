@@ -326,6 +326,8 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
             ->name('policies.cancel');
         Route::get('policies/products/{policy}/download', [PolicyController::class, 'downloadPdf'])
             ->name('policies.download');
+        Route::get('policies/{policy}', [PolicyManagementController::class, 'show'])
+            ->name('policies.show');
 
         // Policy Management (Actual Issued Policies)
         Route::prefix('policy-management')->name('policy-management.')->group(function () {

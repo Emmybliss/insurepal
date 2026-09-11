@@ -14,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import { Customer } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { CheckCircle, Download, Eye, FileText, Filter, MoreHorizontal, PlusCircle, Search, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, Ban, CheckCircle, Clock, Download, Eye, FileText, MoreHorizontal, Pencil, PlusCircle, Search, XCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 interface Invoice {
     id: number;
@@ -42,7 +43,6 @@ interface Props {
         per_page: number;
         total: number;
     };
-    customers: Customer[];
     stats: {
         total_receipts: number;
         total_refunded: number;
@@ -50,35 +50,86 @@ interface Props {
     filters: {
         search?: string;
         status?: string;
-        customer_id?: string;
     };
 }
 
-export default function ReceiptsIndex({ receipts, stats, filters, customers }: Props) {
+export default function ReceiptsIndex({ receipts, stats, filters }: Props) {
     const [search, setSearch] = useState(filters?.search || '');
     const [status, setStatus] = useState(filters?.status || '');
-    const [customerId, setCustomerId] = useState(filters?.customer_id || '');
+    const isFirstRender = useRef(true);
 
-    const handleSearch = () => {
-        router.get(route('receipts.index'), { search, status, customer_id: customerId }, { preserveState: true, replace: true });
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            router.get(
+                route('receipts.index'),
+                {
+                    ...(search ? { search } : {}),
+                    ...(status && status !== 'all' ? { status } : {}),
+                },
+                { preserveState: true, replace: true }
+            );
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [search, status]);
+
+    const handleDownload = async (receiptId: number | string, receiptNumber: string) => {
+        try {
+            toast.loading('Downloading receipt PDF...', { id: `download-${receiptId}` });
+            const response = await fetch(route('receipts.download', receiptId));
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${receiptNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Download completed', { id: `download-${receiptId}` });
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to download PDF.', { id: `download-${receiptId}` });
+        }
     };
+
     const getStatusIcon = (receipt: Receipt) => {
-        if (receipt.payment_status === 'completed') {
-            return <CheckCircle className="h-4 w-4 text-green-600" />;
-        } else if (receipt.payment_status === 'refunded') {
-            return <XCircle className="h-4 w-4 text-red-600" />;
-        } else {
-            return <FileText className="h-4 w-4 text-gray-600" />;
+        switch (receipt.payment_status) {
+            case 'completed':
+                return <CheckCircle className="h-4 w-4 text-green-600" />;
+            case 'pending':
+                return <Clock className="h-4 w-4 text-amber-600" />;
+            case 'refunded':
+                return <XCircle className="h-4 w-4 text-red-600" />;
+            case 'failed':
+                return <AlertCircle className="h-4 w-4 text-rose-600" />;
+            case 'voided':
+                return <Ban className="h-4 w-4 text-gray-500" />;
+            default:
+                return <FileText className="h-4 w-4 text-gray-600" />;
         }
     };
 
     const getStatusColor = (receipt: Receipt) => {
-        if (receipt.payment_status === 'completed') {
-            return 'bg-green-100 text-green-800';
-        } else if (receipt.payment_status === 'refunded') {
-            return 'bg-red-100 text-red-800';
-        } else {
-            return 'bg-gray-100 text-gray-800';
+        switch (receipt.payment_status) {
+            case 'completed':
+                return 'bg-green-100 text-green-800 border-green-200';
+            case 'pending':
+                return 'bg-amber-100 text-amber-800 border-amber-200';
+            case 'refunded':
+                return 'bg-red-100 text-red-800 border-red-200';
+            case 'failed':
+                return 'bg-rose-100 text-rose-800 border-rose-200';
+            case 'voided':
+                return 'bg-gray-100 text-gray-800 border-gray-200';
+            default:
+                return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     };
 
@@ -90,8 +141,7 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
     const clearFilters = () => {
         setSearch('');
         setStatus('');
-        setCustomerId('');
-        router.get(route('invoices.index'));
+        router.get(route('receipts.index'), {}, { preserveState: true, replace: true });
     };
 
     return (
@@ -122,8 +172,10 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
                             <FileText className="h-4 w-4 text-green-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-600">₦{stats?.total_receipts.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">All receipts</p>
+                            <div className="text-2xl font-bold text-green-600">
+                                ₦{Number(stats?.total_receipts || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Total completed receipts</p>
                         </CardContent>
                     </Card>
 
@@ -133,8 +185,10 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
                             <XCircle className="h-4 w-4 text-red-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-red-600">₦{stats?.total_refunded.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">All refunded receipts</p>
+                            <div className="text-2xl font-bold text-red-600">
+                                ₦{Number(stats?.total_refunded || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Total refunded receipts</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -142,51 +196,37 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
                 {/* Filters */}
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="relative">
-                                <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
+                                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search invoices..."
+                                    placeholder="Search receipt #, customer, invoice..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                    className="pl-8"
+                                    className="pl-9"
                                 />
                             </div>
 
-                            <Select value={status} onValueChange={setStatus}>
+                            <Select value={status || 'all'} onValueChange={(val) => setStatus(val === 'all' ? '' : val)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All statuses" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="draft">Draft</SelectItem>
-                                    <SelectItem value="sent">Sent</SelectItem>
-                                    <SelectItem value="paid">Paid</SelectItem>
-                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                    <SelectItem value="all">All statuses</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="refunded">Refunded</SelectItem>
+                                    <SelectItem value="failed">Failed</SelectItem>
+                                    <SelectItem value="voided">Voided</SelectItem>
                                 </SelectContent>
                             </Select>
 
-                            <Select value={customerId} onValueChange={setCustomerId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All customers" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {customers?.map((customer) => (
-                                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                                            {getCustomerName(customer)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <div className="flex space-x-2">
-                                <Button onClick={handleSearch}>
-                                    <Filter className="mr-2 h-4 w-4" />
-                                    Filter
-                                </Button>
-                                <Button variant="outline" onClick={clearFilters}>
-                                    Clear
-                                </Button>
+                            <div className="flex items-center space-x-2">
+                                {(search || status) && (
+                                    <Button variant="outline" onClick={clearFilters}>
+                                        Clear Filters
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -264,18 +304,22 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <Link href={route('receipts.show', receipt.id)}>
-                                                                <DropdownMenuItem>
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={route('receipts.show', receipt.id)}>
                                                                     <Eye className="mr-2 h-4 w-4" />
                                                                     View
-                                                                </DropdownMenuItem>
-                                                            </Link>
-                                                            <Link href={route('receipts.download', receipt.id)}>
-                                                                <DropdownMenuItem>
-                                                                    <Download className="mr-2 h-4 w-4" />
-                                                                    Download PDF
-                                                                </DropdownMenuItem>
-                                                            </Link>
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={route('receipts.edit', receipt.id)}>
+                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                    Edit
+                                                                </Link>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleDownload(receipt.id, receipt.receipt_number)}>
+                                                                <Download className="mr-2 h-4 w-4" />
+                                                                Download PDF
+                                                            </DropdownMenuItem>
                                                             {receipt.payment_status === 'completed' && (
                                                                 <>
                                                                     <DropdownMenuSeparator />
@@ -339,3 +383,4 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
         </AppLayout>
     );
 }
+
