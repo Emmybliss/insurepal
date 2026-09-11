@@ -136,7 +136,7 @@ export function AIMessageCard({
                                 <ul key={pIdx} className="list-disc pl-5 space-y-1 my-2">
                                     {listItems.map((li, lIdx) => (
                                         <li key={lIdx} className="text-sm">
-                                            {formatInlineText(li.replace(/^[\*\-]\s+/, ''))}
+                                            {formatInlineText(li.replace(/^[* -]\s+/, ''))}
                                         </li>
                                     ))}
                                 </ul>

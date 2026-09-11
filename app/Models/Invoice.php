@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Traits\DeletesStorageFiles;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Invoice extends Model
 {
-    use BelongsToTenant, DeletesStorageFiles, HasFactory, SoftDeletes;
+    use BelongsToTenant, DeletesStorageFiles, HasFactory, HasUlids, SoftDeletes;
+
+    /**
+     * Get the columns that should receive a unique ULID identifier.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['ulid'];
+    }
 
     // Invoice Status Constants
     const STATUS_DRAFT = 'draft';

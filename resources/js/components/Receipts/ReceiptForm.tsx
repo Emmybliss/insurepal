@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
+import { InputError } from '@/components/InputError';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,9 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Customer, Invoice, Policy, Receipt } from '@/types';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { CalendarIcon, FileText, Hash, ShieldCheck, User } from 'lucide-react';
+import { AlertCircle, CalendarIcon, FileText, Hash, ShieldCheck, User } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -36,6 +37,8 @@ const getCustomerName = (c: Customer) => (c.type === 'individual' ? `${c.first_n
 export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'create', customers = [], policies = [], nextReceiptNumber, invoice }) => {
     const [dateOpen, setDateOpen] = useState(false);
     const [dateObj, setDateObj] = useState<Date | undefined>(receipt?.payment_date ? new Date(receipt.payment_date) : new Date());
+
+    const { flash } = usePage<{ flash?: { error?: string; success?: string } }>().props;
 
     // ── Form state ────────────────────────────────────────────────────────────
     const { data, setData, post, put, processing, errors, reset } = useForm({
@@ -76,21 +79,46 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
         }
     }, [data.payment_date]);
 
+    useEffect(() => {
+        if (flash?.error) {
+            console.log('Server error:', flash.error);
+            toast.error(flash.error);
+        }
+    }, [flash?.error]);
+
+    useEffect(() => {
+        if (errors && Object.keys(errors).length > 0) {
+            console.log('Validation errors:', errors);
+        }
+    }, [errors]);
+
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (mode === 'edit' && receipt) {
             put(route('receipts.update', receipt.id), {
                 onSuccess: () => toast.success('Receipt updated successfully'),
-                onError: () => toast.error('Failed to update receipt'),
+                onError: (errs) => {
+                    console.log('Validation errors:', errs);
+                    const messages = Object.values(errs).flat();
+                    if (messages.length > 0) {
+                        toast.error(`Failed to update receipt: ${messages.join(', ')}`);
+                    } else {
+                        toast.error('Failed to update receipt. Please check form errors.');
+                    }
+                },
             });
         } else {
             post(route('receipts.store'), {
-                onSuccess: () => {
-                    toast.success('Receipt created successfully');
-                    reset();
+                onError: (errs) => {
+                    console.log('Validation errors:', errs);
+                    const messages = Object.values(errs).flat();
+                    if (messages.length > 0) {
+                        toast.error(`Failed to create receipt: ${messages.join(', ')}`);
+                    } else {
+                        toast.error('Failed to create receipt. Please check form errors.');
+                    }
                 },
-                onError: () => toast.error('Failed to create receipt'),
             });
         }
     };
@@ -115,6 +143,25 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Top Error Banner (Validation or Server Error) */}
+            {(Object.keys(errors).length > 0 || flash?.error) && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm font-medium text-destructive space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-base">
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                        {flash?.error ? 'Error Processing Request' : 'Please fix the validation errors below:'}
+                    </div>
+                    {flash?.error && <p className="text-sm font-normal text-destructive">{flash.error}</p>}
+                    {Object.keys(errors).length > 0 && (
+                        <ul className="list-disc list-inside space-y-1 pl-2 text-xs">
+                            {Object.entries(errors).map(([field, message]) => (
+                                <li key={field}>
+                                    <span className="font-semibold capitalize">{field.replace('_', ' ')}:</span> {message}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
             {/* ── Receipt Reference ────────────────────────────────────── */}
             <Card>
                 <CardHeader className="pb-3">
@@ -161,6 +208,18 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                        {/* Customer (Insured) */}
+                        <div className="space-y-2">
+                            <Label htmlFor="customer_id">Insured (Customer)</Label>
+                            <CustomerSearchSelect
+                                value={data.customer_id}
+                                initialCustomers={customers}
+                                onChange={(customerId) => setData('customer_id', customerId)}
+                            />
+                            <InputError message={errors.customer_id} />
+                        </div>
+
                         {/* Policy first — drives amount & customer */}
                         <div className="space-y-2">
                             <Label htmlFor="policy_id">Policy</Label>
@@ -186,16 +245,7 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                             <InputError message={errors.policy_number} />
                         </div>
 
-                        {/* Customer (Insured) */}
-                        <div className="space-y-2">
-                            <Label htmlFor="customer_id">Insured (Customer)</Label>
-                            <CustomerSearchSelect
-                                value={data.customer_id}
-                                initialCustomers={customers}
-                                onChange={(customerId) => setData('customer_id', customerId)}
-                            />
-                            <InputError message={errors.customer_id} />
-                        </div>
+
                     </div>
 
                     {/* Policy detail panel */}
@@ -342,7 +392,7 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                         {/* Payment Method */}
                         <div className="space-y-2">
                             <Label htmlFor="payment_method">Payment Method</Label>
-                            <Select value={data.payment_method} onValueChange={(v) => setData('payment_method', v)}>
+                            <Select value={data.payment_method} onValueChange={(v) => setData('payment_method', v as any)}>
                                 <SelectTrigger id="payment_method">
                                     <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>

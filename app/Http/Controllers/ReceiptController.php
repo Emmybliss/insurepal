@@ -78,7 +78,15 @@ class ReceiptController extends Controller
             return redirect()->route('receipts.show', $receipt)
                 ->with('success', 'Receipt created successfully.');
         } catch (\Exception $e) {
+            Log::error('Failed to create receipt: '.$e->getMessage(), [
+                'exception' => $e,
+                'user_id' => Auth::id(),
+                'tenant_id' => Auth::user()?->tenant_id,
+                'input' => $request->except(['_token']),
+            ]);
+
             return redirect()->back()
+                ->withInput()
                 ->with('error', 'Failed to create receipt. '.$e->getMessage());
         }
     }
@@ -129,7 +137,16 @@ class ReceiptController extends Controller
             return redirect()->route('receipts.show', $receipt)
                 ->with('success', 'Receipt updated successfully.');
         } catch (\Exception $e) {
+            Log::error('Failed to update receipt: '.$e->getMessage(), [
+                'exception' => $e,
+                'receipt_id' => $receipt->id,
+                'user_id' => Auth::id(),
+                'tenant_id' => Auth::user()?->tenant_id,
+                'input' => $request->except(['_token']),
+            ]);
+
             return redirect()->back()
+                ->withInput()
                 ->with('error', 'Failed to update receipt. '.$e->getMessage());
         }
     }
@@ -167,20 +184,29 @@ class ReceiptController extends Controller
 
     public function downloadPdf(Request $request, Receipt $receipt)
     {
+        @set_time_limit(120);
+
         try {
             $receipt->load(['customer', 'invoice', 'tenant', 'policy']);
 
-            $registry = config('document-templates.templates', []);
             $templateKey = $request->input('template_key', 'receipt.classic');
-            $template = $registry[$templateKey] ?? null;
 
-            $pdf = $this->receiptService->generatePdf($receipt, $template);
+            $pdf = $this->receiptService->generatePdf($receipt, $templateKey);
 
             return response($pdf, 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'attachment; filename="receipt-'.$receipt->receipt_number.'.pdf"',
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to generate PDF for receipt: '.$e->getMessage(), [
+                'receipt_id' => $receipt->id,
+                'exception' => $e,
+            ]);
+
+            if ($request->wantsJson() || $request->header('Accept') === 'application/json') {
+                return response()->json(['message' => 'Failed to generate PDF: '.$e->getMessage()], 500);
+            }
+
             return redirect()->back()->with('error', 'Failed to generate PDF: '.$e->getMessage());
         }
     }
@@ -201,6 +227,8 @@ class ReceiptController extends Controller
 
     public function generateReceipt(Request $request, Receipt $receipt)
     {
+        @set_time_limit(120);
+
         $request->validate([
             'template_key' => 'required|string',
         ]); // single field — leave inline
@@ -208,13 +236,12 @@ class ReceiptController extends Controller
         try {
             $registry = config('document-templates.templates', []);
             $templateKey = $request->input('template_key', 'receipt.classic');
-            $template = $registry[$templateKey] ?? null;
 
-            if (! $template) {
+            if (! isset($registry[$templateKey])) {
                 return redirect()->back()->with('error', "Template '{$templateKey}' not found.");
             }
 
-            $pdfContent = $this->receiptService->generatePdf($receipt, $template);
+            $pdfContent = $this->receiptService->generatePdf($receipt, $templateKey);
             $this->receiptService->storePdf($receipt, $pdfContent);
 
             return redirect()->route('receipts.show', $receipt->id)
@@ -228,6 +255,8 @@ class ReceiptController extends Controller
 
     public function previewReceipt(Receipt $receipt)
     {
+        @set_time_limit(120);
+
         if (! $receipt->file_path || ! Storage::disk('public')->exists($receipt->file_path)) {
             return redirect()->back()->with('error', 'Receipt file not found.');
         }
@@ -240,12 +269,20 @@ class ReceiptController extends Controller
 
     public function htmlPreview(Request $request, Receipt $receipt)
     {
-        $templateKey = $request->input('template_key', 'receipt.classic');
-        $pdfContent = app(\App\Services\DocumentGenerationService::class)->generateReceiptPdf($receipt, $templateKey);
+        @set_time_limit(120);
 
-        return response($pdfContent, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="receipt-preview.pdf"',
-        ]);
+        try {
+            $templateKey = $request->input('template_key', 'receipt.classic');
+            $pdfContent = app(\App\Services\DocumentGenerationService::class)->generateReceiptPdf($receipt, $templateKey);
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="receipt-preview.pdf"',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to render htmlPreview for receipt: '.$e->getMessage());
+
+            return response('Failed to generate PDF preview: '.$e->getMessage(), 500);
+        }
     }
 }

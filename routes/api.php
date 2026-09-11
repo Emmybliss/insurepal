@@ -72,6 +72,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // V1 API — Authenticated (Sanctum, user-scoped)
 // ===========================================================================
 Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    // Synchronization Engine Routes
+    Route::post('/sync', [\App\Http\Controllers\Api\V1\SyncController::class, 'sync']);
+    Route::get('/sync/health', [\App\Http\Controllers\Api\V1\SyncController::class, 'health']);
+
     Route::get('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'index']);
     Route::post('/customers', [\App\Http\Controllers\Api\V1\CustomerController::class, 'store']);
     Route::get('/customers/{customer}', [\App\Http\Controllers\Api\V1\CustomerController::class, 'show']);

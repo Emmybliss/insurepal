@@ -18,11 +18,17 @@
             <h3 class="text-xs text-muted font-semibold uppercase">{{ $labels['payer_label'] ?? 'Received From:' }}</h3>
             <p class="text-base font-bold mt-1 text-primary">{{ $payload['customer_name'] }}</p>
         </div>
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-3">
             @if(!empty($payload['invoice_number']) && $payload['invoice_number'] !== 'N/A')
-                <div class="bg-light p-3 border-l-4 border-primary text-left w-64">
+                <div class="bg-light p-3 border-l-4 border-primary text-left w-48">
                     <p class="text-xs text-muted uppercase">Invoice Reference</p>
                     <p class="text-sm font-bold mt-1 text-primary">{{ $payload['invoice_number'] }}</p>
+                </div>
+            @endif
+            @if(!empty($payload['policy_number']) && $payload['policy_number'] !== 'N/A')
+                <div class="bg-light p-3 border-l-4 border-secondary text-left w-48">
+                    <p class="text-xs text-muted uppercase">Policy Reference</p>
+                    <p class="text-sm font-bold mt-1 text-primary">{{ $payload['policy_number'] }}</p>
                 </div>
             @endif
         </div>
@@ -47,6 +53,13 @@
             @endif
         </tbody>
     </table>
+
+    @if(!empty($payload['description']))
+        <div class="my-4 p-3 bg-light border-l-4 border-primary text-left" style="border-radius: 4px;">
+            <p class="text-xs font-semibold text-muted uppercase">Description / Notes</p>
+            <p class="text-sm text-primary mt-1" style="white-space: pre-wrap;">{{ $payload['description'] }}</p>
+        </div>
+    @endif
 
     <div class="text-center my-6">
         <p class="text-sm text-muted italic">Thank you for your business.</p>

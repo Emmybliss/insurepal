@@ -26,12 +26,12 @@ interface Receipt {
     id: number;
     receipt_number: string;
     amount_paid: number;
-    formatted_amount_paid: string;
+    formatted_amount_paid?: string;
     payment_date: string;
     payment_method: string;
     payment_status: string;
-    customer: Customer;
-    invoice: Invoice;
+    customer?: Customer | null;
+    invoice?: Invoice | null;
 }
 
 interface Props {
@@ -228,15 +228,21 @@ export default function ReceiptsIndex({ receipts, stats, filters, customers }: P
                                                     <div className="text-sm">{getCustomerName(receipt.customer)}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <Link
-                                                        href={route('invoices.show', receipt.invoice.id)}
-                                                        className="text-sm text-blue-600 hover:underline"
-                                                    >
-                                                        {receipt.invoice.invoice_number}
-                                                    </Link>
+                                                    {receipt.invoice ? (
+                                                        <Link
+                                                            href={route('invoices.show', receipt.invoice.id)}
+                                                            className="text-sm text-blue-600 hover:underline"
+                                                        >
+                                                            {receipt.invoice.invoice_number}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="text-sm text-gray-400">—</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-semibold text-green-600">{receipt.formatted_amount_paid}</div>
+                                                    <div className="font-semibold text-green-600">
+                                                        {receipt.formatted_amount_paid ?? (receipt.amount_paid != null ? `₦${Number(receipt.amount_paid).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—')}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center space-x-2">

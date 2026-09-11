@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\DeletesStorageFiles;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,17 @@ use Illuminate\Support\Str;
 
 class Tenant extends Model
 {
-    use DeletesStorageFiles, HasFactory;
+    use DeletesStorageFiles, HasFactory, HasUlids;
+
+    /**
+     * Get the columns that should receive a unique ULID identifier.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['ulid'];
+    }
 
     protected $fillable = [
         'name',

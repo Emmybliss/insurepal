@@ -1,6 +1,4 @@
-import { Customer } from './customer';
-import { User } from './index';
-import { Policy } from './policy';
+import { Customer, Policy, User } from './core';
 
 export type ClaimStatus = 'draft' | 'submitted' | 'under_review' | 'info_requested' | 'approved' | 'rejected' | 'settled' | 'closed';
 
@@ -18,10 +16,11 @@ export type DocumentType =
     | 'other';
 
 export interface Claim {
-    id: number;
-    tenant_id: number;
-    policy_id: number;
-    customer_id: number;
+    id: string | number;
+    ulid?: string;
+    tenant_id: string | number;
+    policy_id: string | number;
+    customer_id: string | number;
     claim_reference: string;
     claim_type: ClaimType;
     incident_date: string;
@@ -32,8 +31,8 @@ export interface Claim {
     status: ClaimStatus;
     decision_notes: string | null;
     internal_notes: string | null;
-    submitted_by: number | null;
-    reviewer_id: number | null;
+    submitted_by: string | number | null;
+    reviewer_id: string | number | null;
     metadata: Record<string, any> | null;
     submitted_at: string | null;
     reviewed_at: string | null;
@@ -61,9 +60,10 @@ export interface Claim {
 }
 
 export interface ClaimDocument {
-    id: number;
-    claim_id: number;
-    uploaded_by: number;
+    id: string | number;
+    ulid?: string;
+    claim_id: string | number;
+    uploaded_by: string | number;
     file_name: string;
     file_path: string;
     file_type: string;
@@ -79,13 +79,14 @@ export interface ClaimDocument {
 }
 
 export interface ClaimComment {
-    id: number;
-    claim_id: number;
-    author_id: number;
+    id: string | number;
+    ulid?: string;
+    claim_id: string | number;
+    author_id: string | number;
     body: string;
     attachments: string[] | null;
     is_internal: boolean;
-    parent_id: number | null;
+    parent_id: string | number | null;
     created_at: string;
     updated_at: string;
 
@@ -97,9 +98,10 @@ export interface ClaimComment {
 }
 
 export interface ClaimActivity {
-    id: number;
-    claim_id: number;
-    user_id: number | null;
+    id: string | number;
+    ulid?: string;
+    claim_id: string | number;
+    user_id: string | number | null;
     action: string;
     description: string;
     properties: {

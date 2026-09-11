@@ -18,12 +18,12 @@ class GenerateReceiptService
     public function generate(array $data, int $tenantId, int $userId): Receipt
     {
         return DB::transaction(function () use ($data, $tenantId, $userId) {
-            $policyId = $data['policy_id'] ?? null;
-            if (! $policyId) {
+            $policyId = ! empty($data['policy_id']) ? $data['policy_id'] : null;
+            if (! $policyId && ! empty($data['policy_number'])) {
                 $draftPolicy = app(\App\Services\DraftPolicyService::class)->findOrCreateDraftPolicy(
                     $tenantId,
                     (int) $data['customer_id'],
-                    $data['policy_number'] ?? null,
+                    $data['policy_number'],
                     $data,
                     $userId
                 );
@@ -34,7 +34,7 @@ class GenerateReceiptService
                 'receipt_number' => Receipt::generateReceiptNumber($tenantId),
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
-                'invoice_id' => $data['invoice_id'] ?? null,
+                'invoice_id' => ! empty($data['invoice_id']) ? $data['invoice_id'] : null,
                 'customer_id' => $data['customer_id'],
                 'policy_id' => $policyId,
                 'amount_paid' => $data['amount_paid'],
@@ -43,7 +43,15 @@ class GenerateReceiptService
                 'transaction_id' => $data['transaction_id'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'currency' => $data['currency'],
+                'payment_status' => Receipt::STATUS_COMPLETED,
             ]);
+
+            if ($policyId) {
+                $policy = Policy::find($policyId);
+                if ($policy && in_array($policy->status, [Policy::STATUS_DRAFT, Policy::STATUS_PENDING_APPROVAL])) {
+                    $policy->update(['status' => Policy::STATUS_ACTIVE]);
+                }
+            }
 
             $this->syncInvoiceStatus($receipt);
 
@@ -100,14 +108,18 @@ class GenerateReceiptService
         return Receipt::generateReceiptNumber($tenantId);
     }
 
-    public function generatePdf(Receipt $receipt, ?array $template): string
+    public function generatePdf(Receipt $receipt, array|string|null $template = null): string
     {
-        return $this->documentService->generateReceiptPdf($receipt, $template);
+        $templateKey = is_string($template) ? $template : ($template['key'] ?? 'receipt.classic');
+
+        return $this->documentService->generateReceiptPdf($receipt, $templateKey);
     }
 
-    public function generateHtml(Receipt $receipt, ?array $template): string
+    public function generateHtml(Receipt $receipt, array|string|null $template = null): string
     {
-        return $this->documentService->generateReceiptHtml($receipt, $template, true);
+        $templateKey = is_string($template) ? $template : ($template['key'] ?? 'receipt.classic');
+
+        return $this->documentService->generateReceiptHtml($receipt, $templateKey, true);
     }
 
     public function storePdf(Receipt $receipt, string $pdfContent): Receipt
@@ -156,6 +168,10 @@ class GenerateReceiptService
 
             $receiptNumber = Receipt::generateReceiptNumber($policy->tenant_id);
 
+            if (in_array($policy->status, [Policy::STATUS_DRAFT, Policy::STATUS_PENDING_APPROVAL])) {
+                $policy->update(['status' => Policy::STATUS_ACTIVE]);
+            }
+
             return Receipt::create([
                 'receipt_number' => $receiptNumber,
                 'tenant_id' => $policy->tenant_id,
@@ -166,7 +182,7 @@ class GenerateReceiptService
                 'payment_method' => 'other',
                 'amount_paid' => $policy->premium_amount,
                 'currency' => 'NGN',
-                'payment_status' => 'pending',
+                'payment_status' => Receipt::STATUS_COMPLETED,
                 'notes' => "Quick receipt generated for policy #{$policy->policy_number_display}",
             ]);
         });

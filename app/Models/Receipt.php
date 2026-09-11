@@ -40,6 +40,7 @@ class Receipt extends Model
 
     protected $fillable = [
         'tenant_id',
+        'user_id',
         'customer_id',
         'policy_id',
         'invoice_id',

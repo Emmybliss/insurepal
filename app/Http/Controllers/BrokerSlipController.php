@@ -270,6 +270,8 @@ class BrokerSlipController extends Controller
 
     public function download(BrokerSlip $brokerSlip): \Symfony\Component\HttpFoundation\Response
     {
+        @set_time_limit(120);
+
         $path = $this->pdfService->savePdf($brokerSlip);
 
         $fullPath = Storage::disk('public')->path($path);
@@ -292,6 +294,8 @@ class BrokerSlipController extends Controller
 
     public function preview(BrokerSlip $brokerSlip): \Illuminate\Http\Response
     {
+        @set_time_limit(120);
+
         $pdfContent = $this->pdfService->generatePdf($brokerSlip, preview: false);
 
         return response($pdfContent, 200, [
@@ -344,6 +348,8 @@ class BrokerSlipController extends Controller
 
     public function htmlPreview(Request $request, BrokerSlip $brokerSlip): \Illuminate\Http\Response
     {
+        @set_time_limit(120);
+
         $pdfContent = $this->pdfService->generatePdf($brokerSlip, preview: true);
 
         return response($pdfContent, 200, [

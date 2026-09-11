@@ -53,7 +53,8 @@ export interface SharedData {
 }
 
 export interface User {
-    id: number;
+    id: string | number;
+    ulid?: string;
     name: string;
     email: string;
     avatar?: string;
@@ -61,7 +62,7 @@ export interface User {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
-    tenant_id?: number | null;
+    tenant_id?: string | number | null;
     phone?: string | null;
     roles: Role[];
     permissions: string[];
@@ -69,10 +70,10 @@ export interface User {
     is_active?: boolean;
     status?: 'pending_verification' | 'active' | 'suspended' | 'disabled' | string;
     approval_method?: 'email' | 'manual' | string | null;
-    approved_by?: number | null;
+    approved_by?: string | number | null;
     approved_at?: string | null;
     last_verification_sent_at?: string | null;
-    approved_by_user?: { id: number; name: string; email: string } | null;
+    approved_by_user?: { id: string | number; name: string; email: string } | null;
     is_online?: boolean;
     role?: string | null;
     last_login_at?: string | null;
@@ -84,8 +85,9 @@ export interface User {
 }
 
 export interface Tenant {
-    id: number;
-    parent_tenant_id: number | null;
+    id: string | number;
+    ulid?: string;
+    parent_tenant_id: string | number | null;
     name: string;
     slug: string;
     type: 'underwriter' | 'broker';
@@ -95,7 +97,7 @@ export interface Tenant {
     default_locale: string;
     default_timezone: string;
     logo?: string | null;
-    subscription_plan_id?: number | null;
+    subscription_plan_id?: string | number | null;
     subscription_started_at?: string | null;
     subscription_expires_at?: string | null;
     settings?: Record<string, any> | null;
@@ -109,7 +111,8 @@ export interface Tenant {
 }
 
 export interface Customer {
-    id: number;
+    id: string | number;
+    ulid?: string;
     first_name: string;
     last_name: string;
     company_name: string;
@@ -119,13 +122,14 @@ export interface Customer {
     phone?: string | null;
     address?: string | null;
     type: 'individual' | 'corporate';
-    tenant_id: number;
+    tenant_id: string | number;
     created_at: string;
     updated_at: string;
 }
 
 export interface Role {
-    id: number;
+    id: string | number;
+    ulid?: string;
     name: string;
     label: string;
     description: string;
@@ -216,27 +220,31 @@ export interface PaginatedData<T> {
 }
 
 export interface PolicyType {
-    id: number;
+    id: string | number;
+    ulid?: string;
     name: string;
 }
 
 export interface PolicyCategory {
-    id: number;
+    id: string | number;
+    ulid?: string;
     name: string;
-    policy_type_id: number;
+    policy_type_id: string | number;
 }
 
 export interface PolicyClass {
-    id: number;
+    id: string | number;
+    ulid?: string;
     name: string;
-    policy_type_id: number;
+    policy_type_id: string | number;
 }
 
 export interface PolicyProduct {
-    id: number;
-    tenant_id: number;
-    policy_class_id: number;
-    policy_type_id: number;
+    id: string | number;
+    ulid?: string;
+    tenant_id: string | number;
+    policy_class_id: string | number;
+    policy_type_id: string | number;
     code: string;
     name: string;
     description?: string | null;
@@ -266,8 +274,9 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'referred';
 export type PaymentFrequency = 'annually' | 'monthly' | 'quarterly' | 'bi-annually';
 
 export interface Policy {
-    id: number;
-    customer_id: number;
+    id: string | number;
+    ulid?: string;
+    customer_id: string | number;
     policy_product: PolicyProduct;
     policy_number?: string | null;
     internal_reference?: string | null;
@@ -282,7 +291,7 @@ export interface Policy {
     requires_underwriting: boolean;
     requires_medical_exam: boolean;
     currency: string;
-    tenant_id: number;
+    tenant_id: string | number;
     status: PolicyStatus;
     approval_status: ApprovalStatus;
     effective_date: string;
@@ -296,8 +305,8 @@ export interface Policy {
     terms_conditions?: string | null;
     notes?: string | null;
     internal_notes?: string | null;
-    created_by: number;
-    approved_by?: number | null;
+    created_by: string | number;
+    approved_by?: string | number | null;
     approved_at?: string | null;
     issued_at?: string | null;
     renewed_at?: string | null;
@@ -322,10 +331,11 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
-    id: number;
-    tenant_id: number;
-    customer_id: number;
-    policy_id: number;
+    id: string | number;
+    ulid?: string;
+    tenant_id: string | number;
+    customer_id: string | number;
+    policy_id: string | number;
     invoice_number: string;
     type: 'policy' | 'service' | 'other';
     status: InvoiceStatus;
@@ -355,14 +365,16 @@ export interface Invoice {
 }
 
 export interface Receipt {
-    id: number;
+    id: string | number;
+    ulid?: string;
     receipt_number: string;
-    invoice_id: number;
-    invoice: Invoice;
-    tenant_id: number;
-    user_id: number;
-    customer_id: number;
-    policy_id: number;
+    invoice_id?: string | number | null;
+    invoice?: Invoice | null;
+    tenant_id: string | number;
+    user_id: string | number;
+    customer_id: string | number;
+    policy_id?: string | number | null;
+    policy?: Policy | null;
     user?: User;
     amount_paid: number;
     currency: string;
@@ -371,6 +383,7 @@ export interface Receipt {
     payment_status: PaymentStatus;
     payment_date: string;
     notes?: string;
+    file_path?: string | null;
     created_at: string;
     updated_at: string;
     deleted_at?: string;

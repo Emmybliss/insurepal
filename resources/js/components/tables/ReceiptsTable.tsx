@@ -55,7 +55,11 @@ export function ReceiptsTable({ receipts }: ReceiptsTableProps) {
                                 : `${receipt.customer?.first_name} ${receipt.customer?.last_name}`}
                         </TableCell>
                         <TableCell>
-                            <Link href={route('invoices.show', receipt.invoice_id)}>{receipt.invoice?.invoice_number}</Link>
+                            {receipt.invoice_id ? (
+                                <Link href={route('invoices.show', receipt.invoice_id)}>{receipt.invoice?.invoice_number ?? `INV-${receipt.invoice_id}`}</Link>
+                            ) : (
+                                <span className="text-muted-foreground">—</span>
+                            )}
                         </TableCell>
                         <TableCell>{new Date(receipt.payment_date).toLocaleDateString()}</TableCell>
                         <TableCell className="capitalize">{receipt.payment_method.replace('_', ' ')}</TableCell>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,7 +15,17 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use \App\Models\Traits\HasAuditTrail, \App\Traits\DeletesStorageFiles, HasApiTokens, HasFactory, HasRoles, Notifiable;
+    use \App\Models\Traits\HasAuditTrail, \App\Traits\DeletesStorageFiles, HasApiTokens, HasFactory, HasRoles, HasUlids, Notifiable;
+
+    /**
+     * Get the columns that should receive a unique ULID identifier.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['ulid'];
+    }
 
     /**
      * The attributes that are mass assignable.

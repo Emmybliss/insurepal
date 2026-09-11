@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
-interface FieldProps extends React.HTMLAttributes<HTMLDivElement> {}
+type FieldProps = React.HTMLAttributes<HTMLDivElement>
 
 export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
   ({ className, ...props }, ref) => (
@@ -15,7 +15,7 @@ export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
 )
 Field.displayName = "Field"
 
-interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof Label> {}
+type FieldLabelProps = React.ComponentPropsWithoutRef<typeof Label>
 
 export const FieldLabel = React.forwardRef<
   React.ElementRef<typeof Label>,

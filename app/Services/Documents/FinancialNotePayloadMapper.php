@@ -143,7 +143,11 @@ class FinancialNotePayloadMapper
      */
     public function mapReceipt(Receipt $receipt): array
     {
-        $receipt->loadMissing(['customer', 'invoice', 'tenant', 'user']);
+        $receipt->loadMissing(['customer', 'invoice.policy', 'tenant', 'user', 'policy.policyProduct']);
+
+        $policy = $receipt->policy ?? $receipt->invoice?->policy;
+        $policyNumber = $policy ? ($policy->policy_number_display ?? $policy->policy_number) : null;
+        $policyName = $policy ? ($policy->policyProduct?->name ?? $policy->name ?? '') : '';
 
         return [
             'receipt_number' => $receipt->receipt_number,
@@ -153,6 +157,10 @@ class FinancialNotePayloadMapper
             'transaction_reference' => $receipt->transaction_id ?? 'N/A',
             'customer_name' => $this->getCustomerName($receipt->customer),
             'invoice_number' => $receipt->invoice ? $receipt->invoice->invoice_number : 'N/A',
+            'policy_number' => $policyNumber ?? 'N/A',
+            'policy_name' => $policyName,
+            'description' => $receipt->notes ?? '',
+            'notes' => $receipt->notes ?? '',
             'currency' => $receipt->currency ?? 'NGN',
             'verification_token' => $receipt->verification_token,
             ...$this->getPreparerData($receipt->user),

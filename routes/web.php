@@ -674,6 +674,10 @@ Route::middleware(['auth', 'verified', 'tenant.scope', 'onboarding.completed'])-
             ->name('receipts.preview');
         Route::get('receipts/{receipt}/html-preview', [\App\Http\Controllers\ReceiptController::class, 'htmlPreview'])
             ->name('receipts.html-preview');
+        Route::get('receipts/{receipt}/download', [\App\Http\Controllers\ReceiptController::class, 'downloadPdf'])
+            ->name('receipts.download');
+        Route::get('receipts/{receipt}/download-pdf', [\App\Http\Controllers\ReceiptController::class, 'downloadPdf'])
+            ->name('receipts.download-pdf');
         Route::post('receipts/{receipt}/mark-refunded', [\App\Http\Controllers\ReceiptController::class, 'markAsRefunded'])
             ->name('receipts.mark-refunded');
 

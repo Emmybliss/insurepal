@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Traits\DeletesStorageFiles;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,17 @@ use Illuminate\Notifications\Notifiable;
 
 class Customer extends Model
 {
-    use BelongsToTenant, DeletesStorageFiles, HasFactory, Notifiable, SoftDeletes;
+    use BelongsToTenant, DeletesStorageFiles, HasFactory, HasUlids, Notifiable, SoftDeletes;
+
+    /**
+     * Get the columns that should receive a unique ULID identifier.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['ulid'];
+    }
 
     protected $fillable = [
         'tenant_id',

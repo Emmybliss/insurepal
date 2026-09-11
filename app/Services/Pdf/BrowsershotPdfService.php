@@ -29,6 +29,9 @@ class BrowsershotPdfService implements PdfService
      */
     public function renderHtml(string $html, array $options = []): string
     {
+        $timeout = (int) config('pdf.browsershot.timeout', 120);
+        @set_time_limit($timeout);
+
         $tmpPdf = tempnam(sys_get_temp_dir(), 'browsershot_').'.pdf';
         $tempHtmlPath = tempnam(sys_get_temp_dir(), 'pdf_html_').'.html';
         file_put_contents($tempHtmlPath, $html);
@@ -38,7 +41,7 @@ class BrowsershotPdfService implements PdfService
                 ->format('A4')
                 ->margins(0, 0, 0, 0)
                 ->showBackground()
-                ->waitUntilNetworkIdle()
+                ->waitUntilNetworkIdle(false)
                 ->addChromiumArguments([
                     'no-sandbox',
                     'disable-setuid-sandbox',

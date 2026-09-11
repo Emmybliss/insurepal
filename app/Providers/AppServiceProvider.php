@@ -39,6 +39,12 @@ class AppServiceProvider extends ServiceProvider
         Tenant::observe(TenantObserver::class);
         Policy::observe(PolicyObserver::class);
 
+        // Sync Observer registration for offline change tracking
+        \App\Models\Customer::observe(\App\Observers\SyncObserver::class);
+        Policy::observe(\App\Observers\SyncObserver::class);
+        \App\Models\Quote::observe(\App\Observers\SyncObserver::class);
+        \App\Models\Claim::observe(\App\Observers\SyncObserver::class);
+
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
         });
