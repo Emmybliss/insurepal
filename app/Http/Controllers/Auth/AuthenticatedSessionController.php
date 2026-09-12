@@ -35,6 +35,21 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
+        // --- Subdomain Tenant Isolation Guard ---
+        $resolvedTenant = $request->attributes->get('tenant') ?? (app()->bound('tenant') ? app('tenant') : null);
+        if ($resolvedTenant && ! $user->hasRole('super_admin') && (int) $user->tenant_id !== (int) $resolvedTenant->id) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            $correctUrl = $user->tenant ? $user->tenant->getPortalUrl('/login') : null;
+            $msg = $correctUrl
+                ? "Your account does not belong to {$resolvedTenant->name}. Please log in at your portal: {$correctUrl}"
+                : "Your account does not have access to the {$resolvedTenant->name} portal.";
+
+            return redirect()->route('login')->withErrors(['email' => $msg]);
+        }
+
         // --- Login Access Guard ---
         // Customers whose access has been revoked by their tenant cannot log in.
         if ($user->login_access === false) {

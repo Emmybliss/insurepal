@@ -20,11 +20,13 @@ class SetTenantContext
         if ($user && $user->tenant_id) {
             $tenant = $user->tenant;
 
-            app()->singleton('tenant', function () use ($tenant) {
-                return $tenant;
-            });
-
+            app()->instance('tenant', $tenant);
             $request->attributes->set('tenant', $tenant);
+        } elseif ($request->attributes->has('tenant')) {
+            $tenant = $request->attributes->get('tenant');
+            app()->instance('tenant', $tenant);
+        } elseif (app()->bound('tenant')) {
+            $request->attributes->set('tenant', app('tenant'));
         }
 
         return $next($request);

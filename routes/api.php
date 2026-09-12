@@ -25,6 +25,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // exchange rate route
 Route::get('/exchange-rate', [ExchangeRateController::class, 'getExchangeRate'])->name('api.exchange-rate');
 
+// Tenant subdomain check route (public API)
+Route::get('/tenants/check-subdomain', [\App\Http\Controllers\Api\SubdomainCheckController::class, 'check'])->name('api.tenants.check-subdomain');
+
 // Role and Permission Management Routes
 Route::middleware(['auth:sanctum'])->group(function () {
 

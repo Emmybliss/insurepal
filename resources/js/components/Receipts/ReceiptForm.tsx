@@ -1,22 +1,20 @@
 import CustomerSearchSelect from '@/components/customers/CustomerSearchSelect';
 import PolicyNumberSearchSelect from '@/components/policies/PolicyNumberSearchSelect';
+import { InputError } from '@/components/InputError';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerSimple } from '@/components/ui/date-picker-simple';
 import { Input } from '@/components/ui/input';
-import { InputError } from '@/components/InputError';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { Customer, Invoice, Policy, Receipt } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import { AlertCircle, CalendarIcon, FileText, Hash, ShieldCheck, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { AlertCircle, FileText, Hash, ShieldCheck, User } from 'lucide-react';
+import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 
 interface ReceiptFormProps {
@@ -30,24 +28,35 @@ interface ReceiptFormProps {
     invoice?: Invoice | null;
 }
 
+interface ReceiptFormData {
+    invoice_id: string;
+    customer_id: string;
+    policy_id: string;
+    policy_number: string;
+    amount_paid: number;
+    payment_date: string;
+    payment_method: string;
+    transaction_id: string;
+    currency: string;
+    notes: string;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (amount: number | string, currency = 'NGN') => new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(Number(amount));
 
 const getCustomerName = (c: Customer) => (c.type === 'individual' ? `${c.first_name} ${c.last_name}` : c.company_name);
 
 export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'create', customers = [], policies = [], nextReceiptNumber, invoice }) => {
-    const [dateOpen, setDateOpen] = useState(false);
-    const [dateObj, setDateObj] = useState<Date | undefined>(receipt?.payment_date ? new Date(receipt.payment_date) : new Date());
-
     const { flash } = usePage<{ flash?: { error?: string; success?: string } }>().props;
 
     // ── Form state ────────────────────────────────────────────────────────────
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, post, put, processing, errors } = useForm<ReceiptFormData>({
         invoice_id: invoice?.id ? String(invoice.id) : receipt?.invoice_id ? String(receipt.invoice_id) : '',
         customer_id: receipt?.customer_id ? String(receipt.customer_id) : invoice?.customer_id ? String(invoice.customer_id) : '',
         policy_id: receipt?.policy_id ? String(receipt.policy_id) : invoice?.policy_id ? String(invoice.policy_id) : '',
-        policy_number: (receipt as any)?.policy_number || '',
+        policy_number: (receipt as { policy_number?: string })?.policy_number || '',
         amount_paid: receipt?.amount_paid ? Number(receipt.amount_paid) : 0,
-        payment_date: receipt?.payment_date ?? dayjs().format('YYYY-MM-DD'),
+        payment_date: receipt?.payment_date ? String(receipt.payment_date) : dayjs().format('YYYY-MM-DD'),
         payment_method: receipt?.payment_method ?? 'bank_transfer',
         transaction_id: receipt?.transaction_id ?? '',
         currency: receipt?.currency ?? invoice?.currency ?? 'NGN',
@@ -71,13 +80,6 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
             }
         }
     };
-
-    useEffect(() => {
-        if (data.payment_date) {
-            const parsed = dayjs(data.payment_date);
-            if (parsed.isValid()) setDateObj(parsed.toDate());
-        }
-    }, [data.payment_date]);
 
     useEffect(() => {
         if (flash?.error) {
@@ -228,7 +230,7 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                                 policyNumberValue={data.policy_number}
                                 customerId={data.customer_id}
                                 initialPolicies={policies}
-                                onPolicySelect={(policyId, policyNumber, policy) => {
+                                onPolicySelect={(policyId, policyNumber) => {
                                     if (policyId) {
                                         handlePolicyChange(policyId);
                                         setData('policy_number', policyNumber);
@@ -392,7 +394,7 @@ export const ReceiptForm: React.FC<ReceiptFormProps> = ({ receipt, mode = 'creat
                         {/* Payment Method */}
                         <div className="space-y-2">
                             <Label htmlFor="payment_method">Payment Method</Label>
-                            <Select value={data.payment_method} onValueChange={(v) => setData('payment_method', v as any)}>
+                            <Select value={data.payment_method} onValueChange={(v) => setData('payment_method', v)}>
                                 <SelectTrigger id="payment_method">
                                     <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>

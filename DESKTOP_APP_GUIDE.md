@@ -38,6 +38,7 @@ npm run dev
 # 2. Launch the NativePHP Desktop Application
 php artisan native:run
 ```
+AIb@2026
 
 This launches the **InsurePal Enterprise Desktop** window ($1280 \times 800$) connected to your local backend (`http://insurepal-ai-saas.test`).
 

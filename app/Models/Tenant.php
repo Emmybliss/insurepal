@@ -29,6 +29,7 @@ class Tenant extends Model
     protected $fillable = [
         'name',
         'slug',
+        'subdomain',
         'type',
         'email',
         'phone',
@@ -93,7 +94,24 @@ class Tenant extends Model
             if (empty($tenant->slug)) {
                 $tenant->slug = Str::slug($tenant->name);
             }
+            if (empty($tenant->subdomain)) {
+                $candidate = Str::slug($tenant->slug ?: $tenant->name);
+                $tenant->subdomain = preg_replace('/[^a-z0-9\-]/', '', strtolower($candidate));
+            } else {
+                $tenant->subdomain = preg_replace('/[^a-z0-9\-]/', '', strtolower($tenant->subdomain));
+            }
         });
+
+        static::updating(function (Tenant $tenant) {
+            if ($tenant->isDirty('subdomain') && ! empty($tenant->subdomain)) {
+                $tenant->subdomain = preg_replace('/[^a-z0-9\-]/', '', strtolower($tenant->subdomain));
+            }
+        });
+    }
+
+    public function getPortalUrl(string $path = '/'): string
+    {
+        return \App\Services\TenantUrl::to($this, $path);
     }
 
     public function users(): HasMany

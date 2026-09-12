@@ -19,8 +19,13 @@ class SocialiteController extends Controller
     /**
      * Redirect to Google OAuth provider
      */
+    /**
+     * Redirect to Google OAuth provider
+     */
     public function redirectToGoogle(): RedirectResponse
     {
+        $this->storeOAuthTenantContext();
+
         return Socialite::driver('google')->redirect();
     }
 
@@ -29,7 +34,19 @@ class SocialiteController extends Controller
      */
     public function redirectToMicrosoft(): RedirectResponse
     {
+        $this->storeOAuthTenantContext();
+
         return Socialite::driver('microsoft')->redirect();
+    }
+
+    protected function storeOAuthTenantContext(): void
+    {
+        $tenant = request()->attributes->get('tenant') ?? (app()->bound('tenant') ? app('tenant') : null);
+        if ($tenant) {
+            session(['oauth_tenant_id' => $tenant->id]);
+        } else {
+            session()->forget('oauth_tenant_id');
+        }
     }
 
     /**
@@ -65,6 +82,25 @@ class SocialiteController extends Controller
 
             $user = $this->findOrCreateUser($providerUser, $provider);
             Log::info('User found/created', ['user_id' => $user->id, 'email' => $user->email]);
+
+            $expectedTenantId = session('oauth_tenant_id');
+            session()->forget('oauth_tenant_id');
+
+            // Enforce tenant isolation for OAuth
+            if ($expectedTenantId && ! $user->hasRole('super_admin') && (int) $user->tenant_id !== (int) $expectedTenantId) {
+                if (Auth::check()) {
+                    Auth::logout();
+                }
+                $expectedTenant = Tenant::find($expectedTenantId);
+                $portalName = $expectedTenant?->name ?? 'this';
+                $correctUrl = $user->tenant ? $user->tenant->getPortalUrl('/login') : null;
+
+                $msg = $correctUrl
+                    ? "Your account does not belong to {$portalName}. Please log in at your portal: {$correctUrl}"
+                    : "Your account does not have access to {$portalName}.";
+
+                return redirect()->route('login')->withErrors(['email' => $msg]);
+            }
 
             // Logout any existing user before logging in the OAuth user
             if (Auth::check()) {
@@ -175,28 +211,27 @@ class SocialiteController extends Controller
                 ->with('error', 'No tenant found. Please contact support.');
         }
 
-        if ($tenant->onboarding_completed) {
-            return redirect()->route('dashboard');
+        $targetUrl = route('dashboard');
+
+        if (! $tenant->onboarding_completed) {
+            $steps = $tenant->onboarding_steps ?? [];
+            $hasPlan = ! empty($tenant->subscription_plan_id);
+
+            if (! ($steps['subscription_selected'] ?? false) && ! $hasPlan) {
+                $targetUrl = route('onboarding.select-plan');
+            } elseif (! ($steps['payment_completed'] ?? false) && ! $hasPlan) {
+                $targetUrl = route('onboarding.select-plan');
+            } elseif (! ($steps['company_details'] ?? false)) {
+                $targetUrl = route('onboarding.company-details');
+            }
         }
 
-        $steps = $tenant->onboarding_steps ?? [];
-        $hasPlan = ! empty($tenant->subscription_plan_id);
+        if (! empty($tenant->subdomain)) {
+            $path = parse_url($targetUrl, PHP_URL_PATH) ?? '/dashboard';
 
-        if (! ($steps['subscription_selected'] ?? false) && ! $hasPlan) {
-            return redirect()->route('onboarding.select-plan')
-                ->with('info', 'Welcome! Please select a subscription plan to continue.');
+            return redirect()->away($tenant->getPortalUrl($path));
         }
 
-        if (! ($steps['payment_completed'] ?? false) && ! $hasPlan) {
-            return redirect()->route('onboarding.select-plan')
-                ->with('info', 'Please complete your payment to continue.');
-        }
-
-        if (! ($steps['company_details'] ?? false)) {
-            return redirect()->route('onboarding.company-details')
-                ->with('info', 'Please complete your company profile to get started.');
-        }
-
-        return redirect()->route('dashboard');
+        return redirect()->to($targetUrl);
     }
 }

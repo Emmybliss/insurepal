@@ -30,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
 
         $middleware->web([
+            // Hostname tenant resolution
+            \App\Http\Middleware\IdentifyTenantFromSubdomain::class,
+
             // ✅ Core Laravel session & state middlewares
             // \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,

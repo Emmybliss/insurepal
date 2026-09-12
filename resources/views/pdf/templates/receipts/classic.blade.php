@@ -20,13 +20,13 @@
         </div>
         <div class="flex justify-end gap-3">
             @if(!empty($payload['invoice_number']) && $payload['invoice_number'] !== 'N/A')
-                <div class="bg-light p-3 border-l-4 border-primary text-left w-48">
+                <div class="bg-light p-3 border-l-4 border-[#000] text-left w-48">
                     <p class="text-lg text-muted ">Invoice Reference</p>
                     <p class="text-lg font-bold mt-1 text-[#000]">{{ $payload['invoice_number'] }}</p>
                 </div>
             @endif
             @if(!empty($payload['policy_number']) && $payload['policy_number'] !== 'N/A')
-                <div class="bg-light p-3 border-l-4 border-secondary text-left w-48">
+                <div class="bg-light p-3 border-l-4 border-[#000] text-left w-48">
                     <p class="text-lg text-muted ">Policy Reference</p>
                     <p class="text-lg font-bold mt-1 text-[#000]">{{ $payload['policy_number'] }}</p>
                 </div>
@@ -55,7 +55,7 @@
     </table>
 
     @if(!empty($payload['description']))
-        <div class="my-4 p-3 bg-light border-l-4 border-primary text-left" style="border-radius: 4px;">
+        <div class="my-4 p-3 bg-light border-l-4 border-[#000] text-left" style="border-radius: 4px;">
             <p class="text-lg font-semibold text-muted ">Description / Notes</p>
             <p class="text-lg text-[#000] mt-1" style="white-space: pre-wrap;">{{ $payload['description'] }}</p>
         </div>

@@ -25,6 +25,11 @@ class TenantRequest extends FormRequest
                 'regex:/^[a-z0-9\-]+$/',
                 Rule::unique('tenants', 'slug')->ignore($tenantId),
             ],
+            'subdomain' => [
+                'nullable',
+                'string',
+                new \App\Rules\Subdomain($tenantId),
+            ],
             'type' => ['required', 'string', Rule::in(['underwriter', 'broker'])],
             'email' => [
                 'required',
@@ -118,6 +123,12 @@ class TenantRequest extends FormRequest
         if ($this->has('slug') && empty($this->slug)) {
             $this->merge([
                 'slug' => \Illuminate\Support\Str::slug($this->name),
+            ]);
+        }
+
+        if ($this->filled('subdomain')) {
+            $this->merge([
+                'subdomain' => strtolower(trim($this->subdomain)),
             ]);
         }
 

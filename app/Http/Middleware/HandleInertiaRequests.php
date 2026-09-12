@@ -46,12 +46,28 @@ class HandleInertiaRequests extends Middleware
     private function getMinimalAuthData(Request $request): array
     {
         $user = $request->user();
+        $resolvedTenant = $request->attributes->get('tenant') ?? (app()->bound('tenant') ? app('tenant') : null);
 
         if (! $user) {
-            return ['user' => null, 'tenant_plan' => null, 'tenant_subscription' => null];
+            return [
+                'user' => null,
+                'tenant_id' => $resolvedTenant?->id,
+                'tenant' => $resolvedTenant ? [
+                    'id' => $resolvedTenant->id,
+                    'name' => $resolvedTenant->name,
+                    'subdomain' => $resolvedTenant->subdomain,
+                    'type' => $resolvedTenant->type,
+                    'logo' => $resolvedTenant->logo,
+                    'logo_url' => $resolvedTenant->logo ? Storage::url($resolvedTenant->logo) : null,
+                    'slogan' => $resolvedTenant->slogan,
+                    'portal_url' => $resolvedTenant->getPortalUrl(),
+                ] : null,
+                'tenant_plan' => null,
+                'tenant_subscription' => null,
+            ];
         }
 
-        $tenant = $user->tenant;
+        $tenant = $user->tenant ?? $resolvedTenant;
 
         return [
             'user' => [
@@ -75,10 +91,12 @@ class HandleInertiaRequests extends Middleware
             'tenant' => $tenant ? [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
+                'subdomain' => $tenant->subdomain,
                 'type' => $tenant->type,
                 'logo' => $tenant->logo,
                 'logo_url' => $tenant->logo ? Storage::url($tenant->logo) : null,
                 'slogan' => $tenant->slogan,
+                'portal_url' => $tenant->getPortalUrl(),
             ] : null,
             'tenant_plan' => $tenant?->subscriptionPlan ? [
                 'slug' => $tenant->subscriptionPlan->slug,
@@ -108,11 +126,12 @@ class HandleInertiaRequests extends Middleware
     private function getMinimalTheme(Request $request): array
     {
         $user = $request->user();
+        $tenant = $user?->tenant ?? $request->attributes->get('tenant') ?? (app()->bound('tenant') ? app('tenant') : null);
 
-        if (! $user || ! $user->tenant) {
+        if (! $tenant) {
             return Tenant::getDefaultTheme();
         }
 
-        return $user->tenant->getTheme();
+        return $tenant->getTheme();
     }
 }

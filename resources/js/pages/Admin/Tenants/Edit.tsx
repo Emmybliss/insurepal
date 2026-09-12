@@ -1,4 +1,5 @@
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
+import { SubdomainInput } from '@/components/subdomain-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -124,6 +125,7 @@ export default function TenantsEdit({ tenant, subscriptionPlans = [], tenantUser
     const [data, setData] = useState({
         name: tenant.name || '',
         slug: tenant.slug || '',
+        subdomain: (tenant as any).subdomain || '',
         type: tenant.type || '',
         email: tenant.email || '',
         phone: tenant.phone || '',
@@ -415,6 +417,16 @@ export default function TenantsEdit({ tenant, subscriptionPlans = [], tenantUser
                                             />
                                             {errors.slug && <p className="text-sm text-red-500">{errors.slug}</p>}
                                         </div>
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <SubdomainInput
+                                            value={data.subdomain}
+                                            onChange={(val) => setData((d) => ({ ...d, subdomain: val }))}
+                                            error={errors.subdomain}
+                                            ignoreTenantId={tenant.id}
+                                            label="Portal Address / Subdomain"
+                                        />
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2">

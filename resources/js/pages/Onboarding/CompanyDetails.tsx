@@ -1,4 +1,5 @@
 import CompanySearchCombobox from '@/components/insurance/CompanySearchCombobox';
+import { SubdomainInput } from '@/components/subdomain-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { toast } from 'react-toastify';
 interface Tenant {
     id: number;
     name: string;
+    subdomain?: string;
     company_name?: string;
     type?: string;
     email?: string;
@@ -34,6 +36,7 @@ export default function CompanyDetails({ tenant }: Props) {
     useFlashToast();
     const { data, setData, post, processing, errors } = useForm({
         company_name: tenant?.company_name || tenant?.name || '',
+        subdomain: tenant?.subdomain || '',
         type: tenant?.type || '',
         address: tenant?.address || '',
         city: tenant?.city || '',
@@ -147,6 +150,14 @@ export default function CompanyDetails({ tenant }: Props) {
                                     />
                                     {errors.company_name && <p className="text-sm text-red-600">{errors.company_name}</p>}
                                 </div>
+
+                                <SubdomainInput
+                                    value={data.subdomain}
+                                    onChange={(val) => setData('subdomain', val)}
+                                    error={errors.subdomain}
+                                    ignoreTenantId={tenant?.id}
+                                    label="Choose your InsurePal portal address"
+                                />
 
                                 {/* Contact Information */}
                                 <div className="grid gap-4 md:grid-cols-2">

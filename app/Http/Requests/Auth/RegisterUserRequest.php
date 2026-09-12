@@ -18,6 +18,7 @@ class RegisterUserRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            'subdomain' => ['nullable', 'string', new \App\Rules\Subdomain],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'cf-turnstile-response' => ['required', 'string', new \App\Rules\Turnstile],
         ];

@@ -39,6 +39,7 @@ class RegisteredUserController extends Controller
             // Create a basic tenant for the new user
             $tenant = Tenant::create([
                 'name' => $request->name."'s Company",
+                'subdomain' => $request->filled('subdomain') ? strtolower(trim($request->subdomain)) : null,
                 'type' => 'broker', // Default type
                 'email' => $request->email,
                 'status' => 'active',

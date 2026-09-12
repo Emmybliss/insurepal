@@ -95,7 +95,7 @@ class OnboardingController extends Controller
             DB::beginTransaction();
 
             // Update tenant with company details
-            $tenant->update([
+            $updateData = [
                 'company_name' => $validated['company_name'],
                 'type' => $validated['type'],
                 'address' => $validated['address'],
@@ -116,7 +116,13 @@ class OnboardingController extends Controller
                     'subscription_selected' => true,
                     'payment_completed' => true,
                 ],
-            ]);
+            ];
+
+            if (! empty($validated['subdomain'])) {
+                $updateData['subdomain'] = strtolower(trim($validated['subdomain']));
+            }
+
+            $tenant->update($updateData);
 
             DB::commit();
 

@@ -13,8 +13,11 @@ class OnboardingRequest extends FormRequest
 
     public function rules(): array
     {
+        $tenantId = $this->user()?->tenant_id;
+
         return [
             'company_name' => 'required|string|max:255',
+            'subdomain' => ['nullable', 'string', new \App\Rules\Subdomain($tenantId)],
             'type' => 'required|in:underwriter,broker',
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',

@@ -5,6 +5,7 @@ import { FormEventHandler, useState } from 'react';
 
 import { SocialAuth } from '@/components/auth/social-auth';
 import InputError from '@/components/input-error';
+import { SubdomainInput } from '@/components/subdomain-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         email: '',
+        subdomain: '',
         password: '',
         password_confirmation: '',
         'cf-turnstile-response': '',
@@ -80,6 +82,15 @@ export default function Register() {
                             placeholder="email@example.com"
                         />
                         <InputError message={errors.email} />
+                    </div>
+
+                    <div className="col-span-2">
+                        <SubdomainInput
+                            value={data.subdomain}
+                            onChange={(val) => setData('subdomain', val)}
+                            error={errors.subdomain}
+                            label="Choose your InsurePal portal address"
+                        />
                     </div>
 
                     <div>
