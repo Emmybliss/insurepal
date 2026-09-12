@@ -41,6 +41,9 @@ class Subdomain implements ValidationRule
         'dashboard',
         'settings',
         'root',
+        'broker',
+        'underwriter',
+        'insurance',
     ];
 
     public function __construct(

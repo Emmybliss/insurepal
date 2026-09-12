@@ -20,7 +20,7 @@ export default function AuthSplitLayout({ children, title, description }: PropsW
         if (tenant?.logo_url) {
             return (
                 <div className="flex flex-col items-center justify-center pt-2">
-                    <img src={tenant.logo_url} alt={tenant.name} className="h-16 w-auto max-w-[220px] object-contain" />
+                    <img src={tenant.logo_url} alt={tenant.name} className="h-16 w-auto max-w-[220px] object-contain  rounded-xl" />
                     <span className="mt-1.5 text-base font-semibold text-foreground">{tenant.name}</span>
                     {tenant.slogan && <span className="text-xs text-muted-foreground">{tenant.slogan}</span>}
                 </div>
@@ -29,7 +29,7 @@ export default function AuthSplitLayout({ children, title, description }: PropsW
 
         return (
             <Link href="/" className="relative z-20 flex flex-col items-center justify-center pt-2">
-                <AppLogoIcon className="h-12 w-14 sm:h-12" />
+                <AppLogoIcon className="h-12 w-14 sm:h-12 rounded-xl" />
                 {tenant?.name && <span className="mt-1 text-sm font-semibold text-foreground">{tenant.name}</span>}
             </Link>
         );
