@@ -14,7 +14,10 @@ class EmailMessage extends Model
     protected $fillable = [
         'account_id',
         'folder_id',
+        'email_thread_id',
         'message_id_remote',
+        'message_id_header',
+        'uid',
         'thread_id',
         'subject',
         'body_html',
@@ -30,6 +33,13 @@ class EmailMessage extends Model
         'is_draft',
         'size',
         'in_reply_to',
+        'references',
+        'raw_headers',
+        'customer_id',
+        'policy_id',
+        'claim_id',
+        'quote_id',
+        'invoice_id',
     ];
 
     protected function casts(): array
@@ -38,6 +48,8 @@ class EmailMessage extends Model
             'to_recipients' => 'array',
             'cc_recipients' => 'array',
             'bcc_recipients' => 'array',
+            'references' => 'array',
+            'raw_headers' => 'array',
             'received_at' => 'datetime',
             'is_read' => 'boolean',
             'is_flagged' => 'boolean',
@@ -53,6 +65,36 @@ class EmailMessage extends Model
     public function folder(): BelongsTo
     {
         return $this->belongsTo(EmailFolder::class, 'folder_id');
+    }
+
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(EmailThread::class, 'email_thread_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function policy(): BelongsTo
+    {
+        return $this->belongsTo(Policy::class, 'policy_id');
+    }
+
+    public function claim(): BelongsTo
+    {
+        return $this->belongsTo(Claim::class, 'claim_id');
+    }
+
+    public function quote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class, 'quote_id');
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'invoice_id');
     }
 
     public function attachments(): HasMany

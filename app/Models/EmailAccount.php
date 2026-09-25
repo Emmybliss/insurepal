@@ -22,11 +22,27 @@ class EmailAccount extends Model
         'token_expires_at',
         'imap_host',
         'imap_port',
+        'imap_encryption',
         'smtp_host',
         'smtp_port',
+        'smtp_encryption',
         'is_active',
         'is_system_default',
         'last_sync_at',
+        'sync_status',
+        'sync_error',
+        'delta_token',
+        'test_status',
+        'test_error',
+    ];
+
+    /**
+     * Hidden from array and JSON serialization for security.
+     */
+    protected $hidden = [
+        'credentials_encrypted',
+        'oauth_token_encrypted',
+        'refresh_token_encrypted',
     ];
 
     protected function casts(): array
@@ -37,6 +53,11 @@ class EmailAccount extends Model
             'is_active' => 'boolean',
             'is_system_default' => 'boolean',
         ];
+    }
+
+    public function threads(): HasMany
+    {
+        return $this->hasMany(EmailThread::class, 'account_id');
     }
 
     public function folders(): HasMany
@@ -67,5 +88,44 @@ class EmailAccount extends Model
     public function isTokenExpired(): bool
     {
         return $this->token_expires_at && $this->token_expires_at->isPast();
+    }
+
+    public function getDecryptedPassword(): ?string
+    {
+        if (! $this->credentials_encrypted) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->credentials_encrypted);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function getDecryptedAccessToken(): ?string
+    {
+        if (! $this->oauth_token_encrypted) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->oauth_token_encrypted);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function getDecryptedRefreshToken(): ?string
+    {
+        if (! $this->refresh_token_encrypted) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->refresh_token_encrypted);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

@@ -11,8 +11,8 @@ export default function AppLogo() {
 
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-white shadow-2xl">
-                <img src={logoSrc} alt={logoAlt} width={100} height={100} className="object-cover" />
+            <div className="flex aspect-square size-8 items-center justify-center ">
+                <img src={logoSrc} alt={logoAlt} width={100} height={100} className="object-cover  rounded-xl " />
             </div>
             <div className="ml-1 grid flex-1 text-left">
                 <span className="mb-0.5 truncate text-lg leading-tight font-semibold">{logoAlt}</span>

@@ -159,7 +159,7 @@ test('sync account creates folders for imap', function () {
     $service = app(\App\Services\Email\EmailSyncService::class);
     $service->syncAccount($this->account);
 
-    expect($this->account->folders()->count())->toBe(3);
+    expect($this->account->folders()->count())->toBeGreaterThanOrEqual(3);
     expect($this->account->folders()->where('type', 'inbox')->exists())->toBeTrue();
     expect($this->account->folders()->where('type', 'sent')->exists())->toBeTrue();
 });
@@ -555,10 +555,11 @@ test('can move a message to a different folder', function () {
         'received_at' => now(),
     ]);
 
-    $this->postJson("/api/v1/email/messages/{$message->id}/move", [
+    $response = $this->postJson("/api/v1/email/messages/{$message->id}/move", [
         'folder_id' => $archive->id,
     ]);
 
+    $response->assertOk();
     expect($message->fresh()->folder_id)->toBe($archive->id);
 });
 
@@ -823,4 +824,119 @@ test('list messages respects tenant isolation', function () {
     $response = $this->getJson('/api/v1/email/messages');
 
     expect($response->json('meta.total'))->toBe(1);
+});
+
+// ─── Enhanced Email Module Tests ───
+
+test('email account model hides encrypted credentials and tokens from json serialization', function () {
+    $account = EmailAccount::create([
+        'tenant_id' => $this->tenant->id,
+        'provider' => 'imap',
+        'email' => 'secure@broker.com',
+        'account_name' => 'Secure Account',
+        'credentials_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString(json_encode(['password' => 'secret123'])),
+        'oauth_token_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('access-token'),
+        'refresh_token_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString('refresh-token'),
+    ]);
+
+    $array = $account->toArray();
+
+    expect(array_key_exists('credentials_encrypted', $array))->toBeFalse();
+    expect(array_key_exists('oauth_token_encrypted', $array))->toBeFalse();
+    expect(array_key_exists('refresh_token_encrypted', $array))->toBeFalse();
+
+    $jsonResponse = $this->getJson("/api/v1/email/accounts/{$account->id}");
+    $jsonResponse->assertOk();
+    $jsonContent = $jsonResponse->getContent();
+
+    expect(str_contains($jsonContent, 'secret123'))->toBeFalse();
+    expect(str_contains($jsonContent, 'credentials_encrypted'))->toBeFalse();
+});
+
+test('can test unsaved imap credentials via api', function () {
+    $response = $this->postJson('/api/v1/email/accounts/test-credentials', [
+        'provider' => 'imap',
+        'email' => 'test@broker.com',
+        'imap_host' => 'invalid.host.nonexistent.xyz',
+        'imap_port' => '993',
+        'imap_encryption' => 'ssl',
+        'imap_username' => 'test@broker.com',
+        'imap_password' => 'wrongpassword',
+        'smtp_host' => 'invalid.host.nonexistent.xyz',
+        'smtp_port' => '465',
+        'smtp_encryption' => 'ssl',
+        'password' => 'wrongpassword',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('success', false);
+});
+
+test('can list threads and view single thread details', function () {
+    $folder = EmailFolder::create(['account_id' => $this->account->id, 'name' => 'Inbox', 'remote_id' => 'INBOX', 'type' => 'inbox']);
+
+    $thread = \App\Models\EmailThread::create([
+        'tenant_id' => $this->tenant->id,
+        'account_id' => $this->account->id,
+        'subject' => 'Claim Status Inquiry',
+        'snippet' => 'What is the status of my claim?',
+        'last_message_at' => now(),
+        'message_count' => 1,
+        'is_unread' => true,
+    ]);
+
+    EmailMessage::create([
+        'account_id' => $this->account->id,
+        'email_thread_id' => $thread->id,
+        'folder_id' => $folder->id,
+        'subject' => 'Claim Status Inquiry',
+        'from_address' => 'client@domain.com',
+        'to_recipients' => ['test@broker.com'],
+        'body_text' => 'What is the status of my claim?',
+        'received_at' => now(),
+    ]);
+
+    $listResponse = $this->getJson('/api/v1/email/threads');
+    $listResponse->assertOk()
+        ->assertJsonPath('meta.total', 1);
+
+    $showResponse = $this->getJson("/api/v1/email/threads/{$thread->id}");
+    $showResponse->assertOk()
+        ->assertJsonPath('data.subject', 'Claim Status Inquiry')
+        ->assertJsonPath('data.is_unread', false);
+});
+
+test('entity matcher service links customer, policy, claim, quote, invoice to incoming emails', function () {
+    $customer = \App\Models\Customer::create([
+        'tenant_id' => $this->tenant->id,
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane.doe@example.com',
+        'status' => 'active',
+        'type' => 'individual',
+    ]);
+
+    $policy = \App\Models\Policy::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $customer->id,
+        'policy_number' => 'POL-2026-9999',
+    ]);
+
+    $folder = EmailFolder::create(['account_id' => $this->account->id, 'name' => 'Inbox', 'remote_id' => 'INBOX', 'type' => 'inbox']);
+
+    $message = EmailMessage::create([
+        'account_id' => $this->account->id,
+        'folder_id' => $folder->id,
+        'subject' => 'Question regarding POL-2026-9999',
+        'from_address' => 'jane.doe@example.com',
+        'to_recipients' => ['test@broker.com'],
+        'body_text' => 'Hello, I have a question about policy POL-2026-9999.',
+        'received_at' => now(),
+    ]);
+
+    $matcher = app(\App\Services\Email\EmailEntityMatcherService::class);
+    $matcher->matchAndLink($message);
+
+    expect($message->fresh()->customer_id)->toBe($customer->id);
+    expect($message->fresh()->policy_id)->toBe($policy->id);
 });

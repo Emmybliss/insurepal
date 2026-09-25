@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Building2, Eye, Link2, Mail, MapPin, Phone, Plug, Save, Star, Trash2 } from 'lucide-react';
+import { Building2, Eye, Link2, Mail, MapPin, Pencil, Phone, Plug, Save, Star, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -49,9 +49,19 @@ interface EmailAccountProps {
     provider: 'gmail' | 'microsoft365' | 'smtp' | 'imap' | string;
     email: string;
     account_name: string;
+    imap_host?: string | null;
+    imap_port?: string | null;
+    imap_encryption?: string | null;
+    smtp_host?: string | null;
+    smtp_port?: string | null;
+    smtp_encryption?: string | null;
     is_active: boolean;
     is_system_default: boolean;
     last_sync_at: string | null;
+    sync_status?: 'idle' | 'syncing' | 'error' | string;
+    sync_error?: string | null;
+    test_status?: string | null;
+    test_error?: string | null;
     created_at: string;
 }
 
@@ -68,15 +78,38 @@ interface Props {
 }
 
 function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
-    const [provider, setProvider] = useState('');
+    const [provider, setProvider] = useState('imap');
     const [email, setEmail] = useState('');
     const [accountName, setAccountName] = useState('');
     const [smtpHost, setSmtpHost] = useState('');
-    const [smtpPort, setSmtpPort] = useState('587');
+    const [smtpPort, setSmtpPort] = useState('465');
+    const [smtpEncryption, setSmtpEncryption] = useState('ssl');
+    const [smtpSpa, setSmtpSpa] = useState(false);
     const [imapHost, setImapHost] = useState('');
     const [imapPort, setImapPort] = useState('993');
+    const [imapEncryption, setImapEncryption] = useState('ssl');
+    const [imapSpa, setImapSpa] = useState(false);
     const [password, setPassword] = useState('');
     const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+
+    const handleImapEncryptionChange = (val: string) => {
+        setImapEncryption(val);
+        if (val === 'ssl') {
+            setImapPort('993');
+        } else if (val === 'starttls') {
+            setImapPort('143');
+        }
+    };
+
+    const handleSmtpEncryptionChange = (val: string) => {
+        setSmtpEncryption(val);
+        if (val === 'ssl') {
+            setSmtpPort('465');
+        } else if (val === 'tls' || val === 'starttls') {
+            setSmtpPort('587');
+        }
+    };
 
     const handleOAuth = async (prov: string) => {
         try {
@@ -92,11 +125,60 @@ function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
         }
     };
 
+    const handleTestConnection = async () => {
+        if (!email || (['smtp', 'imap'].includes(provider) && !password)) {
+            toast.error('Please fill in email and password before testing connection.');
+            return;
+        }
+
+        setTesting(true);
+        const token = getXsrfToken();
+        const headers: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['X-XSRF-TOKEN'] = token;
+        }
+
+        try {
+            const res = await fetch('/api/v1/email/accounts/test-credentials', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    provider,
+                    email,
+                    imap_host: provider === 'imap' ? imapHost : '',
+                    imap_port: provider === 'imap' ? imapPort : '',
+                    imap_encryption: imapEncryption,
+                    smtp_host: ['smtp', 'imap'].includes(provider) ? smtpHost : '',
+                    smtp_port: ['smtp', 'imap'].includes(provider) ? smtpPort : '',
+                    smtp_encryption: smtpEncryption,
+                    password,
+                }),
+            });
+            const json = await res.json();
+            if (json.success) {
+                toast.success('Connection Test Successful!', {
+                    description: 'Credentials and server settings verified cleanly.',
+                });
+            } else {
+                toast.error('Connection Test Failed', {
+                    description: json.error || json.message || 'Could not connect to mail server.',
+                });
+            }
+        } catch {
+            toast.error('Failed to execute connection test');
+        } finally {
+            setTesting(false);
+        }
+    };
+
     const handleSubmit = async () => {
         if (!provider || !email) return;
 
         setSaving(true);
-
         const token = getXsrfToken();
         const headers: Record<string, string> = {
             'X-Requested-With': 'XMLHttpRequest',
@@ -112,11 +194,13 @@ function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
             account_name: accountName || email,
             smtp_host: ['smtp', 'imap'].includes(provider) ? smtpHost : '',
             smtp_port: ['smtp', 'imap'].includes(provider) ? smtpPort : '',
+            smtp_encryption: smtpEncryption,
         });
 
         if (['smtp', 'imap'].includes(provider)) {
             body.set('imap_host', provider === 'imap' ? imapHost : '');
             body.set('imap_port', provider === 'imap' ? imapPort : '');
+            body.set('imap_encryption', imapEncryption);
             if (password) body.set('password', password);
         }
 
@@ -128,7 +212,9 @@ function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
             });
             const json = await res.json();
             if (json.success) {
-                toast.success('Account connected');
+                toast.success('Account Connected & Saved!', {
+                    description: 'Email account configured and active.',
+                });
                 onSuccess();
             } else {
                 toast.error(json.message || 'Failed to connect account');
@@ -154,86 +240,409 @@ function AddAccountForm({ onSuccess }: { onSuccess: () => void }) {
     }
 
     return (
-        <div className="space-y-4 py-4">
+        <div className="space-y-5 py-2 max-h-[75vh] overflow-y-auto pr-1">
             <div className="space-y-2">
-                <Label>Provider</Label>
+                <Label className="font-semibold">Account Setup Type / Provider</Label>
                 <Select value={provider} onValueChange={setProvider}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Select a provider" />
+                        <SelectValue placeholder="Select account setup type" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="gmail">Gmail (OAuth)</SelectItem>
-                        <SelectItem value="microsoft365">Microsoft 365 (OAuth)</SelectItem>
-                        <SelectItem value="smtp">SMTP</SelectItem>
-                        <SelectItem value="imap">IMAP</SelectItem>
+                        <SelectItem value="imap">IMAP Account Setup (Incoming & Outgoing Mail Server)</SelectItem>
+                        <SelectItem value="smtp">SMTP Only (Outgoing Mail Server)</SelectItem>
+                        <SelectItem value="gmail">Gmail (OAuth 2.0)</SelectItem>
+                        <SelectItem value="microsoft365">Microsoft 365 (OAuth 2.0)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
             {provider && (
                 <>
-                    <div className="space-y-2">
-                        <Label htmlFor="ae-email">Email Address</Label>
-                        <Input id="ae-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ae-name">Account Name</Label>
-                        <Input id="ae-name" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="My Account" />
+                    {/* General Account Details */}
+                    <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mailbox Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ae-email" className="text-xs">Email Address *</Label>
+                                <Input
+                                    id="ae-email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="user@example.com"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ae-name" className="text-xs">Account Display Name</Label>
+                                <Input
+                                    id="ae-name"
+                                    value={accountName}
+                                    onChange={(e) => setAccountName(e.target.value)}
+                                    placeholder="Company Support Mailbox"
+                                />
+                            </div>
+                        </div>
                     </div>
 
+                    {/* Incoming Mail Server (IMAP) */}
+                    {provider === 'imap' && (
+                        <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Incoming Mail Server (IMAP)</h4>
+                                <Badge variant="outline" className="text-[10px] font-mono">Port {imapPort}</Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label htmlFor="ae-imap-host" className="text-xs">Incoming Mail Server</Label>
+                                    <Input
+                                        id="ae-imap-host"
+                                        value={imapHost}
+                                        onChange={(e) => setImapHost(e.target.value)}
+                                        placeholder="premium132.web-hosting.com"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label htmlFor="ae-imap-port" className="text-xs">Incoming Mail Port</Label>
+                                    <Input
+                                        id="ae-imap-port"
+                                        value={imapPort}
+                                        onChange={(e) => setImapPort(e.target.value)}
+                                        placeholder="993"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label className="text-xs">Encryption Method</Label>
+                                    <Select value={imapEncryption} onValueChange={handleImapEncryptionChange}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ssl">SSL / TLS (Port 993)</SelectItem>
+                                            <SelectItem value="starttls">STARTTLS (Port 143)</SelectItem>
+                                            <SelectItem value="none">None</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <label className="flex items-center gap-2 pt-1 cursor-pointer text-xs text-muted-foreground select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={imapSpa}
+                                    onChange={(e) => setImapSpa(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <span>Require logon using Secure Password Authentication (SPA)</span>
+                            </label>
+                        </div>
+                    )}
+
+                    {/* Outgoing Mail Server (SMTP) */}
                     {['smtp', 'imap'].includes(provider) && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="ae-smtp-host">SMTP Host</Label>
+                        <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Outgoing Mail Server (SMTP)</h4>
+                                <Badge variant="outline" className="text-[10px] font-mono">Port {smtpPort}</Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label htmlFor="ae-smtp-host" className="text-xs">Outgoing Mail Server</Label>
                                     <Input
                                         id="ae-smtp-host"
                                         value={smtpHost}
                                         onChange={(e) => setSmtpHost(e.target.value)}
-                                        placeholder="smtp.example.com"
+                                        placeholder="premium132.web-hosting.com"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="ae-smtp-port">SMTP Port</Label>
-                                    <Input id="ae-smtp-port" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" />
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label htmlFor="ae-smtp-port" className="text-xs">Outgoing Mail Port</Label>
+                                    <Input
+                                        id="ae-smtp-port"
+                                        value={smtpPort}
+                                        onChange={(e) => setSmtpPort(e.target.value)}
+                                        placeholder="465"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 md:col-span-1">
+                                    <Label className="text-xs">Encryption Method</Label>
+                                    <Select value={smtpEncryption} onValueChange={handleSmtpEncryptionChange}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ssl">SSL / TLS (Port 465)</SelectItem>
+                                            <SelectItem value="tls">STARTTLS / TLS (Port 587)</SelectItem>
+                                            <SelectItem value="none">None</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="ae-password">Password / App Password</Label>
+                            <label className="flex items-center gap-2 pt-1 cursor-pointer text-xs text-muted-foreground select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={smtpSpa}
+                                    onChange={(e) => setSmtpSpa(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <span>Require logon using Secure Password Authentication (SPA)</span>
+                            </label>
+                        </div>
+                    )}
+
+                    {/* Logon Credentials */}
+                    {['smtp', 'imap'].includes(provider) && (
+                        <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Logon Credentials</h4>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ae-password" className="text-xs">Mailbox Password / App Password *</Label>
                                 <Input
                                     id="ae-password"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Enter password"
+                                    placeholder="••••••••••••••••"
                                 />
-                            </div>
-                        </>
-                    )}
-
-                    {provider === 'imap' && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="ae-imap-host">IMAP Host</Label>
-                                <Input
-                                    id="ae-imap-host"
-                                    value={imapHost}
-                                    onChange={(e) => setImapHost(e.target.value)}
-                                    placeholder="imap.example.com"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="ae-imap-port">IMAP Port</Label>
-                                <Input id="ae-imap-port" value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" />
                             </div>
                         </div>
                     )}
 
-                    <Button onClick={handleSubmit} disabled={saving || !email} className="w-full">
-                        {saving ? 'Connecting...' : 'Connect Account'}
-                    </Button>
+                    <div className="flex gap-2 pt-2">
+                        {['smtp', 'imap'].includes(provider) && (
+                            <Button type="button" variant="outline" onClick={handleTestConnection} disabled={testing || !email} className="w-1/2">
+                                {testing ? 'Testing Connection...' : 'Test Connection'}
+                            </Button>
+                        )}
+                        <Button type="button" onClick={handleSubmit} disabled={saving || !email} className={['smtp', 'imap'].includes(provider) ? 'w-1/2' : 'w-full'}>
+                            {saving ? 'Saving...' : 'Save & Activate Account'}
+                        </Button>
+                    </div>
                 </>
             )}
+        </div>
+    );
+}
+
+function EditAccountForm({ account, onSuccess }: { account: EmailAccountProps; onSuccess: () => void }) {
+    const [email, setEmail] = useState(account.email || '');
+    const [accountName, setAccountName] = useState(account.account_name || '');
+    const [smtpHost, setSmtpHost] = useState(account.smtp_host || '');
+    const [smtpPort, setSmtpPort] = useState(account.smtp_port || '465');
+    const [smtpEncryption, setSmtpEncryption] = useState(account.smtp_encryption || 'ssl');
+    const [imapHost, setImapHost] = useState(account.imap_host || '');
+    const [imapPort, setImapPort] = useState(account.imap_port || '993');
+    const [imapEncryption, setImapEncryption] = useState(account.imap_encryption || 'ssl');
+    const [password, setPassword] = useState('');
+    const [isSystemDefault, setIsSystemDefault] = useState(account.is_system_default || false);
+    const [saving, setSaving] = useState(false);
+
+    const handleImapEncryptionChange = (val: string) => {
+        setImapEncryption(val);
+        if (val === 'ssl') {
+            setImapPort('993');
+        } else if (val === 'starttls') {
+            setImapPort('143');
+        }
+    };
+
+    const handleSmtpEncryptionChange = (val: string) => {
+        setSmtpEncryption(val);
+        if (val === 'ssl') {
+            setSmtpPort('465');
+        } else if (val === 'tls' || val === 'starttls') {
+            setSmtpPort('587');
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!email) return;
+
+        setSaving(true);
+        const token = getXsrfToken();
+        const headers: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['X-XSRF-TOKEN'] = token;
+        }
+
+        const body: Record<string, string | number | boolean> = {
+            email,
+            account_name: accountName || email,
+            is_system_default: isSystemDefault,
+        };
+
+        if (['smtp', 'imap'].includes(account.provider)) {
+            body.smtp_host = smtpHost;
+            body.smtp_port = smtpPort;
+            body.smtp_encryption = smtpEncryption;
+        }
+
+        if (account.provider === 'imap') {
+            body.imap_host = imapHost;
+            body.imap_port = imapPort;
+            body.imap_encryption = imapEncryption;
+        }
+
+        if (password) {
+            body.password = password;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/email/accounts/${account.id}`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify(body),
+            });
+            const json = await res.json();
+            if (json.success) {
+                toast.success('Account Details Updated!', {
+                    description: 'Email account settings saved.',
+                });
+                onSuccess();
+            } else {
+                toast.error(json.message || 'Failed to update account');
+            }
+        } catch {
+            toast.error('Failed to update account');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-5 py-2 max-h-[75vh] overflow-y-auto pr-1">
+            <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mailbox Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                        <Label htmlFor={`edit-email-${account.id}`} className="text-xs">Email Address *</Label>
+                        <Input
+                            id={`edit-email-${account.id}`}
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="user@example.com"
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor={`edit-name-${account.id}`} className="text-xs">Account Display Name</Label>
+                        <Input
+                            id={`edit-name-${account.id}`}
+                            value={accountName}
+                            onChange={(e) => setAccountName(e.target.value)}
+                            placeholder="Company Support Mailbox"
+                        />
+                    </div>
+                </div>
+                <label className="flex items-center gap-2 pt-1 cursor-pointer text-xs text-muted-foreground select-none">
+                    <input
+                        type="checkbox"
+                        checked={isSystemDefault}
+                        onChange={(e) => setIsSystemDefault(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span>Set as primary system default email account</span>
+                </label>
+            </div>
+
+            {account.provider === 'imap' && (
+                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Incoming Mail Server (IMAP)</h4>
+                        <Badge variant="outline" className="text-[10px] font-mono">Port {imapPort}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label htmlFor={`edit-imap-host-${account.id}`} className="text-xs">Incoming Mail Server</Label>
+                            <Input
+                                id={`edit-imap-host-${account.id}`}
+                                value={imapHost}
+                                onChange={(e) => setImapHost(e.target.value)}
+                                placeholder="premium132.web-hosting.com"
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label htmlFor={`edit-imap-port-${account.id}`} className="text-xs">Incoming Mail Port</Label>
+                            <Input
+                                id={`edit-imap-port-${account.id}`}
+                                value={imapPort}
+                                onChange={(e) => setImapPort(e.target.value)}
+                                placeholder="993"
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label className="text-xs">Encryption Method</Label>
+                            <Select value={imapEncryption} onValueChange={handleImapEncryptionChange}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ssl">SSL / TLS (Port 993)</SelectItem>
+                                    <SelectItem value="starttls">STARTTLS (Port 143)</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {['smtp', 'imap'].includes(account.provider) && (
+                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Outgoing Mail Server (SMTP)</h4>
+                        <Badge variant="outline" className="text-[10px] font-mono">Port {smtpPort}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label htmlFor={`edit-smtp-host-${account.id}`} className="text-xs">Outgoing Mail Server</Label>
+                            <Input
+                                id={`edit-smtp-host-${account.id}`}
+                                value={smtpHost}
+                                onChange={(e) => setSmtpHost(e.target.value)}
+                                placeholder="premium132.web-hosting.com"
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label htmlFor={`edit-smtp-port-${account.id}`} className="text-xs">Outgoing Mail Port</Label>
+                            <Input
+                                id={`edit-smtp-port-${account.id}`}
+                                value={smtpPort}
+                                onChange={(e) => setSmtpPort(e.target.value)}
+                                placeholder="465"
+                            />
+                        </div>
+                        <div className="space-y-1.5 md:col-span-1">
+                            <Label className="text-xs">Encryption Method</Label>
+                            <Select value={smtpEncryption} onValueChange={handleSmtpEncryptionChange}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ssl">SSL / TLS (Port 465)</SelectItem>
+                                    <SelectItem value="tls">STARTTLS / TLS (Port 587)</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {['smtp', 'imap'].includes(account.provider) && (
+                <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Logon Password</h4>
+                    <div className="space-y-1.5">
+                        <Label htmlFor={`edit-password-${account.id}`} className="text-xs">New Password (leave blank to keep current password)</Label>
+                        <Input
+                            id={`edit-password-${account.id}`}
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••••••••••"
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div className="pt-2">
+                <Button type="button" onClick={handleSubmit} disabled={saving || !email} className="w-full">
+                    {saving ? 'Saving Changes...' : 'Save Updated Account Details'}
+                </Button>
+            </div>
         </div>
     );
 }
@@ -1048,6 +1457,58 @@ export default function CompanySettings({ company, emailAccounts, themeColors }:
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        toast.loading('Testing connection...', { id: `test-${account.id}` });
+                                                        try {
+                                                            const res = await fetch(`/api/v1/email/accounts/${account.id}/test`, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                                    Accept: 'application/json',
+                                                                    'X-XSRF-TOKEN': getXsrfToken(),
+                                                                },
+                                                            });
+                                                            const json = await res.json();
+                                                            if (json.success) {
+                                                                toast.success('Connection Successful', { id: `test-${account.id}` });
+                                                            } else {
+                                                                toast.error(json.error || 'Connection Failed', { id: `test-${account.id}` });
+                                                            }
+                                                        } catch {
+                                                            toast.error('Connection test failed', { id: `test-${account.id}` });
+                                                        }
+                                                    }}
+                                                >
+                                                    Test Connection
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        toast.loading('Sync queued...', { id: `sync-${account.id}` });
+                                                        try {
+                                                            const res = await fetch(`/api/v1/email/accounts/${account.id}/sync`, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                                    Accept: 'application/json',
+                                                                    'X-XSRF-TOKEN': getXsrfToken(),
+                                                                },
+                                                            });
+                                                            const json = await res.json();
+                                                            if (json.success) {
+                                                                toast.success('Synchronization queued', { id: `sync-${account.id}` });
+                                                            }
+                                                        } catch {
+                                                            toast.error('Failed to trigger sync', { id: `sync-${account.id}` });
+                                                        }
+                                                    }}
+                                                >
+                                                    Sync Now
+                                                </Button>
                                                 {['gmail', 'microsoft365'].includes(account.provider) && (
                                                     <Button
                                                         variant="outline"
@@ -1070,6 +1531,21 @@ export default function CompanySettings({ company, emailAccounts, themeColors }:
                                                         Re-auth
                                                     </Button>
                                                 )}
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="outline" size="sm">
+                                                            <Pencil className="mr-1 h-3 w-3" />
+                                                            Edit
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-xl">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Edit Email Account Details</DialogTitle>
+                                                            <DialogDescription>Update configuration and server settings for {account.email}</DialogDescription>
+                                                        </DialogHeader>
+                                                        <EditAccountForm account={account} onSuccess={() => window.location.reload()} />
+                                                    </DialogContent>
+                                                </Dialog>
                                                 {!account.is_system_default && account.is_active && (
                                                     <Button
                                                         variant="outline"
@@ -1135,7 +1611,7 @@ export default function CompanySettings({ company, emailAccounts, themeColors }:
                                         Add Account
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-lg">
+                                <DialogContent className="sm:max-w-xl">
                                     <DialogHeader>
                                         <DialogTitle>Add Email Account</DialogTitle>
                                         <DialogDescription>Select a provider to connect a new email account.</DialogDescription>

@@ -286,13 +286,19 @@ Route::prefix('v1/email')->middleware('auth:sanctum')->group(function () {
     // Accounts
     Route::get('/accounts', [\App\Http\Controllers\Api\V1\EmailController::class, 'accounts']);
     Route::post('/accounts', [\App\Http\Controllers\Api\V1\EmailController::class, 'storeAccount']);
+    Route::post('/accounts/test-credentials', [\App\Http\Controllers\Api\V1\EmailController::class, 'testUnsavedCredentials']);
     Route::get('/accounts/{account}', [\App\Http\Controllers\Api\V1\EmailController::class, 'showAccount']);
     Route::patch('/accounts/{account}', [\App\Http\Controllers\Api\V1\EmailController::class, 'updateAccount']);
     Route::delete('/accounts/{account}', [\App\Http\Controllers\Api\V1\EmailController::class, 'deleteAccount']);
     Route::post('/accounts/{account}/sync', [\App\Http\Controllers\Api\V1\EmailController::class, 'syncAccount']);
+    Route::post('/accounts/{account}/test', [\App\Http\Controllers\Api\V1\EmailController::class, 'testAccountConnection']);
 
     // Folders
     Route::get('/accounts/{account}/folders', [\App\Http\Controllers\Api\V1\EmailController::class, 'folders']);
+
+    // Threads (Conversations)
+    Route::get('/threads', [\App\Http\Controllers\Api\V1\EmailController::class, 'threads']);
+    Route::get('/threads/{thread}', [\App\Http\Controllers\Api\V1\EmailController::class, 'showThread']);
 
     // Messages
     Route::get('/messages', [\App\Http\Controllers\Api\V1\EmailController::class, 'messages']);

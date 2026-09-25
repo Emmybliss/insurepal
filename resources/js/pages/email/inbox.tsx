@@ -1,4 +1,5 @@
 import { ComposeToolbar } from '@/components/email/compose-toolbar';
+import { EntityDrawer } from '@/components/email/entity-drawer';
 import { FolderTree } from '@/components/email/folder-tree';
 import { MessageList } from '@/components/email/message-list';
 import { MessagePreview } from '@/components/email/message-preview';
@@ -46,6 +47,9 @@ interface EmailMessage {
     attachments: EmailAttachment[];
     account: { id: number; email: string; account_name: string };
     folder: { id: number; name: string; type: string };
+    customer?: { id: number; first_name: string; last_name: string; email: string; phone?: string } | null;
+    policy?: { id: number; policy_number: string; status: string } | null;
+    claim?: { id: number; claim_number: string; status: string } | null;
 }
 
 interface EmailInboxProps {
@@ -53,6 +57,7 @@ interface EmailInboxProps {
     folders?: EmailFolder[];
     accounts?: EmailAccount[];
     selectedFolderId?: number | null;
+    selectedFolderType?: string | null;
     selectedAccountId?: number | null;
 }
 
@@ -66,6 +71,7 @@ export default function EmailInbox({
     folders = [],
     accounts = [],
     selectedFolderId = null,
+    selectedFolderType = 'inbox',
     selectedAccountId = null,
 }: EmailInboxProps) {
     const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
@@ -73,13 +79,17 @@ export default function EmailInbox({
     const [messageError, setMessageError] = useState<string | null>(null);
     const [listLoading, setListLoading] = useState(false);
 
-    const handleFolderSelect = (folderId: number | null) => {
+    const handleFolderSelect = (folderId: number | null, folderType?: string | null) => {
         setListLoading(true);
         setSelectedMessage(null);
         setMessageError(null);
         router.get(
             '/email/inbox',
-            { folder_id: folderId ?? undefined, account_id: selectedAccountId ?? undefined },
+            {
+                folder_id: folderId ?? undefined,
+                folder_type: folderType ?? undefined,
+                account_id: selectedAccountId ?? undefined,
+            },
             {
                 preserveState: true,
                 onFinish: () => setListLoading(false),
@@ -93,7 +103,10 @@ export default function EmailInbox({
         setMessageError(null);
         router.get(
             '/email/inbox',
-            { account_id: accountId ?? undefined, folder_id: selectedFolderId ?? undefined },
+            {
+                account_id: accountId ?? undefined,
+                folder_type: selectedFolderType ?? 'inbox',
+            },
             {
                 preserveState: true,
                 onFinish: () => setListLoading(false),
@@ -178,7 +191,6 @@ export default function EmailInbox({
         }
 
         try {
-            // Move to trash folder first; if none, delete permanently
             const trashFolder = folders.find((f) => f.type === 'trash' && f.account_id === selectedMessage.account.id);
 
             if (trashFolder) {
@@ -189,7 +201,6 @@ export default function EmailInbox({
                 });
                 toast.success('Message moved to trash');
             } else {
-                // No trash folder — full delete
                 await fetch(`/api/v1/email/messages/${selectedMessage.id}`, {
                     method: 'DELETE',
                     headers,
@@ -198,7 +209,6 @@ export default function EmailInbox({
             }
 
             setSelectedMessage(null);
-            // Refresh list
             router.reload({ only: ['messages'] });
         } catch {
             toast.error('Failed to delete message');
@@ -218,7 +228,8 @@ export default function EmailInbox({
                         <FolderTree
                             folders={folders}
                             selectedFolderId={selectedFolderId}
-                            onSelect={handleFolderSelect}
+                            selectedFolderType={selectedFolderType}
+                            onSelectFolder={handleFolderSelect}
                             accounts={accounts}
                             selectedAccountId={selectedAccountId}
                             onSelectAccount={handleAccountSelect}
@@ -236,21 +247,34 @@ export default function EmailInbox({
                     </div>
                 </div>
 
-                {/* ── Message preview ──────────────────────────────────── */}
-                <div className="flex flex-1 flex-col overflow-hidden">
-                    {messageLoading ? (
-                        <div className="flex h-full items-center justify-center">
-                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                <div className="flex gap-1">
-                                    <span className="h-2 w-2 animate-bounce rounded-full bg-current" />
-                                    <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:0.1s]" />
-                                    <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:0.2s]" />
+                {/* ── Message preview & Entity Drawer ─────────────────── */}
+                <div className="flex flex-1 overflow-hidden">
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                        {messageLoading ? (
+                            <div className="flex h-full items-center justify-center">
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                    <div className="flex gap-1">
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-current" />
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:0.1s]" />
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:0.2s]" />
+                                    </div>
+                                    <span className="text-sm">Loading message...</span>
                                 </div>
-                                <span className="text-sm">Loading message...</span>
                             </div>
+                        ) : (
+                            <MessagePreview message={selectedMessage} error={messageError} onDelete={handleDeleteMessage} />
+                        )}
+                    </div>
+
+                    {/* Right side Linked Record Context Drawer */}
+                    {selectedMessage && (
+                        <div className="w-64 border-l bg-muted/10 overflow-y-auto hidden xl:block">
+                            <EntityDrawer
+                                customer={selectedMessage.customer}
+                                policy={selectedMessage.policy}
+                                claim={selectedMessage.claim}
+                            />
                         </div>
-                    ) : (
-                        <MessagePreview message={selectedMessage} error={messageError} onDelete={handleDeleteMessage} />
                     )}
                 </div>
             </div>

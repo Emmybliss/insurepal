@@ -8,7 +8,6 @@ git push origin main
 
 ## Server deployment
 
-
 ssh root@184.94.215.54
 
 cd /var/www/insurepal
@@ -16,6 +15,8 @@ cd /var/www/insurepal
 nano storage/logs/laravel.log
 
 git pull origin main
+
+git log -1 --oneline 
 
 composer install --no-dev --prefer-dist --optimize-autoloader
 

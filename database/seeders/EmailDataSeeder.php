@@ -14,22 +14,8 @@ class EmailDataSeeder extends Seeder
     {
         $this->command->info('Seeding email data...');
 
-        // Create email accounts for each tenant
-        $brokerAccount = EmailAccount::create([
-            'tenant_id' => $brokerAdmin->tenant_id,
-            'provider' => 'smtp',
-            'email' => 'notifications@demobroker.com',
-            'account_name' => 'Broker Notifications',
-            'is_active' => true,
-        ]);
-
-        $underwriterAccount = EmailAccount::create([
-            'tenant_id' => $underwriterAdmin->tenant_id,
-            'provider' => 'smtp',
-            'email' => 'notifications@premiumunder.ng',
-            'account_name' => 'Underwriter Notifications',
-            'is_active' => true,
-        ]);
+        // Seeder refactored: Default demo email accounts removed as requested.
+        // Real email accounts will be added dynamically by users via Company Settings.
 
         // Email templates for broker tenant
         EmailTemplate::create([
@@ -126,20 +112,23 @@ class EmailDataSeeder extends Seeder
             'category' => 'general',
         ]);
 
-        // Email signatures for broker account
-        EmailSignature::create([
-            'account_id' => $brokerAccount->id,
-            'name' => 'Default Broker Signature',
-            'body_html' => '<p>Best regards,<br><strong>{sender_name}</strong><br>{sender_title}<br>{company_name}<br>Phone: {company_phone}<br>Email: {sender_email}</p>',
-            'is_default' => true,
-        ]);
+        // Seed signatures if an account exists for the broker tenant
+        $firstAccount = EmailAccount::where('tenant_id', $brokerAdmin->tenant_id)->first();
+        if ($firstAccount) {
+            EmailSignature::create([
+                'account_id' => $firstAccount->id,
+                'name' => 'Default Broker Signature',
+                'body_html' => '<p>Best regards,<br><strong>{sender_name}</strong><br>{sender_title}<br>{company_name}<br>Phone: {company_phone}<br>Email: {sender_email}</p>',
+                'is_default' => true,
+            ]);
 
-        EmailSignature::create([
-            'account_id' => $brokerAccount->id,
-            'name' => 'Claims Department',
-            'body_html' => '<p>Best regards,<br><strong>{sender_name}</strong><br>Claims Department<br>{company_name}<br>Phone: {company_phone}<br>Email: {sender_email}</p>',
-            'is_default' => false,
-        ]);
+            EmailSignature::create([
+                'account_id' => $firstAccount->id,
+                'name' => 'Claims Department',
+                'body_html' => '<p>Best regards,<br><strong>{sender_name}</strong><br>Claims Department<br>{company_name}<br>Phone: {company_phone}<br>Email: {sender_email}</p>',
+                'is_default' => false,
+            ]);
+        }
 
         $this->command->info('✅ Email data seeded successfully!');
         $this->command->line('  • '.EmailTemplate::count().' email templates created');

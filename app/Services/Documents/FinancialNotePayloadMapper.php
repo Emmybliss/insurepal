@@ -148,23 +148,96 @@ class FinancialNotePayloadMapper
         $policy = $receipt->policy ?? $receipt->invoice?->policy;
         $policyNumber = $policy ? ($policy->policy_number_display ?? $policy->policy_number) : null;
         $policyName = $policy ? ($policy->policyProduct?->name ?? $policy->name ?? '') : '';
+        $currency = $receipt->currency ?? 'NGN';
+        $amountPaid = $receipt->amount_paid ?? 0;
 
         return [
             'receipt_number' => $receipt->receipt_number,
             'receipt_date' => $receipt->payment_date ? $receipt->payment_date->format('F j, Y') : ($receipt->created_at ? $receipt->created_at->format('F j, Y') : ''),
-            'amount_paid' => number_format($receipt->amount_paid ?? 0, 2),
+            'amount_paid' => number_format($amountPaid, 2),
+            'amount_paid_raw' => $amountPaid,
+            'amount_in_words' => $this->amountToWords($amountPaid, $currency),
             'payment_method' => ucfirst(str_replace('_', ' ', $receipt->payment_method ?? '')),
             'transaction_reference' => $receipt->transaction_id ?? 'N/A',
             'customer_name' => $this->getCustomerName($receipt->customer),
+            'customer_address' => $receipt->customer ? ($receipt->customer->address ?? '') : '',
             'invoice_number' => $receipt->invoice ? $receipt->invoice->invoice_number : 'N/A',
             'policy_number' => $policyNumber ?? 'N/A',
             'policy_name' => $policyName,
             'description' => $receipt->notes ?? '',
             'notes' => $receipt->notes ?? '',
-            'currency' => $receipt->currency ?? 'NGN',
+            'currency' => $currency,
             'verification_token' => $receipt->verification_token,
             ...$this->getPreparerData($receipt->user),
         ];
+    }
+
+    /**
+     * Convert a numeric amount to its English word representation with currency suffix.
+     *
+     * @param  float  $amount  The numeric amount to convert.
+     * @param  string  $currency  The ISO currency code (e.g. NGN, USD, GBP).
+     */
+    protected function amountToWords(float $amount, string $currency = 'NGN'): string
+    {
+        $currencySuffix = match (strtoupper($currency)) {
+            'NGN' => 'Naira Only',
+            'USD' => 'United States Dollars Only',
+            'GBP' => 'British Pounds Only',
+            'EUR' => 'Euros Only',
+            'GHS' => 'Ghana Cedis Only',
+            'KES' => 'Kenya Shillings Only',
+            'ZAR' => 'South African Rands Only',
+            default => strtoupper($currency).' Only',
+        };
+
+        $intPart = (int) floor(abs($amount));
+        $decPart = (int) round((abs($amount) - $intPart) * 100);
+
+        $words = $this->integerToWords($intPart);
+
+        if ($decPart > 0) {
+            $words .= ' and '.$this->integerToWords($decPart).' Cents';
+        }
+
+        return ucfirst($words).' '.$currencySuffix;
+    }
+
+    /**
+     * Convert an integer to its English word string.
+     */
+    protected function integerToWords(int $number): string
+    {
+        if ($number === 0) {
+            return 'Zero';
+        }
+
+        $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+            'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen',
+            'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+        if ($number < 20) {
+            return $ones[$number];
+        }
+
+        if ($number < 100) {
+            return $tens[(int) ($number / 10)].($number % 10 !== 0 ? ' '.$ones[$number % 10] : '');
+        }
+
+        if ($number < 1_000) {
+            return $ones[(int) ($number / 100)].' Hundred'.($number % 100 !== 0 ? ' '.$this->integerToWords($number % 100) : '');
+        }
+
+        if ($number < 1_000_000) {
+            return $this->integerToWords((int) ($number / 1_000)).' Thousand'.($number % 1_000 !== 0 ? ' '.$this->integerToWords($number % 1_000) : '');
+        }
+
+        if ($number < 1_000_000_000) {
+            return $this->integerToWords((int) ($number / 1_000_000)).' Million'.($number % 1_000_000 !== 0 ? ' '.$this->integerToWords($number % 1_000_000) : '');
+        }
+
+        return $this->integerToWords((int) ($number / 1_000_000_000)).' Billion'.($number % 1_000_000_000 !== 0 ? ' '.$this->integerToWords($number % 1_000_000_000) : '');
     }
 
     /**

@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\EmailAccount;
 use App\Models\EmailAttachment;
+use App\Models\EmailFolder;
 use App\Models\EmailMessage;
 use App\Models\EmailSignature;
 use App\Models\EmailTemplate;
+use App\Models\EmailThread;
+use App\Services\Email\EmailProviderFactory;
 use App\Services\Email\EmailSendService;
 use App\Services\Email\EmailSyncService;
 use Illuminate\Http\JsonResponse;
@@ -21,12 +24,13 @@ class EmailController extends Controller
     public function __construct(
         private EmailSyncService $emailSyncService,
         private EmailSendService $emailSendService,
+        private EmailProviderFactory $providerFactory,
     ) {}
 
     public function accounts(Request $request): JsonResponse
     {
         $accounts = EmailAccount::where('tenant_id', $request->user()->tenant_id)
-            ->withCount(['messages', 'folders'])
+            ->withCount(['messages', 'folders', 'threads'])
             ->get();
 
         return response()->json(['success' => true, 'data' => $accounts]);
@@ -40,21 +44,32 @@ class EmailController extends Controller
             'account_name' => 'nullable|string|max:255',
             'imap_host' => 'required_if:provider,imap|nullable|string',
             'imap_port' => 'required_if:provider,imap|nullable|string',
+            'imap_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
             'smtp_host' => 'required_if:provider,imap,smtp|nullable|string',
             'smtp_port' => 'required_if:provider,imap,smtp|nullable|string',
-            'password' => 'required_if:provider,smtp|nullable|string',
+            'smtp_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
+            'password' => 'required_if:provider,smtp,imap|nullable|string',
         ]);
 
         $data = $validated;
-
         if (! empty($data['password'])) {
             $data['credentials_encrypted'] = Crypt::encryptString($data['password']);
         }
         unset($data['password']);
 
         $data['tenant_id'] = $request->user()->tenant_id;
+        $data['sync_status'] = 'idle';
 
         $account = EmailAccount::create($data);
+
+        // Test connection immediately for IMAP/SMTP
+        if (in_array($account->provider, ['imap', 'smtp'])) {
+            $testRes = $this->providerFactory->make($account)->testConnection($account);
+            $account->update([
+                'test_status' => $testRes['success'] ? 'success' : 'failed',
+                'test_error' => $testRes['error'],
+            ]);
+        }
 
         if (in_array($account->provider, ['gmail', 'microsoft365', 'imap'])) {
             dispatch(new \App\Jobs\SyncEmailAccount(emailAccount: $account));
@@ -76,8 +91,10 @@ class EmailController extends Controller
             'email' => 'nullable|email',
             'imap_host' => 'nullable|string',
             'imap_port' => 'nullable|string',
+            'imap_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
             'smtp_host' => 'nullable|string',
             'smtp_port' => 'nullable|string',
+            'smtp_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
             'password' => 'nullable|string',
             'is_system_default' => 'nullable|boolean',
         ]);
@@ -100,6 +117,61 @@ class EmailController extends Controller
             'success' => true,
             'message' => 'Account updated.',
             'data' => $account->fresh(),
+        ]);
+    }
+
+    public function testAccountConnection(Request $request, EmailAccount $account): JsonResponse
+    {
+        $this->authorizeTenant($request, $account);
+        $provider = $this->providerFactory->make($account);
+        $result = $provider->testConnection($account);
+
+        $account->update([
+            'test_status' => $result['success'] ? 'success' : 'failed',
+            'test_error' => $result['error'],
+        ]);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['success'] ? 'Connection successful.' : ($result['error'] ?: 'Connection failed.'),
+            'error' => $result['error'],
+        ]);
+    }
+
+    public function testUnsavedCredentials(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider' => 'required|in:imap,smtp',
+            'email' => 'required|email',
+            'imap_host' => 'required_if:provider,imap|nullable|string',
+            'imap_port' => 'required_if:provider,imap|nullable|string',
+            'imap_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
+            'smtp_host' => 'required_if:provider,imap,smtp|nullable|string',
+            'smtp_port' => 'required_if:provider,imap,smtp|nullable|string',
+            'smtp_encryption' => 'nullable|string|in:ssl,tls,starttls,none',
+            'password' => 'required|string',
+        ]);
+
+        $dummyAccount = new EmailAccount([
+            'tenant_id' => $request->user()->tenant_id,
+            'provider' => $validated['provider'],
+            'email' => $validated['email'],
+            'imap_host' => $validated['imap_host'] ?? null,
+            'imap_port' => $validated['imap_port'] ?? null,
+            'imap_encryption' => $validated['imap_encryption'] ?? null,
+            'smtp_host' => $validated['smtp_host'] ?? null,
+            'smtp_port' => $validated['smtp_port'] ?? null,
+            'smtp_encryption' => $validated['smtp_encryption'] ?? null,
+            'credentials_encrypted' => Crypt::encryptString($validated['password']),
+        ]);
+
+        $provider = $this->providerFactory->make($dummyAccount);
+        $result = $provider->testConnection($dummyAccount);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['success'] ? 'Test connection successful!' : ($result['error'] ?: 'Connection test failed.'),
+            'error' => $result['error'],
         ]);
     }
 
@@ -135,11 +207,99 @@ class EmailController extends Controller
         return response()->json(['success' => true, 'data' => $folders]);
     }
 
+    public function threads(Request $request): JsonResponse
+    {
+        $tenantId = $request->user()->tenant_id;
+        $query = EmailThread::where('tenant_id', $tenantId)
+            ->with([
+                'account:id,email,account_name,provider',
+                'customer:id,first_name,last_name,email,phone',
+                'policy:id,policy_number,status',
+                'claim:id,claim_number,status',
+                'latestMessage.attachments',
+            ]);
+
+        if ($request->filled('account_id')) {
+            $query->where('account_id', $request->account_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        } else {
+            $query->where('status', '!=', 'trash');
+        }
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
+        }
+
+        if ($request->filled('policy_id')) {
+            $query->where('policy_id', $request->policy_id);
+        }
+
+        if ($request->filled('claim_id')) {
+            $query->where('claim_id', $request->claim_id);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('subject', 'like', "%{$search}%")
+                    ->orWhere('participant_addresses', 'like', "%{$search}%")
+                    ->orWhereHas('messages', function ($mq) use ($search) {
+                        $mq->where('body_text', 'like', "%{$search}%")
+                            ->orWhere('from_address', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->boolean('unread')) {
+            $query->unread();
+        }
+
+        $threads = $query->orderBy('last_message_at', 'desc')
+            ->paginate($request->input('per_page', 20));
+
+        return response()->json([
+            'success' => true,
+            'data' => $threads->items(),
+            'meta' => [
+                'current_page' => $threads->currentPage(),
+                'per_page' => $threads->perPage(),
+                'total' => $threads->total(),
+                'last_page' => $threads->lastPage(),
+            ],
+        ]);
+    }
+
+    public function showThread(Request $request, EmailThread $thread): JsonResponse
+    {
+        if ($thread->tenant_id !== $request->user()->tenant_id) {
+            abort(403, 'Unauthorized access to email thread.');
+        }
+
+        $thread->load([
+            'account:id,email,account_name,provider',
+            'customer:id,first_name,last_name,email,phone',
+            'policy:id,policy_number,status',
+            'claim:id,claim_number,status',
+            'messages.attachments',
+            'messages.account:id,email,account_name',
+        ]);
+
+        if ($thread->is_unread) {
+            $thread->update(['is_unread' => false]);
+            EmailMessage::where('email_thread_id', $thread->id)->update(['is_read' => true]);
+        }
+
+        return response()->json(['success' => true, 'data' => $thread]);
+    }
+
     public function messages(Request $request): JsonResponse
     {
         $query = EmailMessage::whereHas('account', function ($q) use ($request) {
             $q->where('tenant_id', $request->user()->tenant_id);
-        })->with(['account:id,email,account_name', 'folder:id,name,type']);
+        })->with(['account:id,email,account_name', 'folder:id,name,type', 'attachments']);
 
         if ($request->filled('account_id')) {
             $query->where('account_id', $request->account_id);
@@ -180,7 +340,7 @@ class EmailController extends Controller
     public function showMessage(Request $request, EmailMessage $message): JsonResponse
     {
         $this->authorizeTenant($request, $message);
-        $message->load(['account:id,email,account_name', 'folder', 'attachments']);
+        $message->load(['account:id,email,account_name', 'folder', 'attachments', 'customer', 'policy', 'claim']);
 
         if (! $message->is_read) {
             $message->update(['is_read' => true]);
@@ -208,33 +368,37 @@ class EmailController extends Controller
     public function moveMessage(Request $request, EmailMessage $message): JsonResponse
     {
         $this->authorizeTenant($request, $message);
-        $validated = $request->validate(['folder_id' => 'required|exists:email_folders,id']);
-        $message->update(['folder_id' => $validated['folder_id']]);
+        $validated = $request->validate([
+            'folder_id' => 'required|exists:email_folders,id',
+        ]);
 
-        return response()->json(['success' => true, 'message' => 'Moved']);
+        $folder = EmailFolder::where('account_id', $message->account_id)->findOrFail($validated['folder_id']);
+        $message->update(['folder_id' => $folder->id]);
+
+        return response()->json(['success' => true, 'message' => 'Message moved']);
     }
 
     public function batchMessages(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'message_ids' => 'required|array',
-            'message_ids.*' => 'integer|exists:email_messages,id',
-            'action' => 'required|in:delete,move,mark_read,mark_unread',
-            'folder_id' => 'required_if:action,move|integer|exists:email_folders,id',
+            'message_ids.*' => 'integer',
+            'action' => 'required|string|in:read,unread,mark_read,mark_unread,flag,unflag,delete',
         ]);
 
-        $messages = EmailMessage::whereIn('id', $validated['message_ids'])->get();
+        $query = EmailMessage::whereHas('account', function ($q) use ($request) {
+            $q->where('tenant_id', $request->user()->tenant_id);
+        })->whereIn('id', $validated['message_ids']);
 
-        foreach ($messages as $message) {
-            match ($validated['action']) {
-                'delete' => $message->delete(),
-                'move' => $message->update(['folder_id' => $validated['folder_id']]),
-                'mark_read' => $message->update(['is_read' => true]),
-                'mark_unread' => $message->update(['is_read' => false]),
-            };
-        }
+        match ($validated['action']) {
+            'read', 'mark_read' => $query->update(['is_read' => true]),
+            'unread', 'mark_unread' => $query->update(['is_read' => false]),
+            'flag' => $query->update(['is_flagged' => true]),
+            'unflag' => $query->update(['is_flagged' => false]),
+            'delete' => $query->delete(),
+        };
 
-        return response()->json(['success' => true, 'message' => 'Batch action completed']);
+        return response()->json(['success' => true, 'message' => 'Batch operation completed']);
     }
 
     public function compose(Request $request): JsonResponse
@@ -247,7 +411,7 @@ class EmailController extends Controller
             'subject' => 'required|string|max:998',
             'body_html' => 'required|string',
             'attachments' => 'nullable|array|max:10',
-            'attachments.*' => 'file|max:20480', // 20 MB per file
+            'attachments.*' => 'file|max:20480',
             'document_paths' => 'nullable|array|max:10',
             'document_paths.*' => 'string',
         ]);
@@ -255,7 +419,6 @@ class EmailController extends Controller
         $account = EmailAccount::findOrFail($validated['account_id']);
         $this->authorizeTenant($request, $account);
 
-        // Build attachment payloads — uploaded files
         $attachmentPayloads = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -269,7 +432,6 @@ class EmailController extends Controller
             }
         }
 
-        // InsurePal document attachments (files from public storage)
         if (! empty($validated['document_paths'])) {
             foreach ($validated['document_paths'] as $docPath) {
                 if (Storage::disk('public')->exists($docPath)) {
@@ -292,10 +454,9 @@ class EmailController extends Controller
             $validated['body_html'],
             $attachmentPayloads,
             $validated['cc'] ?? null,
-            $validated['bcc'] ?? null,
+            $validated['bcc'] ?? null
         );
 
-        // Clean up temp files after send
         foreach ($attachmentPayloads as $att) {
             if (! empty($att['temp'])) {
                 Storage::disk('local')->delete($att['path']);
@@ -313,7 +474,6 @@ class EmailController extends Controller
             'reply_all' => 'boolean',
         ]);
 
-        // Build attachment payloads for reply
         $attachmentPayloads = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -331,7 +491,7 @@ class EmailController extends Controller
             $message,
             $validated['body'],
             $validated['reply_all'] ?? false,
-            $attachmentPayloads,
+            $attachmentPayloads
         );
 
         foreach ($attachmentPayloads as $att) {
@@ -368,7 +528,7 @@ class EmailController extends Controller
             $message,
             $validated['body'],
             explode(',', $validated['to']),
-            $attachmentPayloads,
+            $attachmentPayloads
         );
 
         foreach ($attachmentPayloads as $att) {
@@ -378,18 +538,6 @@ class EmailController extends Controller
         }
 
         return response()->json($result);
-    }
-
-    public function downloadAttachment(Request $request, EmailAttachment $attachment): StreamedResponse
-    {
-        $this->authorizeTenant($request, $attachment->message);
-
-        $disk = Storage::disk('local');
-        abort_unless($disk->exists($attachment->storage_path), 404, 'Attachment not found.');
-
-        return $disk->download($attachment->storage_path, $attachment->filename, [
-            'Content-Type' => $attachment->mime_type ?? 'application/octet-stream',
-        ]);
     }
 
     public function signatures(Request $request): JsonResponse
@@ -410,17 +558,62 @@ class EmailController extends Controller
             'is_default' => 'boolean',
         ]);
 
-        $signature = EmailSignature::create($validated);
+        $account = EmailAccount::where('tenant_id', $request->user()->tenant_id)->findOrFail($validated['account_id']);
+
+        if (! empty($validated['is_default'])) {
+            EmailSignature::where('account_id', $account->id)->update(['is_default' => false]);
+        }
+
+        $signature = EmailSignature::create([
+            'account_id' => $account->id,
+            'name' => $validated['name'],
+            'body_html' => $validated['body_html'],
+            'is_default' => $validated['is_default'] ?? false,
+        ]);
 
         return response()->json(['success' => true, 'data' => $signature]);
     }
 
     public function deleteSignature(Request $request, EmailSignature $signature): JsonResponse
     {
-        $this->authorizeTenant($request, $signature);
+        $this->authorizeTenant($request, $signature->account);
         $signature->delete();
 
-        return response()->json(['success' => true, 'message' => 'Deleted']);
+        return response()->json(['success' => true, 'message' => 'Signature deleted']);
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        $request->validate([
+            'query' => 'required|string|min:2',
+        ]);
+
+        $searchTerm = $request->input('query');
+
+        $query = EmailMessage::whereHas('account', function ($q) use ($request) {
+            $q->where('tenant_id', $request->user()->tenant_id);
+        })->with(['account:id,email,account_name', 'folder:id,name,type', 'attachments']);
+
+        $query->where(function ($q) use ($searchTerm) {
+            $q->where('subject', 'like', "%{$searchTerm}%")
+                ->orWhere('from_address', 'like', "%{$searchTerm}%")
+                ->orWhere('from_name', 'like', "%{$searchTerm}%")
+                ->orWhere('body_text', 'like', "%{$searchTerm}%");
+        });
+
+        $messages = $query->orderBy('received_at', 'desc')
+            ->paginate($request->input('per_page', 20));
+
+        return response()->json([
+            'success' => true,
+            'data' => $messages->items(),
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+                'last_page' => $messages->lastPage(),
+            ],
+        ]);
     }
 
     public function templates(Request $request): JsonResponse
@@ -434,26 +627,27 @@ class EmailController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'subject' => 'required|string|max:998',
+            'subject' => 'required|string|max:255',
             'body_html' => 'required|string',
-            'category' => 'nullable|string|max:100',
         ]);
 
-        $template = EmailTemplate::create(array_merge(
-            $validated,
-            ['tenant_id' => $request->user()->tenant_id],
-        ));
+        $template = EmailTemplate::create([
+            'tenant_id' => $request->user()->tenant_id,
+            'name' => $validated['name'],
+            'subject' => $validated['subject'],
+            'body_html' => $validated['body_html'],
+        ]);
 
         return response()->json(['success' => true, 'data' => $template]);
     }
 
     public function updateTemplate(Request $request, EmailTemplate $template): JsonResponse
     {
+        $this->authorizeTenant($request, $template);
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'subject' => 'required|string|max:998',
-            'body_html' => 'required|string',
-            'category' => 'nullable|string|max:100',
+            'name' => 'sometimes|string|max:255',
+            'subject' => 'sometimes|string|max:255',
+            'body_html' => 'sometimes|string',
         ]);
 
         $template->update($validated);
@@ -463,44 +657,21 @@ class EmailController extends Controller
 
     public function deleteTemplate(Request $request, EmailTemplate $template): JsonResponse
     {
+        $this->authorizeTenant($request, $template);
         $template->delete();
 
-        return response()->json(['success' => true, 'message' => 'Deleted']);
+        return response()->json(['success' => true, 'message' => 'Template deleted']);
     }
 
-    public function search(Request $request): JsonResponse
+    public function downloadAttachment(Request $request, EmailAttachment $attachment): StreamedResponse
     {
-        $validated = $request->validate([
-            'query' => 'required|string|min:2|max:200',
-            'account_id' => 'nullable|exists:email_accounts,id',
-        ]);
+        $this->authorizeTenant($request, $attachment->message);
 
-        $query = EmailMessage::whereHas('account', function ($q) use ($request) {
-            $q->where('tenant_id', $request->user()->tenant_id);
-        });
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($attachment->storage_path), 404, 'Attachment not found.');
 
-        if ($request->filled('account_id')) {
-            $query->where('account_id', $request->account_id);
-        }
-
-        $search = $validated['query'];
-        $results = $query->where(function ($q) use ($search) {
-            $q->where('subject', 'like', "%{$search}%")
-                ->orWhere('from_address', 'like', "%{$search}%")
-                ->orWhere('from_name', 'like', "%{$search}%")
-                ->orWhere('body_text', 'like', "%{$search}%");
-        })->orderBy('received_at', 'desc')
-            ->paginate($request->input('per_page', 20));
-
-        return response()->json([
-            'success' => true,
-            'data' => $results->items(),
-            'meta' => [
-                'current_page' => $results->currentPage(),
-                'per_page' => $results->perPage(),
-                'total' => $results->total(),
-                'last_page' => $results->lastPage(),
-            ],
+        return $disk->download($attachment->storage_path, $attachment->filename, [
+            'Content-Type' => $attachment->mime_type ?? 'application/octet-stream',
         ]);
     }
 
@@ -508,7 +679,6 @@ class EmailController extends Controller
     {
         if ($model instanceof EmailMessage) {
             $account = $model->account;
-
             if (! $account || $account->tenant_id !== $request->user()->tenant_id) {
                 abort(403, 'Unauthorized');
             }

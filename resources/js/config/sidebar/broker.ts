@@ -14,9 +14,12 @@ import {
     ImageOff,
     Key,
     LayoutGrid,
+    Mail,
+    MessageCircle,
     NotebookText,
     Shield,
     ShieldCheck,
+    Ticket,
     Trash2,
     UserCog,
     Users,
@@ -141,13 +144,13 @@ export function getBrokerNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Trans
         });
     }
 
-    // if (can('view_claims')) {
-    //     items.push({
-    //         title: t('Claims Management'),
-    //         href: route('claims.index'),
-    //         icon: ClipboardList,
-    //     });
-    // }
+    if (can('view_claims')) {
+        items.push({
+            title: t('Claims Management'),
+            href: route('claims.index'),
+            icon: ClipboardList,
+        });
+    }
 
     if (can('renew_policies')) {
         items.push({
@@ -165,27 +168,27 @@ export function getBrokerNavItems(auth: AuthHelpers, plan: PlanHelpers, t: Trans
         });
     }
 
-    // if (can('view_messages')) {
-    //     items.push({
-    //         title: t('Inbox'),
-    //         href: route('inbox.index'),
-    //         icon: MessageCircle,
-    //     });
-    // }
+    if (can('view_messages')) {
+        items.push({
+            title: t('Inbox'),
+            href: route('inbox.index'),
+            icon: MessageCircle,
+        });
+    }
 
-    // items.push({
-    //     title: t('Email'),
-    //     href: '/email/inbox',
-    //     icon: Mail,
-    // });
+    items.push({
+        title: t('Email'),
+        href: '/email/inbox',
+        icon: Mail,
+    });
 
-    // if (can('view_support_tickets')) {
-    //     items.push({
-    //         title: t('Support Tickets'),
-    //         href: route('support-tickets.index'),
-    //         icon: Ticket,
-    //     });
-    // }
+    if (can('view_support_tickets')) {
+        items.push({
+            title: t('Support Tickets'),
+            href: route('support-tickets.index'),
+            icon: Ticket,
+        });
+    }
 
     if (isBroker || isUnderwriter || hasAnyRole(['underwriter', 'underwriter_admin', 'broker', 'broker_admin'])) {
         items.push({

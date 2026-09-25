@@ -28,7 +28,22 @@ class CompanySettingsController extends Controller
                 $q->whereNotNull('oauth_token_encrypted')
                     ->orWhereNotNull('credentials_encrypted');
             })
-            ->select(['id', 'provider', 'email', 'account_name', 'is_active', 'is_system_default', 'last_sync_at', 'created_at'])
+            ->select([
+                'id',
+                'provider',
+                'email',
+                'account_name',
+                'imap_host',
+                'imap_port',
+                'imap_encryption',
+                'smtp_host',
+                'smtp_port',
+                'smtp_encryption',
+                'is_active',
+                'is_system_default',
+                'last_sync_at',
+                'created_at',
+            ])
             ->orderBy('created_at', 'desc')
             ->get();
 
