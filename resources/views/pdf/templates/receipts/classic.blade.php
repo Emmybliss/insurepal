@@ -73,7 +73,14 @@
         width: 28px;
         vertical-align: middle;
         color: #333;
-        font-size: 13px;
+    }
+
+    .info-icon svg {
+        width: 14px;
+        height: 14px;
+        display: inline-block;
+        vertical-align: middle;
+        stroke: #333;
     }
 
     .info-label {
@@ -249,7 +256,9 @@
 
     {{-- Customer Name --}}
     <div class="info-row">
-        <div class="info-icon">&#x1F464;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
         <div class="info-label">Customer Name:</div>
         <div class="info-value">{{ $payload['customer_name'] ?? '—' }}</div>
     </div>
@@ -257,7 +266,9 @@
     {{-- Address --}}
     @if(!empty($payload['customer_address']))
     <div class="info-row">
-        <div class="info-icon">&#x1F4CD;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
         <div class="info-label">Address:</div>
         <div class="info-value">{{ $payload['customer_address'] }}</div>
     </div>
@@ -265,7 +276,9 @@
 
     {{-- Date --}}
     <div class="info-row">
-        <div class="info-icon">&#x1F4C5;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+        </div>
         <div class="info-label">Date:</div>
         <div class="info-value">{{ $payload['receipt_date'] ?? '—' }}</div>
     </div>
@@ -273,7 +286,9 @@
     {{-- Payment Method --}}
     @if(!empty($payload['payment_method']))
     <div class="info-row">
-        <div class="info-icon">&#x1F4B3;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+        </div>
         <div class="info-label">Payment Method:</div>
         <div class="info-value">{{ $payload['payment_method'] }}</div>
     </div>
@@ -282,7 +297,9 @@
     {{-- Reference No --}}
     @if(!empty($payload['transaction_reference']) && $payload['transaction_reference'] !== 'N/A')
     <div class="info-row">
-        <div class="info-icon">&#x1F9FE;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
+        </div>
         <div class="info-label">Reference No:</div>
         <div class="info-value">{{ $payload['transaction_reference'] }}</div>
     </div>
@@ -291,7 +308,9 @@
     {{-- Invoice Reference --}}
     @if(!empty($payload['invoice_number']) && $payload['invoice_number'] !== 'N/A')
     <div class="info-row">
-        <div class="info-icon">&#x1F4CB;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+        </div>
         <div class="info-label">Invoice Ref:</div>
         <div class="info-value">{{ $payload['invoice_number'] }}</div>
     </div>
@@ -300,7 +319,9 @@
     {{-- Policy Reference --}}
     @if(!empty($payload['policy_number']) && $payload['policy_number'] !== 'N/A')
     <div class="info-row">
-        <div class="info-icon">&#x1F4C4;</div>
+        <div class="info-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a1 1 0 0 0 1 1h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+        </div>
         <div class="info-label">Policy No:</div>
         <div class="info-value">{{ $payload['policy_number'] }}</div>
     </div>
